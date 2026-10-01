@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CricScore Live Overlay</title>
+<style>
+  /* Transparent page: designed as a 1280x720 browser source in OBS / Prism / Streamlabs */
+  :root {
+    --navy: #0B1730; --navy2: #13244A; --red: #E63946; --gold: #FACC15;
+    --blue: #2563EB; --purple: #7C3AED; --muted: #94A3B8; --white: #fff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; width: 100%; height: 100%; overflow: hidden; }
+  body { font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: var(--white); }
+
+  .live-tag {
+    position: absolute; top: 24px; right: 28px; display: flex; align-items: center; gap: 8px;
+    background: rgba(11, 23, 48, .85); padding: 8px 14px; border-radius: 10px; font-weight: 800;
+    font-size: 15px; letter-spacing: 1px;
+  }
+  .live-tag i { width: 10px; height: 10px; border-radius: 50%; background: var(--red); animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  .bar {
+    position: absolute; left: 32px; right: 32px; bottom: 28px;
+    display: flex; flex-direction: column; filter: drop-shadow(0 8px 24px rgba(0, 0, 0, .45));
+    transition: opacity .4s, transform .4s;
+  }
+  .bar.hidden { opacity: 0; transform: translateY(30px); }
+  .main { display: flex; align-items: stretch; height: 74px; border-radius: 14px 14px 0 0; overflow: hidden; background: var(--navy); }
+  .team {
+    display: flex; align-items: center; gap: 14px; padding: 0 22px;
+    background: linear-gradient(135deg, var(--red), #B91C1C); min-width: 300px;
+  }
+  .team .abbr { font-size: 22px; font-weight: 900; letter-spacing: 1px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .team .score { font-size: 38px; font-weight: 900; }
+  .team .ov { font-size: 16px; font-weight: 700; opacity: .85; }
+  .cell { display: flex; flex-direction: column; justify-content: center; padding: 0 20px; border-left: 1px solid rgba(255, 255, 255, .08); }
+  .batters { flex: 1.3; }
+  .row { display: flex; justify-content: space-between; gap: 18px; font-size: 18px; font-weight: 700; line-height: 1.45; }
+  .row .nm { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #CBD5E1; }
+  .row.on .nm { color: var(--white); }
+  .row.on .nm::after { content: " *"; color: var(--gold); }
+  .row .rb small { color: var(--muted); font-weight: 600; font-size: 15px; }
+  .bowler { flex: 1; }
+  .bowler .nm { color: var(--white); }
+  .lbl { font-size: 11px; color: var(--muted); font-weight: 800; letter-spacing: 1.5px; }
+  .over { flex-direction: row; align-items: center; gap: 7px; }
+  .chip {
+    width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 13px; font-weight: 900; background: rgba(255, 255, 255, .12);
+  }
+  .chip.c4 { background: var(--blue); } .chip.c6 { background: var(--purple); }
+  .chip.cw { background: var(--red); } .chip.cx { background: #EA580C; } .chip.cd { background: #475569; color: #CBD5E1; }
+  .chip.empty { background: transparent; border: 2px dashed rgba(255, 255, 255, .2); }
+  .status {
+    display: flex; justify-content: space-between; align-items: center; height: 38px; padding: 0 22px;
+    background: var(--gold); color: #1E1B04; font-weight: 900; font-size: 18px; border-radius: 0 0 14px 14px;
+  }
+  .status .rates { font-size: 15px; font-weight: 800; opacity: .8; }
+
+  .center-card {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: rgba(11, 23, 48, .92); border-radius: 20px; padding: 34px 54px; text-align: center;
+    min-width: 520px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); display: none;
+  }
+  .center-card.show { display: block; }
+  .center-card h1 { font-size: 20px; color: var(--gold); letter-spacing: 3px; margin-bottom: 10px; }
+  .center-card h2 { font-size: 46px; font-weight: 900; }
+  .center-card p { font-size: 20px; color: #CBD5E1; margin-top: 8px; font-weight: 700; }
+
+  .burst {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.2); opacity: 0;
+    width: 280px; height: 280px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 84px; font-weight: 900; letter-spacing: 3px; border: 8px solid rgba(255, 255, 255, .35);
+    pointer-events: none;
+  }
+  .burst.go { animation: pop 3s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+  .burst.k4 { background: radial-gradient(circle, #3B82F6, var(--blue)); box-shadow: 0 0 80px #60A5FA; }
+  .burst.k6 { background: radial-gradient(circle, #A855F7, var(--purple)); box-shadow: 0 0 80px #C084FC; }
+  .burst.kw { background: radial-gradient(circle, #F43F5E, var(--red)); box-shadow: 0 0 80px #FB7185; font-size: 56px; }
+  @keyframes pop {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.2) rotate(-10deg); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1) rotate(3deg); }
+    25% { transform: translate(-50%, -50%) scale(1) rotate(0); }
+    85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+  }
+  .caption {
+    position: absolute; left: 50%; top: 66%; transform: translateX(-50%); max-width: 900px; text-align: center;
+    background: rgba(11, 23, 48, .9); padding: 12px 22px; border-radius: 14px; font-size: 22px; font-weight: 800;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  .caption.show { opacity: 1; }
+  .err { position: absolute; left: 32px; bottom: 28px; background: rgba(11, 23, 48, .85); padding: 10px 16px; border-radius: 10px; font-weight: 700; display: none; }
+</style>
+</head>
+<body>
+  <div class="live-tag"><i></i>LIVE · CricScore</div>
+
+  <div class="bar hidden" id="bar">
+    <div class="main">
+      <div class="team">
+        <span class="abbr" id="team"></span>
+        <span class="score" id="score">0/0</span>
+        <span class="ov" id="ov">0.0</span>
+      </div>
+      <div class="cell batters">
+        <div class="row on" id="b1"><span class="nm"></span><span class="rb"></span></div>
+        <div class="row" id="b2"><span class="nm"></span><span class="rb"></span></div>
+      </div>
+      <div class="cell bowler">
+        <span class="lbl">BOWLER</span>
+        <div class="row"><span class="nm" id="bowler"></span><span class="rb" id="bfig"></span></div>
+      </div>
+      <div class="cell over" id="over"></div>
+    </div>
+    <div class="status"><span id="status"></span><span class="rates" id="rates"></span></div>
+  </div>
+
+  <div class="center-card" id="card"><h1 id="cardTitle"></h1><h2 id="cardMain"></h2><p id="cardSub"></p></div>
+  <div class="burst" id="burst"></div>
+  <div class="caption" id="caption"></div>
+  <div class="err" id="err">Waiting for match…</div>
+
+<script>
+  var code = location.pathname.split('/').filter(Boolean).pop();
+  var api = '/api/live/' + encodeURIComponent(code) + '/overlay';
+  var lastVersion = 0, lastDeliveries = null, burstTimer = null, matchType = 'local';
+  var $ = function (id) { return document.getElementById(id); };
+
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function short(name) { return (name || '').length > 10 ? name.slice(0, 3).toUpperCase() : (name || ''); }
+  function ballLabel(b) {
+    if (b.wicket) return 'W';
+    if (b.extra === 'db') return 'DB';
+    if (b.extra === 'wd' || b.extra === 'nb') {
+      var taken = matchType === 'local' ? b.runs : b.runs - 1;
+      return (b.extra === 'wd' ? 'Wd' : 'Nb') + (taken > 0 ? '+' + taken : '');
+    }
+    if (b.extra === 'lb') return 'Lb' + b.runs;
+    if (b.extra === 'b') return 'B' + b.runs;
+    return String(b.runs);
+  }
+  function ballClass(b) {
+    if (b.wicket) return 'cw';
+    if (b.extra === 'db') return 'cd';
+    if (b.extra) return 'cx';
+    if (b.runs === 6) return 'c6';
+    if (b.runs === 4) return 'c4';
+    return '';
+  }
+  function setRow(el, p) {
+    el.style.visibility = p ? 'visible' : 'hidden';
+    if (!p) return;
+    el.querySelector('.nm').textContent = p.name;
+    el.querySelector('.rb').innerHTML = p.runs + ' <small>(' + p.balls + ')</small>';
+  }
+  function burst(kind, text) {
+    var cap = $('caption');
+    cap.textContent = text || '';
+    cap.className = text ? 'caption show' : 'caption';
+    var el = $('burst');
+    el.className = 'burst';
+    void el.offsetWidth; // restart the animation
+    el.textContent = kind === 'w' ? 'WICKET!' : kind === '6' ? 'SIX!' : 'FOUR!';
+    el.className = 'burst go k' + kind;
+    clearTimeout(burstTimer);
+    burstTimer = setTimeout(function () { el.className = 'burst'; cap.className = 'caption'; }, 3000);
+  }
+  function showCard(title, main, sub) {
+    $('cardTitle').textContent = title; $('cardMain').textContent = main; $('cardSub').textContent = sub || '';
+    $('card').className = 'center-card show';
+  }
+
+  function render(d) {
+    $('err').style.display = d.phase === 'waiting' ? 'block' : 'none';
+    if (d.phase === 'waiting') { $('bar').className = 'bar hidden'; return; }
+
+    var totalBalls = d.over * 6 + d.ball, maxBalls = d.overs * 6;
+    var crr = totalBalls ? (d.runs / totalBalls * 6).toFixed(2) : '0.00';
+
+    if (d.phase === 'innings_end') {
+      $('bar').className = 'bar hidden';
+      if (d.inningsNum === 2) showCard('RESULT', d.result || 'Match complete', d.battingTeam + ' ' + d.runs + '/' + d.wickets + ' (' + d.over + '.' + d.ball + ' ov)');
+      else showCard('INNINGS BREAK', d.battingTeam + ' ' + d.runs + '/' + d.wickets, d.bowlingTeam + ' need ' + (d.runs + 1) + ' to win from ' + d.overs + ' overs');
+      return;
+    }
+    matchType = d.matchType || 'local';
+    $('card').className = 'center-card';
+    $('bar').className = 'bar';
+    $('team').textContent = short(d.battingTeam);
+    $('score').textContent = d.runs + '/' + d.wickets;
+    $('ov').textContent = d.over + '.' + d.ball + ' (' + d.overs + ')';
+    setRow($('b1'), d.striker);
+    setRow($('b2'), d.nonStriker);
+    if (d.bowler) {
+      $('bowler').textContent = d.bowler.name;
+      $('bfig').innerHTML = d.bowler.wickets + '-' + d.bowler.runs + ' <small>(' + d.bowler.overs + '.' + d.bowler.balls + ')</small>';
+    }
+
+    var html = '<span class="lbl" style="margin-right:6px">THIS<br>OVER</span>';
+    (d.thisOver || []).forEach(function (b) { html += '<span class="chip ' + ballClass(b) + '">' + ballLabel(b) + '</span>'; });
+    for (var i = 0; i < Math.max(0, 6 - d.ball); i++) html += '<span class="chip empty"></span>';
+    $('over').innerHTML = html;
+
+    if (d.target) {
+      var need = Math.max(0, d.target - d.runs), left = Math.max(0, maxBalls - totalBalls);
+      $('status').textContent = need === 0 ? d.battingTeam + ' have reached the target!' : d.battingTeam + ' need ' + plural(need, 'run') + ' in ' + plural(left, 'ball');
+      $('rates').textContent = 'CRR ' + crr + (left && need ? '  •  RRR ' + (need / left * 6).toFixed(2) : '') + '  •  Target ' + d.target;
+    } else {
+      var proj = totalBalls ? Math.round(d.runs / totalBalls * maxBalls) : 0;
+      $('status').textContent = d.battingTeam + ' v ' + d.bowlingTeam;
+      $('rates').textContent = 'CRR ' + crr + (proj ? '  •  Projected ' + proj : '');
+    }
+
+    // Animate only new deliveries (not the state we found on first load, and not undos)
+    if (lastDeliveries !== null && d.deliveries > lastDeliveries && d.lastBall) {
+      var b = d.lastBall;
+      if (b.wicket) burst('w', d.lastCommentary);
+      else if (!b.extra && b.runs === 6) burst('6', d.lastCommentary);
+      else if (!b.extra && b.runs === 4) burst('4', d.lastCommentary);
+    }
+    lastDeliveries = d.deliveries;
+  }
+
+  function poll() {
+    fetch(api, { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (d) {
+        if (d.version !== lastVersion) { lastVersion = d.version; render(d); }
+      })
+      .catch(function (status) {
+        $('bar').className = 'bar hidden';
+        $('err').textContent = status === 404 ? 'Match code ' + code + ' not found' : 'Reconnecting…';
+        $('err').style.display = 'block';
+        lastVersion = 0;
+      })
+      .then(function () { setTimeout(poll, 1000); });
+  }
+  poll();
+</script>
+</body>
+</html>

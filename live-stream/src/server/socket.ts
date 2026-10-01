@@ -2,6 +2,7 @@ import type { Server, Socket } from 'socket.io';
 import { parseCookie } from 'cookie';
 import { SESSION_COOKIE, canControlRoom, verifySessionToken } from '../lib/auth';
 import { markRoomRecordingsReady, failInterruptedUploads } from '../lib/recordings';
+import { buildMatchVideo, resumeMatchVideos } from '../lib/match-video';
 import { iceSignalSchema, joinRoomSchema, sdpSignalSchema } from '../lib/validation';
 import * as rooms from '../lib/rooms';
 import type {
@@ -40,7 +41,9 @@ export function registerSocketHandlers(io: IO): void {
   const state = new Map<string, RoomState>();
 
   rooms.closeDanglingViewerSessions().catch((err) => console.error('[socket] closing stale sessions failed', err));
-  failInterruptedUploads().catch((err) => console.error('[socket] resetting interrupted uploads failed', err));
+  failInterruptedUploads()
+    .then(resumeMatchVideos)
+    .catch((err) => console.error('[socket] resetting interrupted uploads failed', err));
 
   // Identify logged-in users from the HTTP-only session cookie; anonymous viewers are allowed
   io.use(async (socket, next) => {
@@ -86,6 +89,7 @@ export function registerSocketHandlers(io: IO): void {
       await rooms.closeAllViewerSessions(room.dbId);
       await markRoomRecordingsReady(room.dbId);
     }
+    buildMatchVideo(roomId);
     io.to(channel(roomId)).emit('stream-ended');
     for (const id of io.sockets.adapter.rooms.get(channel(roomId)) ?? []) {
       const s = io.sockets.sockets.get(id);

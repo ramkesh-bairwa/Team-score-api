@@ -56,6 +56,16 @@ export function findOpenRoomByExternalRef(externalRef: string) {
   );
 }
 
+// Latest room for an external ref in any state: what a match's permanent watch link points at.
+// The newest room is also the one the camera link opens (findOpenRoomByExternalRef).
+export function findLatestRoomByExternalRef(externalRef: string) {
+  return queryOne<RoomRow>(
+    `SELECT ${ROOM_COLUMNS} FROM live_rooms r JOIN users u ON u.id = r.broadcaster_id
+     WHERE r.external_ref = ? ORDER BY r.created_at DESC, r.id DESC LIMIT 1`,
+    [externalRef],
+  );
+}
+
 export function listRoomsByBroadcaster(broadcasterId: number) {
   return queryRows<RoomRow>(
     `SELECT ${ROOM_COLUMNS} FROM live_rooms r JOIN users u ON u.id = r.broadcaster_id

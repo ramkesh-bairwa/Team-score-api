@@ -24,5 +24,6 @@ export interface LiveScore {
   thisOver?: ScoreBall[];
   deliveries?: number;
   lastBall?: ScoreBall | null;
+  lastCommentary?: string;
   result?: string;
 }

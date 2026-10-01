@@ -44,6 +44,7 @@ export default async function LiveRoomPage({ params }: Params) {
       description={room.description}
       broadcasterName={room.broadcaster_name}
       initialStatus={room.status}
+      isMatch={!!room.external_ref}
     />
   );
 }

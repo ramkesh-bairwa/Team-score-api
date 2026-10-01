@@ -6,6 +6,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { useViewer, type ViewerStatus } from '@/hooks/useViewer';
 import type { RoomStatus } from '@/types/socket';
 import { FullscreenIcon } from './BroadcasterView';
+import MatchVideo from './MatchVideo';
 import VideoSurface from './VideoSurface';
 import { LiveBadge, Spinner, StatusPill, ViewerCount } from './ui';
 
@@ -15,6 +16,8 @@ interface Props {
   description: string | null;
   broadcasterName: string;
   initialStatus: RoomStatus;
+  // CricScore match: after it ends, the full match video plays here
+  isMatch: boolean;
 }
 
 const overlayText: Partial<Record<ViewerStatus, string>> = {
@@ -26,13 +29,14 @@ const overlayText: Partial<Record<ViewerStatus, string>> = {
   'broadcaster-away': 'The broadcaster lost connection. Waiting for them to come back…',
 };
 
-export default function ViewerView({ roomId, title, description, broadcasterName, initialStatus }: Props) {
+export default function ViewerView({ roomId, title, description, broadcasterName, initialStatus, isMatch }: Props) {
   const v = useViewer(roomId, initialStatus);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { isFullscreen, toggle } = useFullscreen(containerRef, videoRef);
   const [needsUnmute, setNeedsUnmute] = useState(false);
   const onAutoplayBlocked = useCallback(() => setNeedsUnmute(true), []);
+  const [youtubeId, setYoutubeId] = useState<string | null>(null);
 
   const unmute = () => {
     const video = videoRef.current;
@@ -50,7 +54,11 @@ export default function ViewerView({ roomId, title, description, broadcasterName
       <div ref={containerRef} className="relative aspect-video overflow-hidden bg-black sm:rounded-2xl sm:ring-1 sm:ring-white/10">
         <VideoSurface ref={videoRef} stream={v.remoteStream} onAutoplayBlocked={onAutoplayBlocked} />
 
-        {v.status === 'ended' ? (
+        {v.status === 'ended' && isMatch ? (
+          <div className="absolute inset-0">
+            <MatchVideo roomId={roomId} onYouTube={setYoutubeId} />
+          </div>
+        ) : v.status === 'ended' ? (
           <div className="absolute inset-0 grid place-items-center bg-zinc-950 p-6 text-center">
             <div>
               <p className="text-xl font-bold">This stream has ended</p>
@@ -88,13 +96,15 @@ export default function ViewerView({ roomId, title, description, broadcasterName
           {live && <LiveBadge />}
           {v.status !== 'ended' && <ViewerCount count={v.viewerCount} />}
         </div>
-        <button
-          onClick={toggle}
-          className="absolute bottom-3 right-3 rounded-lg bg-black/60 p-2 text-white backdrop-blur hover:bg-black/80"
-          aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-        >
-          <FullscreenIcon exit={isFullscreen} />
-        </button>
+        {!(v.status === 'ended' && isMatch) && (
+          <button
+            onClick={toggle}
+            className="absolute bottom-3 right-3 rounded-lg bg-black/60 p-2 text-white backdrop-blur hover:bg-black/80"
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            <FullscreenIcon exit={isFullscreen} />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-0">
@@ -102,6 +112,16 @@ export default function ViewerView({ roomId, title, description, broadcasterName
           <h1 className="text-xl font-bold leading-snug">{title}</h1>
           <p className="mt-0.5 text-sm text-zinc-400">{broadcasterName}</p>
           {description && <p className="mt-3 max-w-2xl text-sm text-zinc-300">{description}</p>}
+          {youtubeId && (
+            <a
+              href={`https://youtu.be/${youtubeId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-block text-sm font-semibold text-red-400 underline-offset-4 hover:underline"
+            >
+              Watch the full match on YouTube →
+            </a>
+          )}
         </div>
         <ConnectionStatus status={v.status} socketConnected={v.socketConnected} />
       </div>

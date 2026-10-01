@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useBroadcaster } from '@/hooks/useBroadcaster';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import type { RoomStatus } from '@/types/socket';
@@ -74,6 +74,7 @@ export default function BroadcasterView({ roomId, title, description, initialSta
           <div className="absolute left-3 top-3 flex items-center gap-2">
             {live ? <LiveBadge /> : <StatusPill tone="gray">Preview</StatusPill>}
             {live && <ViewerCount count={b.viewerCount} />}
+            {b.replaying && <StatusPill tone="red">{b.replaying.rate < 1 ? 'Slow-mo replay on air' : 'Replay on air'}</StatusPill>}
             {b.recorder?.recording && (
               <span className="inline-flex items-center gap-1.5 rounded-md bg-black/60 px-2 py-0.5 text-xs font-semibold text-white backdrop-blur">
                 <span className={`h-2 w-2 rounded-full bg-red-500 ${b.recorder.paused ? '' : 'animate-pulse'}`} />
@@ -89,6 +90,49 @@ export default function BroadcasterView({ roomId, title, description, initialSta
             <FullscreenIcon exit={isFullscreen} />
           </button>
         </div>
+
+        {b.autoEndAt && <AutoEndBanner at={b.autoEndAt} onEndNow={b.endStream} onCancel={b.cancelAutoEnd} />}
+
+        {live && hasScoreOverlay && b.replaySupported && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-zinc-900 p-3">
+            <span className="mr-1 text-sm font-semibold text-zinc-300">Replay</span>
+            {b.replaying ? (
+              <button
+                onClick={b.stopReplay}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold hover:bg-red-500"
+              >
+                ■ Back to live
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => b.startReplay(60)}
+                  disabled={b.replayAvailable < 3}
+                  className="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
+                >
+                  ⏪ Last 1 min
+                </button>
+                <button
+                  onClick={() => b.startReplay(15)}
+                  disabled={b.replayAvailable < 3}
+                  className="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
+                >
+                  Last 15 s
+                </button>
+                <button
+                  onClick={() => b.startReplay(10, 0.5)}
+                  disabled={b.replayAvailable < 3}
+                  className="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
+                >
+                  🐢 Slow-mo
+                </button>
+              </>
+            )}
+            <span className="ml-auto text-xs text-zinc-500">
+              {b.replaying ? 'Viewers see the replay now' : `${Math.min(60, b.replayAvailable)} s buffered`}
+            </span>
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <ControlButton active={b.micOn} onClick={b.toggleMic} disabled={!b.localStream} label={b.micOn ? 'Mute' : 'Unmute'}>
@@ -140,7 +184,7 @@ export default function BroadcasterView({ roomId, title, description, initialSta
               onChange={(e) => b.setRecordEnabled(e.target.checked)}
               className="h-4 w-4 accent-red-600"
             />
-            Record this stream (upload to YouTube afterwards)
+            Record this stream (full match video is saved on the server, and on YouTube if connected)
           </label>
         )}
         {b.recorder?.error && (
@@ -180,6 +224,32 @@ export default function BroadcasterView({ roomId, title, description, initialSta
           watch smoothly (roughly 5–10 on a typical home connection).
         </p>
       </aside>
+    </div>
+  );
+}
+
+// Shown once the final result is in: the stream ends by itself so the full-match video gets built
+function AutoEndBanner({ at, onEndNow, onCancel }: { at: number; onEndNow: () => void; onCancel: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, []);
+  const left = Math.max(0, Math.ceil((at - now) / 1000));
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-amber-500/10 px-4 py-3 ring-1 ring-amber-500/30">
+      <p className="text-sm text-amber-100">
+        <span className="font-bold">Match over.</span> Ending the stream in {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}{' '}
+        and saving the full match video.
+      </p>
+      <div className="ml-auto flex gap-2">
+        <button onClick={onCancel} className="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-semibold hover:bg-white/20">
+          Keep streaming
+        </button>
+        <button onClick={onEndNow} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold hover:bg-red-500">
+          End now
+        </button>
+      </div>
     </div>
   );
 }

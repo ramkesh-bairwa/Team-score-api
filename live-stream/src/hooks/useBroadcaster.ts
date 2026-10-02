@@ -5,6 +5,7 @@ import { Compositor } from '@/lib/compositor';
 import { countCameras, describeMediaError, getCameraStream, getVideoOnly, stopStream, type Facing } from '@/lib/media';
 import { withBase } from '@/lib/paths';
 import { ChunkedRecorder, isRecordingSupported, type RecorderStatus } from '@/lib/recorder';
+import { ReplayBuffer, ReplayPlayer, isReplaySupported } from '@/lib/replay';
 import { createSocket, type ClientSocket } from '@/lib/socket-client';
 import type { LiveScore } from '@/types/score';
 import type { IceCandidatePayload, RoomStatus } from '@/types/socket';
@@ -12,6 +13,9 @@ import { useIceServers } from './useIceServers';
 
 export type BroadcastPhase = 'preview' | 'live' | 'ended';
 export type SocketStatus = 'connecting' | 'connected' | 'disconnected';
+
+// After the final result comes in, the stream stays up this long (result card on air), then ends
+const AUTO_END_MS = 90_000;
 
 interface Options {
   // Rooms linked to a CricScore match draw the live scoreboard onto the video
@@ -28,6 +32,8 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   const streamRef = useRef<MediaStream | null>(null); // outgoing
   const recorderRef = useRef<ChunkedRecorder | null>(null);
   const recordEnabledRef = useRef(true);
+  const replayBufRef = useRef<ReplayBuffer | null>(null);
+  const replayPlayerRef = useRef<ReplayPlayer | null>(null);
   const peersRef = useRef(new Map<string, RTCPeerConnection>());
   const pendingIceRef = useRef(new Map<string, RTCIceCandidateInit[]>());
   // Read inside socket handlers, so kept in a ref rather than state
@@ -51,6 +57,13 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   const [connectedPeers, setConnectedPeers] = useState(0);
   const [socketStatus, setSocketStatus] = useState<SocketStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
+  const [replaySupported, setReplaySupported] = useState(false);
+  useEffect(() => setReplaySupported(isReplaySupported()), []);
+  const [replayAvailable, setReplayAvailable] = useState(0);
+  const [replaying, setReplaying] = useState<{ rate: number } | null>(null);
+  const [matchOver, setMatchOver] = useState(false);
+  const [autoEndAt, setAutoEndAt] = useState<number | null>(null);
+  const autoEndCancelledRef = useRef(false);
 
   const refreshPeerCount = useCallback(() => {
     let n = 0;
@@ -135,6 +148,9 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       .catch((err) => setMediaError(describeMediaError(err)));
     return () => {
       cancelled = true;
+      replayPlayerRef.current?.stop();
+      replayBufRef.current?.stop();
+      replayBufRef.current = null;
       stopStream(cameraRef.current);
       compositorRef.current?.destroy();
       cameraRef.current = null;
@@ -154,6 +170,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
         if (!alive || !data) return;
         compositorRef.current?.setScore(data.score);
         setScore(data.score);
+        setMatchOver(data.score?.phase === 'innings_end' && data.score.inningsNum === 2);
       } catch {
         // keep the last score on screen
       }
@@ -185,6 +202,48 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       setRecorderStatus({ recording: false, paused: false, uploadedBytes: 0, pendingChunks: 0, error: (err as Error).message });
     }
   }, [roomId]);
+
+  // The replay buffer runs only while live: a second encoder costs battery on a phone
+  const startReplayBuffer = useCallback(() => {
+    const camera = cameraRef.current;
+    if (!camera || !isReplaySupported() || replayBufRef.current) return;
+    const buf = new ReplayBuffer();
+    buf.start(new MediaStream(camera.getVideoTracks()));
+    replayBufRef.current = buf;
+  }, []);
+
+  const stopReplayBuffer = useCallback(() => {
+    replayPlayerRef.current?.stop();
+    replayBufRef.current?.stop();
+    replayBufRef.current = null;
+    setReplayAvailable(0);
+  }, []);
+
+  useEffect(() => {
+    if (phase !== 'live') return;
+    const t = setInterval(() => setReplayAvailable(replayBufRef.current?.available ?? 0), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  // Puts the last `seconds` of camera video on air (scoreboard stays live on top), then cuts back
+  const startReplay = useCallback(async (seconds: number, rate = 1) => {
+    const buf = replayBufRef.current;
+    const compositor = compositorRef.current;
+    if (!buf || !compositor || replayPlayerRef.current) return;
+    const clips = await buf.take(seconds);
+    if (!clips.length) return setError('Nothing to replay yet. Give it a few seconds.');
+    const player = new ReplayPlayer(clips, rate, () => {
+      compositor.setReplay(null);
+      buf.release(clips);
+      replayPlayerRef.current = null;
+      setReplaying(null);
+    });
+    replayPlayerRef.current = player;
+    compositor.setReplay(player);
+    setReplaying({ rate });
+  }, []);
+
+  const stopReplay = useCallback(() => replayPlayerRef.current?.stop(), []);
 
   // Signaling
   useEffect(() => {
@@ -248,6 +307,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     // Server ended the room (e.g. reconnect grace period ran out)
     socket.on('stream-ended', () => {
       liveRef.current = false;
+      stopReplayBuffer();
       closeAllPeers();
       void stopRecorder().finally(() => {
         stopStream(cameraRef.current);
@@ -262,7 +322,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       closeAllPeers();
       void stopRecorder();
     };
-  }, [roomId, initialStatus, connectToViewer, closePeer, closeAllPeers, stopRecorder]);
+  }, [roomId, initialStatus, connectToViewer, closePeer, closeAllPeers, stopRecorder, stopReplayBuffer]);
 
   const startLive = useCallback(() => {
     const socket = socketRef.current;
@@ -275,17 +335,19 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
         setError(null);
         setPhase('live');
         void startRecorder();
+        startReplayBuffer();
       } else {
         liveRef.current = false;
         setError(res.error);
       }
     });
-  }, [startRecorder]);
+  }, [startRecorder, startReplayBuffer]);
 
   const stopLive = useCallback(() => {
     const socket = socketRef.current;
     if (!socket) return;
     liveRef.current = false;
+    stopReplayBuffer();
     closeAllPeers();
     recorderRef.current?.pause();
     setBusy(true);
@@ -294,13 +356,15 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       if (!res.ok) setError(res.error);
       setPhase('preview');
     });
-  }, [closeAllPeers]);
+  }, [closeAllPeers, stopReplayBuffer]);
 
   const endStream = useCallback(async () => {
     const socket = socketRef.current;
     if (!socket) return;
     liveRef.current = false;
     setBusy(true);
+    setAutoEndAt(null);
+    stopReplayBuffer();
     // Finish uploading the recording before the room closes
     await stopRecorder();
     socket.emit('stream-ended', (res) => {
@@ -311,7 +375,25 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       setLocalStream(null);
       setPhase('ended');
     });
-  }, [closeAllPeers, stopRecorder]);
+  }, [closeAllPeers, stopRecorder, stopReplayBuffer]);
+
+  // Match over: count down, then end the stream (which finishes the recording and builds the
+  // full-match video on the server). The streamer can cancel and keep going.
+  useEffect(() => {
+    if (!matchOver) autoEndCancelledRef.current = false;
+    setAutoEndAt(matchOver && phase === 'live' && !autoEndCancelledRef.current ? Date.now() + AUTO_END_MS : null);
+  }, [matchOver, phase]);
+
+  useEffect(() => {
+    if (!autoEndAt) return;
+    const t = setTimeout(() => void endStream(), Math.max(0, autoEndAt - Date.now()));
+    return () => clearTimeout(t);
+  }, [autoEndAt, endStream]);
+
+  const cancelAutoEnd = useCallback(() => {
+    autoEndCancelledRef.current = true;
+    setAutoEndAt(null);
+  }, []);
 
   // Disabling a track sends silence/black frames without renegotiating
   const toggleMic = useCallback(() => {
@@ -344,6 +426,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       }
       camera.addTrack(track);
       compositorRef.current?.setSource(new MediaStream([track]));
+      replayBufRef.current?.setStream(new MediaStream([track]));
       setFacing(next);
     } catch (err) {
       setError(describeMediaError(err));
@@ -379,5 +462,13 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     recordSupported,
     setRecordEnabled,
     recorder,
+    replaySupported,
+    replayAvailable,
+    replaying,
+    startReplay,
+    stopReplay,
+    matchOver,
+    autoEndAt,
+    cancelAutoEnd,
   };
 }

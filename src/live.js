@@ -295,7 +295,8 @@ const summarize = (sess) => {
 // ─── Built-in camera stream (server/live-stream) ──────────────────────
 // POST /live/:code/camera { token } -> { studioUrl, watchUrl }
 // Any device in the match gets the room for this match (created on first call). studioUrl signs the
-// opening browser into that one room as the camera; watchUrl is the public viewer page.
+// opening browser into that one room as the camera (the scorer shows it as a QR code, so any phone
+// or laptop can be the camera); watchUrl is the public viewer page.
 router.post('/:code/camera', async (req, res) => {
   const sess = getSession(req, res);
   if (!sess) return;
@@ -321,7 +322,8 @@ router.post('/:code/camera', async (req, res) => {
     res.json({
       roomId: data.roomId,
       studioUrl: `${base}/stream/host?token=${encodeURIComponent(data.hostToken)}`,
-      watchUrl: `${base}/stream/live/${data.roomId}`,
+      // Permanent per-match link: follows the current camera room and plays the full match afterwards
+      watchUrl: `${base}/stream/match/${code}`,
     });
   } catch {
     res.status(502).json({ error: 'Camera streaming is not running. Start it with server/scripts/go-live.sh' });

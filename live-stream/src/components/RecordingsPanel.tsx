@@ -39,8 +39,17 @@ export default function RecordingsPanel({ roomId, title }: Props) {
     load();
   }, [load]);
 
-  // Poll while anything is still being written or uploaded
-  const busy = recordings?.some((r) => r.status === 'RECORDING' || r.status === 'UPLOADING');
+  // Poll while anything is still being written or uploaded. The full match video is built by the
+  // server a moment after the stream ends, so also poll briefly until it shows up.
+  const [settling, setSettling] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setSettling(false), 20_000);
+    return () => clearTimeout(t);
+  }, []);
+  const hasFull = recordings?.some((r) => r.segment === 0);
+  const busy =
+    recordings?.some((r) => r.status === 'RECORDING' || r.status === 'UPLOADING') ||
+    (settling && !hasFull && !!recordings?.length);
   useEffect(() => {
     if (!busy) return;
     const t = setInterval(load, 2000);
@@ -67,7 +76,7 @@ export default function RecordingsPanel({ roomId, title }: Props) {
           <RecordingItem
             key={rec.id}
             rec={rec}
-            defaultTitle={recordings.length > 1 ? `${title} (part ${rec.segment})` : title}
+            defaultTitle={rec.segment === 0 ? `${title} · Full match` : recordings.length > 1 ? `${title} (part ${rec.segment})` : title}
             canUpload={youtube.configured && !!youtube.channelTitle}
             onChange={load}
           />
@@ -120,7 +129,7 @@ function RecordingItem({
     <li className="rounded-xl border border-white/10 bg-zinc-900 p-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="font-semibold">Recording · part {rec.segment}</p>
+          <p className="font-semibold">{rec.segment === 0 ? '🏏 Full match video' : `Recording · part ${rec.segment}`}</p>
           <p className="text-xs text-zinc-500">
             {formatBytes(rec.sizeBytes)} · {rec.mimeType.replace('video/', '').toUpperCase()}
           </p>
@@ -211,7 +220,7 @@ function RecordingItem({
 function RecordingStatus({ rec }: { rec: ClientRecording }) {
   switch (rec.status) {
     case 'RECORDING':
-      return <StatusPill tone="yellow">Saving…</StatusPill>;
+      return <StatusPill tone="yellow">{rec.segment === 0 ? 'Preparing…' : 'Saving…'}</StatusPill>;
     case 'READY':
       return <StatusPill tone="gray">Ready</StatusPill>;
     case 'UPLOADING':

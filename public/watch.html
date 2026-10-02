@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1730">
+<title>Watch Live · CricScore</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #000; color: #fff; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .top { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px; background: linear-gradient(#000b, #0000); z-index: 2; }
+  .badge { padding: 4px 9px; border-radius: 7px; font-weight: 800; font-size: 12px; letter-spacing: 1px; background: #475569; }
+  .badge.live { background: #E63946; }
+  .brand { font-weight: 800; font-size: 13px; opacity: .85; }
+  .viewers { margin-left: auto; font-size: 12px; font-weight: 700; background: #0006; padding: 4px 9px; border-radius: 7px; }
+
+  /* Scoreboard over the video */
+  .board { position: fixed; left: 8px; right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); z-index: 2;
+    border-radius: 12px; overflow: hidden; box-shadow: 0 6px 20px #0008; display: none; }
+  .board.show { display: block; }
+  .main { display: flex; align-items: stretch; background: #0B1730; min-height: 52px; }
+  .team { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: linear-gradient(135deg, #E63946, #B91C1C); }
+  .team .abbr { font-weight: 900; font-size: 14px; }
+  .team .score { font-weight: 900; font-size: 24px; }
+  .team .ov { font-size: 12px; opacity: .85; font-weight: 700; }
+  .cell { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 4px 10px; min-width: 0;
+    border-left: 1px solid #ffffff14; font-size: 12px; font-weight: 700; line-height: 1.5; }
+  .cell .r { display: flex; justify-content: space-between; gap: 8px; }
+  .cell .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #cbd5e1; }
+  .cell .on .n { color: #fff; }
+  .cell .on .n::after { content: ' *'; color: #FACC15; }
+  .cell small { color: #94a3b8; font-weight: 600; }
+  .bowl { display: none; }
+  .status { background: #FACC15; color: #1E1B04; font-weight: 900; font-size: 13px; padding: 5px 12px;
+    display: flex; justify-content: space-between; gap: 8px; }
+  .status .rates { font-weight: 800; opacity: .8; white-space: nowrap; }
+  @media (min-width: 640px) { .bowl { display: flex; } .team .score { font-size: 28px; } }
+
+  .msg { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; text-align: center; padding: 30px; background: #0B1730; z-index: 1; font-size: 16px; line-height: 1.5; }
+  .msg.hide { display: none; }
+  .spinner { width: 36px; height: 36px; border: 4px solid #ffffff30; border-top-color: #E63946; border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .unmute { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; display: none;
+    background: #000a; border: 2px solid #fff6; color: #fff; font-size: 16px; font-weight: 800; padding: 14px 22px; border-radius: 30px; }
+  .unmute.show { display: block; }
+  .flash { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(.3); opacity: 0; z-index: 4;
+    font-size: 64px; font-weight: 900; letter-spacing: 3px; color: #FACC15; text-shadow: 0 4px 30px #000; pointer-events: none; }
+  .flash.go { animation: pop 3s ease forwards; }
+  @keyframes pop { 10% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 20% { transform: translate(-50%, -50%) scale(1); }
+    85% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); } }
+</style>
+</head>
+<body>
+<video id="video" autoplay playsinline muted></video>
+
+<div class="top">
+  <span class="badge" id="badge">OFFLINE</span>
+  <span class="brand">CricScore Live</span>
+  <span class="viewers" id="viewers"></span>
+</div>
+
+<div class="msg" id="msg"><div class="spinner"></div><div id="msgText">Connecting…</div></div>
+<button class="unmute" id="unmute">🔊 Tap for sound</button>
+<div class="flash" id="flash"></div>
+
+<div class="board" id="board">
+  <div class="main">
+    <div class="team"><span class="abbr" id="team"></span><span class="score" id="score"></span><span class="ov" id="ov"></span></div>
+    <div class="cell"><div class="r on" id="b1"><span class="n"></span><span class="v"></span></div><div class="r" id="b2"><span class="n"></span><span class="v"></span></div></div>
+    <div class="cell bowl"><small>BOWLER</small><div class="r"><span class="n" id="bowler"></span><span class="v" id="bfig"></span></div></div>
+  </div>
+  <div class="status"><span id="line"></span><span class="rates" id="rates"></span></div>
+</div>
+
+<script src="/rtc/socket.io.min.js"></script>
+<script>
+  var code = location.pathname.split('/').filter(Boolean).pop().toUpperCase();
+  var $ = function (id) { return document.getElementById(id); };
+  var pc = null, broadcaster = null, iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  var lastDeliveries = null, flashTimer = null;
+
+  function message(text, spin) {
+    $('msgText').textContent = text;
+    $('msg').querySelector('.spinner').style.display = spin ? 'block' : 'none';
+    $('msg').className = 'msg';
+    $('badge').textContent = 'OFFLINE'; $('badge').className = 'badge';
+  }
+  function playing() { $('msg').className = 'msg hide'; $('badge').textContent = 'LIVE'; $('badge').className = 'badge live'; }
+
+  function closePc() { if (pc) { pc.close(); pc = null; } }
+
+  function connect() {
+    var socket = io({ path: '/rtc', transports: ['websocket', 'polling'] });
+    socket.on('connect', function () { socket.emit('join', { code: code, role: 'viewer' }); });
+    socket.on('full', function (n) { message('This stream is full (' + n + ' viewers). Please try again in a bit.', false); socket.disconnect(); });
+    socket.on('status', function (s) {
+      $('viewers').textContent = '👁 ' + s.viewers;
+      if (!s.live) message('Waiting for the camera to go live…', true);
+    });
+    socket.on('ended', function () { closePc(); message('The live stream has paused. It will resume automatically.', true); });
+    socket.on('signal', function (msg) {
+      if (msg.data.sdp && msg.data.sdp.type === 'offer') {
+        // A (new) offer from the camera phone: start a fresh connection
+        closePc();
+        broadcaster = msg.from;
+        pc = new RTCPeerConnection({ iceServers: iceServers });
+        pc.ontrack = function (e) {
+          $('video').srcObject = e.streams[0];
+          $('video').play().then(function () { playing(); $('unmute').className = 'unmute show'; }).catch(function () { playing(); });
+        };
+        pc.onicecandidate = function (e) { if (e.candidate) socket.emit('signal', { to: broadcaster, data: { candidate: e.candidate } }); };
+        pc.onconnectionstatechange = function () {
+          if (pc && pc.connectionState === 'failed') message('Could not connect to the camera. On some mobile networks a relay server is needed.', false);
+        };
+        pc.setRemoteDescription(msg.data.sdp)
+          .then(function () { return pc.createAnswer(); })
+          .then(function (a) { return pc.setLocalDescription(a); })
+          .then(function () { socket.emit('signal', { to: broadcaster, data: { sdp: pc.localDescription } }); });
+      } else if (msg.data.candidate && pc) {
+        pc.addIceCandidate(msg.data.candidate).catch(function () {});
+      }
+    });
+    socket.on('disconnect', function () { message('Reconnecting…', true); });
+  }
+
+  $('unmute').onclick = function () { $('video').muted = false; $('video').play(); $('unmute').className = 'unmute'; };
+
+  // ── Live scoreboard (same feed as the YouTube overlay) ──
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function short(n) { n = n || ''; return n.length > 10 ? n.slice(0, 3).toUpperCase() : n; }
+  function row(el, p) {
+    el.style.visibility = p ? 'visible' : 'hidden';
+    if (!p) return;
+    el.querySelector('.n').textContent = p.name;
+    el.querySelector('.v').innerHTML = p.runs + ' <small>(' + p.balls + ')</small>';
+  }
+  function flash(t) {
+    var el = $('flash'); el.className = 'flash'; void el.offsetWidth;
+    el.textContent = t; el.className = 'flash go';
+    clearTimeout(flashTimer); flashTimer = setTimeout(function () { el.className = 'flash'; }, 3000);
+  }
+  function renderScore(d) {
+    if (!d || d.phase === 'waiting') { $('board').className = 'board'; return; }
+    $('board').className = 'board show';
+    var balls = d.over * 6 + d.ball, max = d.overs * 6, crr = balls ? (d.runs / balls * 6).toFixed(2) : '0.00';
+    $('team').textContent = short(d.battingTeam);
+    $('score').textContent = d.runs + '/' + d.wickets;
+    $('ov').textContent = d.over + '.' + d.ball + ' ov';
+    if (d.phase === 'innings_end') {
+      row($('b1'), null); row($('b2'), null);
+      $('line').textContent = d.inningsNum === 2 ? (d.result || 'Match complete') : 'Innings break · ' + d.bowlingTeam + ' need ' + (d.runs + 1);
+      $('rates').textContent = '';
+      return;
+    }
+    row($('b1'), d.striker); row($('b2'), d.nonStriker);
+    if (d.bowler) { $('bowler').textContent = d.bowler.name; $('bfig').innerHTML = d.bowler.wickets + '-' + d.bowler.runs + ' <small>(' + d.bowler.overs + '.' + d.bowler.balls + ')</small>'; }
+    if (d.target) {
+      var need = Math.max(0, d.target - d.runs), left = Math.max(0, max - balls);
+      $('line').textContent = need === 0 ? d.battingTeam + ' have reached the target!' : 'Need ' + plural(need, 'run') + ' in ' + plural(left, 'ball');
+      $('rates').textContent = 'CRR ' + crr + (left && need ? ' · RRR ' + (need / left * 6).toFixed(2) : '');
+    } else {
+      $('line').textContent = d.battingTeam + ' v ' + d.bowlingTeam;
+      $('rates').textContent = 'CRR ' + crr;
+    }
+    if (lastDeliveries !== null && d.deliveries > lastDeliveries && d.lastBall) {
+      var b = d.lastBall;
+      if (b.wicket) flash('WICKET!'); else if (!b.extra && b.runs === 6) flash('SIX!'); else if (!b.extra && b.runs === 4) flash('FOUR!');
+    }
+    lastDeliveries = d.deliveries;
+  }
+  function pollScore() {
+    fetch('/api/live/' + code + '/overlay', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; }).then(renderScore).catch(function () {})
+      .then(function () { setTimeout(pollScore, 1000); });
+  }
+
+  if (!window.RTCPeerConnection) message('This browser can’t play live video. Please open the link in Chrome or Safari.', false);
+  else fetch('/api/stream-ice').then(function (r) { return r.json(); }).then(function (d) { iceServers = d.iceServers; })
+    .catch(function () {}).then(connect);
+  pollScore();
+</script>
+</body>
+</html>

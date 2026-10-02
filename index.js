@@ -7,6 +7,7 @@ const routes = require('./src/routes');
 const liveRoutes = require('./src/live');
 const teamRoutes = require('./src/teams');
 const matchRoutes = require('./src/matches');
+const stream = require('./src/stream');
 
 const app = express();
 // Behind a tunnel/proxy (cloudflared), use the forwarded https protocol for overlay links
@@ -39,27 +40,32 @@ const DB_RUN = process.env.DB_RUN === 'true';
 // Live match sharing is in-memory, so it works regardless of DB_RUN
 app.use('/api/live', liveRoutes);
 
-// Shared teams (file storage, no MySQL needed)
+// Shared teams (MySQL with STORAGE=mysql, otherwise JSON files — see src/store.js)
 app.use('/api/shared-teams', teamRoutes);
 
-// Matches (file storage, no MySQL needed)
+// Matches (same storage as teams)
 app.use('/api/v2/matches', matchRoutes);
 
 // YouTube score overlay page (add it as a browser source in the streaming app)
 app.get('/overlay/:code', (req, res) => res.sendFile(path.join(__dirname, 'src', 'overlay.html')));
 
+// Free WebRTC live streaming: /go/:code (camera phone) and /watch/:code (viewers)
+const PORT = process.env.PORT || 3000;
+stream.mount(app, { port: PORT });
+
 if (DB_RUN) {
   app.use('/api', routes);
   console.log('✅ DB_RUN=true — MySQL API routes active');
 } else {
+  // The old MySQL routes (src/routes.js) are off; every other /api route above works without them
   app.use('/api', (req, res) => {
-    res.status(503).json({ error: 'DB_RUN is false. Set DB_RUN=true in .env to enable API.' });
+    res.status(404).json({ error: `Unknown API endpoint: ${req.method} ${req.originalUrl}` });
   });
-  console.log('⚠️  DB_RUN=false — API disabled, app using local storage');
+  console.log('ℹ️  DB_RUN=false — legacy /api MySQL routes off (teams, matches, live and streaming APIs are active)');
 }
 
 app.get('/health', (req, res) => res.json({ status: 'ok', db: DB_RUN }));
 
-const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 server.on('upgrade', streamProxy.upgrade);
+stream.listen(server);

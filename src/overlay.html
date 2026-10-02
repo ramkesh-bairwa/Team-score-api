@@ -11,8 +11,8 @@
   /* Transparent page for OBS / Prism / Streamlabs. Laid out on a 1280x720 stage that scales to any
      browser-source size (720p, 1080p, 4K). */
   :root {
-    --ink: #050B1A; --panel: #0B1530; --panel2: #121F45; --line: rgba(255, 255, 255, .09);
-    --gold: #FFC531; --gold2: #F59E0B; --red: #EF233C; --muted: #8FA0C2; --soft: #C9D3EA; --white: #fff;
+    --ink: #040916; --panel: #0A1430; --panel2: #13224D; --line: rgba(255, 255, 255, .08);
+    --gold: #FFC531; --gold2: #F59E0B; --red: #EF233C; --muted: #8C9CC0; --soft: #C9D3EA; --white: #fff;
     --four: #1E6BFF; --six: #8B2CF5; --extra: #F97316;
     /* Team colours, set from the team names by script */
     --t1: #1D4ED8; --t1d: #0F2A7A; --t2: #DC2626; --t2d: #7F1D1D;
@@ -34,7 +34,7 @@
   }
   .bug .live i { width: 9px; height: 9px; border-radius: 50%; background: #fff; animation: blink 1.2s infinite; }
   .bug .title {
-    display: flex; align-items: center; gap: 8px; margin-left: -10px; padding: 0 22px 0 22px; background: var(--panel);
+    display: flex; align-items: center; gap: 8px; margin-left: -10px; padding: 0 22px; background: var(--panel);
     font-weight: 800; font-size: 19px; letter-spacing: 1px; clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
   }
   .bug .title b { color: var(--gold); font-weight: 800; }
@@ -45,118 +45,126 @@
   }
   @keyframes blink { 50% { opacity: .2; } }
 
-  /* ── Main scoreboard ───────────────────────────────────────────── */
+  /* ── Main scoreboard: batters | raised score hub | bowler + over ── */
   .board {
-    position: absolute; left: 24px; right: 24px; bottom: 22px;
-    filter: drop-shadow(0 10px 28px rgba(0, 0, 0, .55));
+    position: absolute; left: 30px; right: 30px; bottom: 18px;
+    filter: drop-shadow(0 12px 30px rgba(0, 0, 0, .6));
     transition: opacity .5s, transform .6s cubic-bezier(.2, .9, .3, 1.1);
   }
-  .board.hidden { opacity: 0; transform: translateY(60px); }
-  .strip {
-    position: relative; display: flex; align-items: stretch; height: 84px; overflow: hidden;
-    background: linear-gradient(180deg, #16244D 0%, var(--panel) 55%, #08112A 100%);
-    border-radius: 6px 6px 0 0; border-top: 2px solid rgba(255, 255, 255, .14);
-  }
-  /* glossy highlight across the top half */
-  .strip::after {
-    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 45%;
-    background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0)); pointer-events: none;
-  }
+  .board.hidden { opacity: 0; transform: translateY(70px); }
+  .main { display: grid; grid-template-columns: 1fr 330px 1fr; align-items: end; }
 
-  .team {
-    position: relative; display: flex; align-items: center; gap: 14px; width: 352px; flex: none;
-    padding: 0 40px 0 14px; background: linear-gradient(135deg, var(--t1) 0%, var(--t1d) 100%);
-    clip-path: polygon(0 0, 100% 0, calc(100% - 26px) 100%, 0 100%);
+  .wing {
+    position: relative; height: 78px; display: flex; flex-direction: column; justify-content: center; gap: 4px;
+    background: linear-gradient(180deg, #1C2C62 0%, var(--panel) 52%, #060E24 100%); overflow: hidden;
   }
-  .team::before { /* diagonal stripes texture */
-    content: ""; position: absolute; inset: 0; opacity: .12; pointer-events: none;
-    background: repeating-linear-gradient(115deg, #fff 0 2px, transparent 2px 14px);
+  .wing::after { /* glossy top half */
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 46%; pointer-events: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, 0));
   }
-  .badge {
-    position: relative; flex: none; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
-    background: radial-gradient(circle at 35% 30%, #fff, #DCE3F2 70%); color: var(--t1d);
-    font-weight: 900; font-size: 20px; letter-spacing: .5px; box-shadow: 0 0 0 3px rgba(255, 255, 255, .35), 0 4px 10px rgba(0, 0, 0, .35);
+  .wing::before { /* team colour accent along the top edge */
+    content: ""; position: absolute; top: 0; height: 3px; width: 100%;
   }
-  .tinfo { position: relative; min-width: 0; display: flex; flex-direction: column; line-height: 1; }
-  .tname {
-    font-size: 16px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; opacity: .9;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px;
-  }
-  .tscore { display: flex; align-items: baseline; gap: 10px; margin-top: 3px; }
-  .runs { font-size: 50px; font-weight: 900; letter-spacing: -.5px; text-shadow: 0 2px 6px rgba(0, 0, 0, .35); display: inline-block; }
-  .runs.bump { animation: bump .55s cubic-bezier(.2, 1.6, .4, 1); }
-  @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.18); color: var(--gold); } 100% { transform: scale(1); } }
-  .tov { font-size: 20px; font-weight: 700; color: rgba(255, 255, 255, .85); }
-  .tov small { font-size: 15px; opacity: .75; }
+  .wing.l { border-radius: 12px 0 0 0; padding: 0 34px 0 18px; margin-right: -14px; }
+  .wing.l::before { left: 0; background: linear-gradient(90deg, transparent, var(--t1)); }
+  .wing.r { border-radius: 0 12px 0 0; padding: 0 18px 0 34px; margin-left: -14px; }
+  .wing.r::before { right: 0; background: linear-gradient(90deg, var(--t2), transparent); }
 
-  .cell {
-    position: relative; display: flex; flex-direction: column; justify-content: center; padding: 0 20px;
-    border-left: 1px solid var(--line);
+  .p {
+    position: relative; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px 0 8px;
+    border-radius: 5px; font-size: 21px; font-weight: 700; color: var(--soft); transition: background .3s;
   }
-  .cell:first-of-type { border-left: 0; }
-  .lbl { font-size: 13px; font-weight: 800; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .lbl b { color: var(--soft); font-weight: 800; }
-
-  .batters { width: 318px; flex: none; margin-left: -6px; padding-left: 20px; gap: 3px; }
-  .p { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; line-height: 1.15; color: var(--soft); }
   .p .mk { width: 16px; flex: none; display: grid; place-items: center; }
-  .p .mk svg { width: 15px; height: 15px; fill: var(--gold); opacity: 0; transform: scale(.4) rotate(-30deg); transition: all .35s; }
-  .p.on { color: var(--white); }
+  .p .mk svg { width: 15px; height: 15px; opacity: 0; transform: scale(.4) rotate(-30deg); transition: all .35s; }
+  .p.on { color: var(--white); background: linear-gradient(90deg, rgba(255, 197, 49, .18), rgba(255, 197, 49, 0) 80%); }
+  .p.on::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; border-radius: 2px; background: var(--gold); }
   .p.on .mk svg { opacity: 1; transform: none; }
-  .p .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: .3px; }
-  .p .fig { font-weight: 800; font-variant-numeric: tabular-nums; }
-  .p .fig small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 2px; }
+  .p .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: .4px; }
+  .p .fig { font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .p .fig small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 3px; }
   .p.on .fig { color: var(--gold); }
+  .wing.r .p { color: var(--white); padding-left: 4px; }
 
-  .bowler { width: 250px; flex: none; }
-  .bowler::before { /* bowling team colour accent */
-    content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 2px;
-    background: linear-gradient(180deg, var(--t2), var(--t2d));
-  }
-  .bowler .p { color: var(--white); }
-
-  .over { flex: 1; min-width: 0; }
-  .chips { display: flex; align-items: center; gap: 6px; }
+  .chips { display: flex; align-items: center; gap: 6px; padding-left: 4px; height: 30px; }
+  .chips .tag { font-size: 12px; font-weight: 800; letter-spacing: 1.5px; color: var(--muted); margin-right: 4px; line-height: 1; text-align: right; }
   .chip {
-    flex: none; min-width: 34px; height: 34px; padding: 0 5px; border-radius: 17px; display: grid; place-items: center;
-    font-size: 17px; font-weight: 900; background: rgba(255, 255, 255, .12); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .2);
+    flex: none; min-width: 28px; height: 28px; padding: 0 5px; border-radius: 14px; display: grid; place-items: center;
+    font-size: 15px; font-weight: 900; background: rgba(255, 255, 255, .12); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .22);
   }
   .chip.c0 { color: var(--muted); }
   .chip.c4 { background: linear-gradient(180deg, #3B82F6, var(--four)); }
   .chip.c6 { background: linear-gradient(180deg, #A855F7, var(--six)); }
   .chip.cw { background: linear-gradient(180deg, #FF4D5E, var(--red)); }
-  .chip.cx { background: linear-gradient(180deg, #FB923C, var(--extra)); font-size: 14px; }
-  .chip.cd { background: #475569; color: #CBD5E1; font-size: 14px; }
-  .chip.empty { background: transparent; box-shadow: none; border: 2px dashed rgba(255, 255, 255, .18); }
+  .chip.cx { background: linear-gradient(180deg, #FB923C, var(--extra)); font-size: 13px; }
+  .chip.cd { background: #475569; color: #CBD5E1; font-size: 13px; }
+  .chip.empty { background: transparent; box-shadow: none; border: 2px dashed rgba(255, 255, 255, .16); }
   .chip.new { animation: chipIn .6s cubic-bezier(.2, 1.6, .4, 1); }
   @keyframes chipIn { 0% { transform: scale(0) rotate(-90deg); } 100% { transform: scale(1) rotate(0); } }
 
-  /* ── Bottom ticker ─────────────────────────────────────────────── */
-  .ticker {
-    position: relative; display: flex; align-items: center; justify-content: space-between; height: 36px; padding: 0 0 0 20px;
-    background: linear-gradient(90deg, var(--gold) 0%, #FFD860 50%, var(--gold) 100%); color: #1A1300;
-    border-radius: 0 0 6px 6px; overflow: hidden;
+  /* Raised centre hub with the batting team and score */
+  .hub {
+    position: relative; z-index: 2; height: 112px; border-radius: 16px 16px 0 0; overflow: hidden;
+    display: flex; align-items: center; gap: 14px; padding: 0 18px 0 16px;
+    background: radial-gradient(120% 140% at 20% 0%, var(--t1) 0%, var(--t1d) 70%, #050B1F 100%);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, .16) inset, 0 -6px 24px rgba(0, 0, 0, .35);
   }
-  .ticker::after { /* light sweep */
-    content: ""; position: absolute; top: 0; bottom: 0; width: 120px; left: -150px;
-    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .65), transparent); animation: sweep 6s ease-in-out infinite;
+  .hub::before { /* diagonal texture */
+    content: ""; position: absolute; inset: 0; opacity: .1; pointer-events: none;
+    background: repeating-linear-gradient(115deg, #fff 0 2px, transparent 2px 16px);
   }
-  @keyframes sweep { 0%, 70% { left: -150px; } 100% { left: 110%; } }
-  .tk-main { font-size: 21px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tk-main em { font-style: normal; font-weight: 900; color: #B00020; }
-  .tk-stats { display: flex; height: 100%; flex: none; }
-  .stat {
-    display: flex; align-items: center; gap: 7px; padding: 0 16px; background: var(--ink); color: var(--white);
-    font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; margin-left: -8px;
-    clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%);
+  .hub::after { /* periodic shine */
+    content: ""; position: absolute; top: 0; bottom: 0; width: 90px; left: -120px; pointer-events: none;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .28), transparent); animation: sweep 7s ease-in-out infinite;
   }
-  .stat:first-child { padding-left: 22px; }
-  .stat:nth-child(even) { background: #14204A; }
-  .stat span { color: var(--gold); font-size: 14px; letter-spacing: 1.5px; }
+  .hub .gold { position: absolute; left: 0; right: 0; top: 0; height: 4px; background: linear-gradient(90deg, var(--gold2), var(--gold), var(--gold2)); }
+  .badge {
+    position: relative; flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+    background: radial-gradient(circle at 35% 30%, #fff, #D5DDEF 70%); color: var(--t1d);
+    font-weight: 900; font-size: 21px; letter-spacing: .5px;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .4), 0 0 0 6px rgba(0, 0, 0, .18), 0 6px 14px rgba(0, 0, 0, .4);
+  }
+  .hinfo { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1; }
+  .hteam { display: flex; align-items: baseline; gap: 6px; font-size: 22px; font-weight: 900; letter-spacing: 1.5px; white-space: nowrap; }
+  .hteam small { font-size: 15px; font-weight: 700; color: rgba(255, 255, 255, .7); letter-spacing: 1px; }
+  .hscore { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
+  .runs { font-size: 60px; font-weight: 900; letter-spacing: -.5px; text-shadow: 0 3px 8px rgba(0, 0, 0, .4); display: inline-block; }
+  .runs.bump { animation: bump .55s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.16); color: var(--gold); } 100% { transform: scale(1); } }
+  .ovs {
+    align-self: center; display: flex; flex-direction: column; align-items: center; padding: 5px 9px 4px; border-radius: 6px;
+    background: rgba(0, 0, 0, .32); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); line-height: 1;
+  }
+  .ovs b { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .ovs small { font-size: 12px; font-weight: 800; letter-spacing: 1.5px; color: rgba(255, 255, 255, .7); margin-top: 2px; }
 
-  /* End-of-over / info toast above the board */
+  /* Info strip under everything */
+  .info {
+    position: relative; z-index: 3; display: flex; align-items: stretch; justify-content: space-between; height: 34px;
+    background: linear-gradient(90deg, #03070F, #0B1638 50%, #03070F); border-radius: 0 0 10px 10px; overflow: hidden;
+    border-top: 1px solid rgba(255, 197, 49, .35);
+  }
+  .tk-main {
+    flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 16px;
+    font-size: 19px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--soft);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tk-main em { font-style: normal; font-weight: 900; color: var(--gold); margin: 0 6px; }
+  .tk-side { display: flex; flex: none; width: 360px; }
+  .tk-side.l { justify-content: flex-start; }
+  .tk-side.r { justify-content: flex-end; }
+  .stat {
+    display: flex; align-items: center; gap: 7px; padding: 0 16px; font-size: 18px; font-weight: 800;
+    font-variant-numeric: tabular-nums; border-right: 1px solid var(--line);
+  }
+  .tk-side.r .stat { border-right: 0; border-left: 1px solid var(--line); }
+  .stat span { color: var(--muted); font-size: 13px; letter-spacing: 1.5px; }
+  .stat.hl { background: var(--gold); color: #1A1300; border: 0 !important; }
+  .stat.hl span { color: rgba(26, 19, 0, .7); }
+  @keyframes sweep { 0%, 70% { left: -150px; } 100% { left: 110%; } }
+
+  /* End-of-over toast above the board */
   .toast {
-    position: absolute; left: 24px; bottom: 150px; display: flex; align-items: stretch; height: 36px;
+    position: absolute; left: 30px; bottom: 150px; display: flex; align-items: stretch; height: 36px;
     filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .45)); opacity: 0; transform: translateX(-40px); transition: all .45s cubic-bezier(.2, .9, .3, 1.1);
   }
   .toast.show { opacity: 1; transform: none; }
@@ -164,12 +172,12 @@
   .toast .b { display: flex; align-items: center; margin-left: -10px; padding: 0 22px; background: var(--panel); font-weight: 800; font-size: 19px; letter-spacing: .5px; clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
 
   /* ── Boundary / wicket / milestone banner ──────────────────────── */
-  .event { position: absolute; left: 0; right: 0; top: 30%; height: 190px; pointer-events: none; display: none; }
+  .event { position: absolute; left: 0; right: 0; top: 28%; height: 190px; pointer-events: none; display: none; }
   .event.go { display: block; }
   .ev-band {
     position: absolute; left: -5%; right: -5%; top: 30px; height: 130px; transform: skewY(-4deg);
     animation: bandIn 3.4s cubic-bezier(.7, 0, .2, 1) forwards; overflow: hidden;
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, .85), 0 20px 60px rgba(0, 0, 0, .5);
+    border-top: 4px solid rgba(255, 255, 255, .85); border-bottom: 4px solid rgba(255, 255, 255, .85);
   }
   .ev-band::before { /* speed streaks */
     content: ""; position: absolute; inset: 0; opacity: .18;
@@ -234,7 +242,7 @@
     background: linear-gradient(135deg, var(--t1) 0%, var(--t1d) 45%, var(--panel) 100%); border-top: 3px solid var(--gold);
   }
   .card .badge { width: 92px; height: 92px; font-size: 30px; }
-  .card .info { min-width: 0; }
+  .card .info2 { min-width: 0; }
   .card .cname { font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card .cscore { font-size: 72px; font-weight: 900; line-height: 1; }
   .card .cscore small { font-size: 26px; font-weight: 700; opacity: .8; margin-left: 8px; }
@@ -262,28 +270,32 @@
   <div class="toast" id="toast"><div class="a" id="toastA"></div><div class="b" id="toastB"></div></div>
 
   <div class="board hidden" id="board">
-    <div class="strip">
-      <div class="team">
+    <div class="main">
+      <div class="wing l">
+        <div class="p on" id="b1"><span class="mk"><svg viewBox="0 0 24 24" fill="#FFC531"><path d="M20.7 2.3a1 1 0 0 0-1.4 0l-3.6 3.6-1-1a1 1 0 0 0-1.4 0L3.4 14.8a2 2 0 0 0 0 2.8l3 3a2 2 0 0 0 2.8 0l9.9-9.9a1 1 0 0 0 0-1.4l-1-1 3.6-3.6a1 1 0 0 0 0-1.4z"/></svg></span><span class="nm"></span><span class="fig"></span></div>
+        <div class="p" id="b2"><span class="mk"><svg viewBox="0 0 24 24" fill="#FFC531"><path d="M20.7 2.3a1 1 0 0 0-1.4 0l-3.6 3.6-1-1a1 1 0 0 0-1.4 0L3.4 14.8a2 2 0 0 0 0 2.8l3 3a2 2 0 0 0 2.8 0l9.9-9.9a1 1 0 0 0 0-1.4l-1-1 3.6-3.6a1 1 0 0 0 0-1.4z"/></svg></span><span class="nm"></span><span class="fig"></span></div>
+      </div>
+
+      <div class="hub">
+        <div class="gold"></div>
         <div class="badge" id="badge"></div>
-        <div class="tinfo">
-          <div class="tname" id="tname"></div>
-          <div class="tscore"><span class="runs" id="score">0/0</span><span class="tov" id="ov"></span></div>
+        <div class="hinfo">
+          <div class="hteam"><span id="tabbr"></span><small id="tvs"></small></div>
+          <div class="hscore"><span class="runs" id="score">0/0</span></div>
         </div>
+        <div class="ovs"><b id="ov">0.0</b><small id="ovMax">OVERS</small></div>
       </div>
-      <div class="cell batters">
-        <div class="p on" id="b1"><span class="mk"><svg viewBox="0 0 24 24"><path d="M20.7 2.3a1 1 0 0 0-1.4 0l-3.6 3.6-1-1a1 1 0 0 0-1.4 0L3.4 14.8a2 2 0 0 0 0 2.8l3 3a2 2 0 0 0 2.8 0l9.9-9.9a1 1 0 0 0 0-1.4l-1-1 3.6-3.6a1 1 0 0 0 0-1.4z"/></svg></span><span class="nm"></span><span class="fig"></span></div>
-        <div class="p" id="b2"><span class="mk"><svg viewBox="0 0 24 24"><path d="M20.7 2.3a1 1 0 0 0-1.4 0l-3.6 3.6-1-1a1 1 0 0 0-1.4 0L3.4 14.8a2 2 0 0 0 0 2.8l3 3a2 2 0 0 0 2.8 0l9.9-9.9a1 1 0 0 0 0-1.4l-1-1 3.6-3.6a1 1 0 0 0 0-1.4z"/></svg></span><span class="nm"></span><span class="fig"></span></div>
-      </div>
-      <div class="cell bowler">
-        <div class="lbl" id="blbl"></div>
-        <div class="p"><span class="nm" id="bowler"></span><span class="fig" id="bfig"></span></div>
-      </div>
-      <div class="cell over">
-        <div class="lbl">This over</div>
+
+      <div class="wing r">
+        <div class="p"><span class="mk"><svg viewBox="0 0 24 24" style="opacity:1;transform:none"><circle cx="12" cy="12" r="10" fill="#EF233C"/><path d="M7 5.5c2.2 3.6 2.2 9.4 0 13M17 5.5c-2.2 3.6-2.2 9.4 0 13" stroke="#fff" stroke-width="1.6" fill="none" stroke-dasharray="2 1.6"/></svg></span><span class="nm" id="bowler"></span><span class="fig" id="bfig"></span></div>
         <div class="chips" id="over"></div>
       </div>
     </div>
-    <div class="ticker"><div class="tk-main" id="status"></div><div class="tk-stats" id="rates"></div></div>
+    <div class="info">
+      <div class="tk-side l" id="ratesL"></div>
+      <div class="tk-main" id="status"></div>
+      <div class="tk-side r" id="ratesR"></div>
+    </div>
   </div>
 
   <div class="event" id="event"><div class="ev-band"></div><div class="ev-text" id="evText"></div><div class="ev-sub" id="evSub"></div></div>
@@ -292,7 +304,7 @@
     <div class="head" id="cardTitle"></div>
     <div class="body">
       <div class="badge" id="cardBadge"></div>
-      <div class="info"><div class="cname" id="cardName"></div><div class="cscore" id="cardScore"></div></div>
+      <div class="info2"><div class="cname" id="cardName"></div><div class="cscore" id="cardScore"></div></div>
     </div>
     <div class="foot" id="cardFoot"></div>
   </div>
@@ -453,55 +465,59 @@
     $('card').className = 'card';
     $('board').className = 'board';
 
+    // Centre hub
     $('badge').textContent = abbr(d.battingTeam);
-    $('tname').textContent = d.battingTeam;
+    $('tabbr').textContent = abbr(d.battingTeam);
+    $('tvs').textContent = 'v ' + abbr(d.bowlingTeam);
     var sEl = $('score');
     sEl.textContent = scoreTxt;
     if (prevScore !== null && prevScore !== scoreTxt) { sEl.classList.remove('bump'); void sEl.offsetWidth; sEl.classList.add('bump'); }
     prevScore = scoreTxt;
     $('ov').textContent = d.over + '.' + d.ball;
-    $('ov').appendChild(el('small', '', ' / ' + d.overs + ' ov'));
+    $('ovMax').textContent = 'OF ' + d.overs + ' OV';
 
+    // Batters + bowler
     setPlayer($('b1'), d.striker);
     setPlayer($('b2'), d.nonStriker);
-
-    $('blbl').textContent = 'Bowling · ';
-    $('blbl').appendChild(el('b', '', abbr(d.bowlingTeam)));
     if (d.bowler) {
       $('bowler').textContent = d.bowler.name;
       $('bfig').textContent = d.bowler.wickets + '-' + d.bowler.runs;
       $('bfig').appendChild(el('small', '', '(' + d.bowler.overs + '.' + d.bowler.balls + ')'));
     } else { $('bowler').textContent = ''; $('bfig').textContent = ''; }
 
+    // This over
     var isNew = lastDeliveries !== null && d.deliveries > lastDeliveries && d.lastBall;
     var chips = $('over'), balls = d.thisOver || [];
     chips.textContent = '';
+    var tag = el('span', 'tag'); tag.appendChild(document.createTextNode('THIS')); tag.appendChild(el('br')); tag.appendChild(document.createTextNode('OVER'));
+    chips.appendChild(tag);
     balls.forEach(function (b, i) {
       chips.appendChild(el('span', 'chip ' + ballClass(b) + (isNew && i === balls.length - 1 ? ' new' : ''), ballLabel(b)));
     });
     for (var i = 0; i < Math.max(0, 6 - d.ball); i++) chips.appendChild(el('span', 'chip empty'));
 
-    // Ticker
-    var st = $('status'), rates = $('rates');
-    st.textContent = ''; rates.textContent = '';
-    function stat(k, v) { var s = el('div', 'stat'); s.appendChild(el('span', '', k)); s.appendChild(document.createTextNode(v)); rates.appendChild(s); }
+    // Info strip
+    var st = $('status'), L = $('ratesL'), R = $('ratesR');
+    st.textContent = ''; L.textContent = ''; R.textContent = '';
+    function stat(host, k, v, hl) { var s = el('div', 'stat' + (hl ? ' hl' : '')); s.appendChild(el('span', '', k)); s.appendChild(document.createTextNode(v)); host.appendChild(s); }
     if (d.target) {
       var need = Math.max(0, d.target - d.runs), left = Math.max(0, maxBalls - totalBalls);
       if (need === 0) st.textContent = d.battingTeam + ' have reached the target!';
       else {
-        st.appendChild(document.createTextNode(d.battingTeam + ' need '));
+        st.appendChild(document.createTextNode('Need'));
         st.appendChild(el('em', '', plural(need, 'run')));
-        st.appendChild(document.createTextNode(' from '));
+        st.appendChild(document.createTextNode('from'));
         st.appendChild(el('em', '', plural(left, 'ball')));
       }
-      stat('TARGET', d.target);
-      stat('CRR', crr);
-      if (left && need) stat('RRR', (need / left * 6).toFixed(2));
+      stat(L, 'TARGET', d.target, true);
+      stat(L, 'CRR', crr);
+      if (left && need) stat(R, 'RRR', (need / left * 6).toFixed(2));
+      stat(R, 'BALLS LEFT', left);
     } else {
       var proj = totalBalls ? Math.round(d.runs / totalBalls * maxBalls) : 0;
-      st.textContent = d.battingTeam + ' v ' + d.bowlingTeam;
-      stat('CRR', crr);
-      if (proj) stat('PROJECTED', proj);
+      st.textContent = d.battingTeam + '  v  ' + d.bowlingTeam;
+      stat(L, 'CRR', crr, true);
+      if (proj) stat(R, 'PROJECTED', proj);
     }
 
     // Animate only new deliveries (not the state we found on first load, and not undos)

@@ -18,6 +18,7 @@
     "express": "^5.2.1",
     "http-proxy-middleware": "^4.2.0",
     "mysql2": "^3.23.2",
+    "socket.io": "^4.8.4",
     "uuid": "^14.0.1"
   }
 }

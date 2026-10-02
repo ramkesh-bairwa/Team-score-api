@@ -1,28 +1,19 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
+const store = require('./store');
 const router = express.Router();
 
-// Shared teams, visible to every app user. Stored in a JSON file so it works without MySQL
-// (set TEAMS_FILE to put it on a persistent disk).
-const FILE = process.env.TEAMS_FILE || path.join(__dirname, '..', 'data', 'teams.json');
+// Shared teams, visible to every app user (MySQL on the server, JSON file locally — see store.js)
 const MAX_PLAYERS = 11;
 const ROLES = ['Batter', 'Bowler', 'All-Rounder', 'Captain', 'Keeper', 'Impact Player'];
 
-let teams = [];
-try {
-  teams = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-} catch (_) {
-  teams = [];
-}
-
-const save = () => {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  const tmp = `${FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(teams, null, 2));
-  fs.renameSync(tmp, FILE);
-};
+// Async handlers: answer with a JSON error instead of crashing on a storage failure
+const wrap = fn => (req, res) => fn(req, res).catch(e => {
+  console.error('teams:', e.message);
+  res.status(500).json({ error: 'Server storage error, please try again' });
+});
+const nameTaken = (teams, name, exceptId) =>
+  teams.some(t => t.id !== exceptId && t.name.toLowerCase() === name.toLowerCase());
 
 const clean = (s, max) => String(s || '').trim().slice(0, max);
 
@@ -54,21 +45,21 @@ const parseTeam = (body) => {
 const publicTeam = ({ deviceId, ...t }, me) => ({ ...t, mine: !!me && deviceId === me });
 
 // GET /shared-teams?search=&deviceId=  -> newest first
-router.get('/', (req, res) => {
+router.get('/', wrap(async (req, res) => {
   const q = clean(req.query.search, 40).toLowerCase();
   const me = clean(req.query.deviceId, 64);
-  const list = teams
+  const list = (await store.teams.list())
     .filter(t => !q || t.name.toLowerCase().includes(q) || t.players.some(p => p.name.toLowerCase().includes(q)))
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map(t => publicTeam(t, me));
   res.json(list);
-});
+}));
 
 // POST /shared-teams  { name, players, createdBy, deviceId }
-router.post('/', (req, res) => {
+router.post('/', wrap(async (req, res) => {
   const { team, error } = parseTeam(req.body || {});
   if (error) return res.status(400).json({ error });
-  if (teams.some(t => t.name.toLowerCase() === team.name.toLowerCase())) {
+  if (nameTaken(await store.teams.list(), team.name)) {
     return res.status(409).json({ error: `A team named "${team.name}" already exists. Pick it from the list or use another name.` });
   }
   const now = Date.now();
@@ -78,38 +69,36 @@ router.post('/', (req, res) => {
     deviceId: clean(req.body.deviceId, 64),
     createdAt: now, updatedAt: now,
   };
-  teams.push(record);
-  save();
+  await store.teams.save(record);
   res.json(publicTeam(record, record.deviceId));
-});
+}));
 
 // PUT /shared-teams/:id  -> only the phone that created the team can edit it
-router.put('/:id', (req, res) => {
-  const idx = teams.findIndex(t => t.id === req.params.id);
-  if (idx < 0) return res.status(404).json({ error: 'Team not found' });
-  if (!req.body?.deviceId || teams[idx].deviceId !== req.body.deviceId) {
+router.put('/:id', wrap(async (req, res) => {
+  const existing = await store.teams.get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Team not found' });
+  if (!req.body?.deviceId || existing.deviceId !== req.body.deviceId) {
     return res.status(403).json({ error: 'Only the person who created this team can edit it' });
   }
   const { team, error } = parseTeam(req.body);
   if (error) return res.status(400).json({ error });
-  if (teams.some((t, i) => i !== idx && t.name.toLowerCase() === team.name.toLowerCase())) {
+  if (nameTaken(await store.teams.list(), team.name, existing.id)) {
     return res.status(409).json({ error: `A team named "${team.name}" already exists` });
   }
-  teams[idx] = { ...teams[idx], ...team, updatedAt: Date.now() };
-  save();
-  res.json(publicTeam(teams[idx], teams[idx].deviceId));
-});
+  const updated = { ...existing, ...team, updatedAt: Date.now() };
+  await store.teams.save(updated);
+  res.json(publicTeam(updated, updated.deviceId));
+}));
 
 // DELETE /shared-teams/:id?deviceId=  -> creator only
-router.delete('/:id', (req, res) => {
-  const idx = teams.findIndex(t => t.id === req.params.id);
-  if (idx < 0) return res.status(404).json({ error: 'Team not found' });
-  if (!req.query.deviceId || teams[idx].deviceId !== req.query.deviceId) {
+router.delete('/:id', wrap(async (req, res) => {
+  const existing = await store.teams.get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Team not found' });
+  if (!req.query.deviceId || existing.deviceId !== req.query.deviceId) {
     return res.status(403).json({ error: 'Only the person who created this team can delete it' });
   }
-  teams.splice(idx, 1);
-  save();
+  await store.teams.remove(existing.id);
   res.json({ success: true });
-});
+}));
 
 module.exports = router;

@@ -1,6 +1,82 @@
-Started Fri Oct  2 05:18:26 IST 2026
+Started Fri Oct  2 05:35:57 IST 2026
 Server: Ubuntu 26.04.1 LTS
 
 [1;32m▶ Checking the server before changing anything[0m
 
-[1;32m▶ Installing packages (nginx, certbot, Node.js if needed)[0m
+[1;32m▶ Installing packages (only what is missing)[0m
+nginx and certbot already installed
+node v22.23.3, npm 12.2.0, nginx version: nginx/1.28.3 (Ubuntu)
+
+[1;32m▶ MySQL database (only reachable from this server)[0m
+MySQL already installed
+Database 'cricscore' ready
+
+[1;32m▶ Installing the CricScore server into /opt/cricscore[0m
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+
+added 17 packages in 1s
+
+[1;32m▶ Running it as a service (restarts automatically, starts on boot)[0m
+
+[1;32m▶ Nginx site for score.glamofashion.com (other sites are left untouched)[0m
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+Synchronizing state of nginx.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
+Executing: /usr/lib/systemd/systemd-sysv-install enable nginx
+
+[1;32m▶ HTTPS certificate (Let's Encrypt)[0m
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+Certificate not yet due for renewal
+Deploying certificate
+Successfully deployed certificate for score.glamofashion.com to /etc/nginx/sites-enabled/cricscore
+Congratulations! You have successfully enabled HTTPS on https://score.glamofashion.com
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+If you like Certbot, please consider supporting our work by:
+ * Donating to ISRG / Let's Encrypt:   https://letsencrypt.org/donate
+ * Donating to EFF:                    https://eff.org/donate-le
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[1;32m▶ phpMyAdmin at https://db.glamofashion.com[0m
+Synchronizing state of php8.5-fpm.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
+Executing: /usr/lib/systemd/systemd-sysv-install enable php8.5-fpm
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+Certificate not yet due for renewal
+Deploying certificate
+Successfully deployed certificate for db.glamofashion.com to /etc/nginx/sites-enabled/cricscore-db
+Congratulations! You have successfully enabled HTTPS on https://db.glamofashion.com
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+If you like Certbot, please consider supporting our work by:
+ * Donating to ISRG / Let's Encrypt:   https://letsencrypt.org/donate
+ * Donating to EFF:                    https://eff.org/donate-le
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+phpMyAdmin (401 = asks for login, as expected): 401
+
+[1;32m▶ Checking https://score.glamofashion.com[0m
+{"status":"ok","db":false}
+Teams API OK (storage: MySQL)
+Live streaming OK (https://score.glamofashion.com/watch/<code>)
+
+[1;32m✅ CricScore is live at https://score.glamofashion.com[0m
+   API:      https://score.glamofashion.com/api
+   Overlay:  https://score.glamofashion.com/overlay/<MATCH CODE>
+   Stream:   https://score.glamofashion.com/watch/<MATCH CODE>
+   Logs:     journalctl -u cricscore -f
+   Database: https://db.glamofashion.com (logins are in deploy/.credentials on your Mac)
+Finished Fri Oct  2 05:36:26 IST 2026 (exit 0)

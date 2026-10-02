@@ -36,6 +36,16 @@ const colorIdx = (name = '') => {
   return h % PALETTE.length;
 };
 
+// [main, dark] colour of a team, as used on the scoreboard
+export const teamColor = (name = '') => PALETTE[colorIdx(name)];
+// Colours for two teams side by side: the second moves to the next colour if they'd clash
+export const matchColors = (a = '', b = ''): [[string, string], [string, string]] => {
+  const ia = colorIdx(a);
+  let ib = colorIdx(b);
+  if (ib === ia) ib = (ib + 1) % PALETTE.length;
+  return [PALETTE[ia], PALETTE[ib]];
+};
+
 export const abbr = (name = '') => {
   const w = name.trim().split(/\s+/).filter(Boolean);
   if (!w.length) return '—';

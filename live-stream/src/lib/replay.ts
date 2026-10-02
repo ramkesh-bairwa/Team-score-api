@@ -1,17 +1,21 @@
+import { loadClips, pruneClips, saveClip } from './clip-store';
 import type { ReplaySource } from './compositor';
 
-// Keeps the last minute or so of camera video in memory so the streamer can put a replay on air.
+// Keeps the last few minutes of camera video so the streamer can put a replay on air.
 // The buffer is a ring of short clips, each from its own MediaRecorder run: a WebM fragment cut
 // from the middle of one long recording has no header and can't be played on its own.
+// Clips are also saved to IndexedDB, so refreshing the studio page keeps the buffer.
 // Only the clean camera picture is buffered; the compositor draws the live scoreboard over the
 // replay, so the score stays current while the replay runs.
 
 const CLIP_MS = 8_000;
-const KEEP_MS = 75_000;
+export const MAX_REPLAY_S = 180;
+const KEEP_MS = (MAX_REPLAY_S + 20) * 1000;
 const TYPES = ['video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
 
-interface Clip {
+export interface Clip {
   url: string;
+  blob: Blob;
   start: number;
   end: number;
 }
@@ -27,18 +31,28 @@ export class ReplayBuffer {
   private flushed: Promise<void> = Promise.resolve();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
-  private inUse = new Set<string>();
+  private inUse = new Map<string, number>();
+
+  constructor(private roomId: string) {}
 
   // Seconds of video that a replay could show right now
   get available(): number {
     const first = this.clips[0]?.start ?? (this.recorder ? this.recorderStart : 0);
-    return first ? Math.floor((Date.now() - first) / 1000) : 0;
+    return first ? Math.min(MAX_REPLAY_S, Math.floor((Date.now() - first) / 1000)) : 0;
   }
 
-  start(stream: MediaStream) {
+  async start(stream: MediaStream) {
     this.stream = stream;
     this.running = true;
     this.cut();
+    // Bring back what was filmed before a page refresh
+    const saved = await loadClips(this.roomId, Date.now() - KEEP_MS);
+    const have = new Set(this.clips.map((c) => c.start));
+    const restored = saved
+      .filter((c) => !have.has(c.start))
+      .map((c) => ({ url: URL.createObjectURL(c.blob), blob: c.blob, start: c.start, end: c.end }));
+    this.clips = [...restored, ...this.clips].sort((a, b) => a.start - b.start);
+    void pruneClips(Date.now() - KEEP_MS);
   }
 
   // The camera track changed (flip): keep the clips, record the new track from now on
@@ -51,15 +65,20 @@ export class ReplayBuffer {
     this.running = false;
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
-    if (this.recorder?.state !== 'inactive') this.recorder?.stop();
+    const rec = this.recorder;
     this.recorder = null;
-    this.clips.forEach((c) => this.inUse.has(c.url) || URL.revokeObjectURL(c.url));
-    this.clips = [];
+    // Save the clip in progress too, so a refresh right after pausing keeps it
+    if (rec && rec.state !== 'inactive') this.finish(rec, this.recorderStart);
+    void this.flushed.then(() => {
+      this.clips.forEach((c) => this.inUse.has(c.url) || URL.revokeObjectURL(c.url));
+      this.clips = [];
+    });
   }
 
-  // Clips covering at least the last `seconds`, including what was filmed a moment ago
+  // Clips covering at least the last `seconds`, including what was filmed a moment ago.
+  // Call release() when done with them.
   async take(seconds: number): Promise<Clip[]> {
-    this.cut();
+    if (this.running) this.cut();
     await this.flushed;
     const from = Date.now() - seconds * 1000;
     const out: Clip[] = [];
@@ -67,14 +86,18 @@ export class ReplayBuffer {
       out.unshift(this.clips[i]);
       if (this.clips[i].start <= from) break;
     }
-    out.forEach((c) => this.inUse.add(c.url));
+    out.forEach((c) => this.inUse.set(c.url, (this.inUse.get(c.url) ?? 0) + 1));
     return out;
   }
 
   release(clips: Clip[]) {
     for (const c of clips) {
-      this.inUse.delete(c.url);
-      if (!this.clips.includes(c)) URL.revokeObjectURL(c.url);
+      const n = (this.inUse.get(c.url) ?? 1) - 1;
+      if (n > 0) this.inUse.set(c.url, n);
+      else {
+        this.inUse.delete(c.url);
+        if (!this.clips.includes(c)) URL.revokeObjectURL(c.url);
+      }
     }
   }
 
@@ -88,7 +111,7 @@ export class ReplayBuffer {
     if (this.running && this.stream?.getVideoTracks().some((t) => t.readyState === 'live')) {
       const mimeType = TYPES.find((t) => MediaRecorder.isTypeSupported(t));
       try {
-        const rec = new MediaRecorder(this.stream, { mimeType, videoBitsPerSecond: 1_500_000 });
+        const rec = new MediaRecorder(this.stream, { mimeType, videoBitsPerSecond: 1_000_000 });
         rec.start();
         this.recorder = rec;
         this.recorderStart = Date.now();
@@ -97,21 +120,26 @@ export class ReplayBuffer {
       }
       this.timer = setTimeout(() => this.cut(), CLIP_MS);
     }
-    if (prev && prev.state !== 'inactive') {
-      const parts: Blob[] = [];
-      this.flushed = new Promise<void>((resolve) => {
-        prev.ondataavailable = (e) => e.data.size && parts.push(e.data);
-        prev.onstop = () => {
-          if (parts.length) {
-            const blob = new Blob(parts, { type: prev.mimeType || 'video/webm' });
-            this.clips.push({ url: URL.createObjectURL(blob), start: prevStart, end: Date.now() });
-            this.prune();
-          }
-          resolve();
-        };
-        prev.stop();
-      });
-    }
+    if (prev && prev.state !== 'inactive') this.finish(prev, prevStart);
+  }
+
+  private finish(rec: MediaRecorder, start: number) {
+    const parts: Blob[] = [];
+    const done = new Promise<void>((resolve) => {
+      rec.ondataavailable = (e) => e.data.size && parts.push(e.data);
+      rec.onstop = () => {
+        if (parts.length) {
+          const blob = new Blob(parts, { type: rec.mimeType || 'video/webm' });
+          const clip = { url: URL.createObjectURL(blob), blob, start, end: Date.now() };
+          this.clips.push(clip);
+          void saveClip({ roomId: this.roomId, start: clip.start, end: clip.end, blob });
+          this.prune();
+        }
+        resolve();
+      };
+      rec.stop();
+    });
+    this.flushed = Promise.all([this.flushed, done]).then(() => {});
   }
 
   private prune() {
@@ -120,11 +148,17 @@ export class ReplayBuffer {
       const c = this.clips.shift()!;
       if (!this.inUse.has(c.url)) URL.revokeObjectURL(c.url);
     }
+    void pruneClips(cutoff);
   }
 }
 
-// Plays buffered clips back to back. Two <video> elements take turns so the next clip is
-// already loaded when the current one ends.
+export interface ReplayItem {
+  url: string;
+  ms: number; // expected length, for the progress bar
+}
+
+// Plays videos back to back (buffered clips, or a ball clip from the server). Two <video>
+// elements take turns so the next one is already loaded when the current one ends.
 export class ReplayPlayer implements ReplaySource {
   private videos: HTMLVideoElement[];
   private index = 0;
@@ -134,11 +168,11 @@ export class ReplayPlayer implements ReplaySource {
   private finished = false;
 
   constructor(
-    private clips: Clip[],
+    private items: ReplayItem[],
     readonly rate: number,
     private onEnd: () => void,
   ) {
-    this.totalMs = clips.reduce((n, c) => n + (c.end - c.start), 0) || 1;
+    this.totalMs = items.reduce((n, c) => n + c.ms, 0) || 1;
     this.videos = [this.makeVideo(), this.makeVideo()];
     this.load(0, 0);
     this.load(1, 1);
@@ -180,10 +214,10 @@ export class ReplayPlayer implements ReplaySource {
     return v;
   }
 
-  private load(slot: number, clip: number) {
+  private load(slot: number, item: number) {
     const v = this.videos[slot];
-    if (clip >= this.clips.length) return v.removeAttribute('src');
-    v.src = this.clips[clip].url;
+    if (item >= this.items.length) return v.removeAttribute('src');
+    v.src = this.items[item].url;
     v.load();
   }
 
@@ -193,14 +227,13 @@ export class ReplayPlayer implements ReplaySource {
     v.play().catch(() => this.next(v));
   }
 
-  // Only the clip on air advances the replay; an error while preloading the other one is
+  // Only the video on air advances the replay; an error while preloading the other one is
   // handled when it gets its turn
   private next(from: HTMLVideoElement) {
     if (this.finished || from !== this.videos[this.active]) return;
-    const c = this.clips[this.index];
-    if (c) this.doneMs += c.end - c.start;
+    this.doneMs += this.items[this.index]?.ms ?? 0;
     this.index++;
-    if (this.index >= this.clips.length) return this.stop();
+    if (this.index >= this.items.length) return this.stop();
     const prevSlot = this.active;
     this.active = 1 - this.active;
     this.play();

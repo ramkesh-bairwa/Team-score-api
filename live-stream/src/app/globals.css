@@ -7,3 +7,18 @@
 body {
   @apply bg-zinc-950 text-zinc-100 antialiased;
 }
+
+/* Match result celebration */
+@keyframes confetti-fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(520px) rotate(540deg); opacity: 0; }
+}
+@keyframes trophy-glow {
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(255, 197, 49, 0.5)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 28px rgba(255, 197, 49, 0.9)); transform: scale(1.06); }
+}
+@keyframes result-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}

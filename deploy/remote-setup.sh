@@ -32,31 +32,48 @@ if ss -ltnp 2>/dev/null | grep -E ':80 ' | grep -qv nginx; then
   fail "Port 80 is used by something other than Nginx (e.g. Apache). Not changing it automatically."
 fi
 
-say "Installing packages (nginx, certbot, Node.js if needed)"
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq curl ca-certificates nginx certbot python3-certbot-nginx >/dev/null
+# Ubuntu's automatic updates can hold the package lock for minutes after boot: wait visibly, not silently
+APT="apt-get -o DPkg::Lock::Timeout=600"
+apt_wait_note() {
+  if fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1; then
+    echo "⏳ Ubuntu is installing its own updates; waiting for them to finish (up to 10 min)…"
+  fi
+}
+APT_UPDATED=0
+apt_install() {
+  apt_wait_note
+  if [ "$APT_UPDATED" = 0 ]; then $APT update -qq; APT_UPDATED=1; fi
+  $APT install -y -qq "$@" >/dev/null
+}
+
+say "Installing packages (only what is missing)"
+if command -v nginx >/dev/null && command -v certbot >/dev/null && [ -d /usr/lib/python3/dist-packages/certbot_nginx ]; then
+  echo "nginx and certbot already installed"
+else
+  apt_install curl ca-certificates nginx certbot python3-certbot-nginx
+fi
 node_major() { node -v 2>/dev/null | sed 's/v\([0-9]*\).*/\1/' || echo 0; }
 if [ "$(node_major)" -lt 20 ] 2>/dev/null || ! command -v node >/dev/null; then
   # NodeSource first; on brand-new Ubuntu releases it may not be supported yet, so fall back to Ubuntu's own packages
   if curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup.sh && bash /tmp/nodesource_setup.sh >/dev/null 2>&1 \
-     && apt-get install -y -qq nodejs >/dev/null 2>&1; then
+     && $APT install -y -qq nodejs >/dev/null 2>&1; then
     echo "Node.js from NodeSource"
   else
     echo "NodeSource not available for this Ubuntu, using Ubuntu's Node.js"
     rm -f /etc/apt/sources.list.d/nodesource*.list /etc/apt/sources.list.d/nodesource*.sources
-    apt-get update -qq
-    apt-get install -y -qq nodejs npm >/dev/null
+    APT_UPDATED=0
+    apt_install nodejs npm
   fi
 fi
-command -v npm >/dev/null || apt-get install -y -qq npm >/dev/null
+command -v npm >/dev/null || apt_install npm
 [ "$(node_major)" -ge 18 ] || fail "Node.js 18+ is required, found $(node -v)"
 echo "node $(node -v), npm $(npm -v), $(nginx -v 2>&1)"
 
 if [ -n "$DB_DOMAIN" ]; then
   [ -n "$APP_DB_PASS" ] && [ -n "$PMA_DB_PASS" ] && [ -n "$WEB_PASS" ] || fail "Database passwords missing"
   say "MySQL database (only reachable from this server)"
-  apt-get install -y -qq --no-install-recommends mysql-server >/dev/null
+  command -v mysqld >/dev/null && echo "MySQL already installed" || apt_install --no-install-recommends mysql-server
   systemctl enable --now mysql >/dev/null
   mysql <<SQL
 CREATE DATABASE IF NOT EXISTS cricscore CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -167,7 +184,11 @@ certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-w
 
 if [ -n "$DB_DOMAIN" ]; then
   say "phpMyAdmin at https://$DB_DOMAIN"
-  apt-get install -y -qq --no-install-recommends php-fpm php-mysql php-mbstring php-xml php-zip php-gd php-curl php-intl php-bcmath unzip >/dev/null
+  if ls /run/php/php*-fpm.sock >/dev/null 2>&1 && php -m 2>/dev/null | grep -qi mysqli; then
+    echo "PHP already installed"
+  else
+    apt_install --no-install-recommends php-fpm php-mysql php-mbstring php-xml php-zip php-gd php-curl php-intl php-bcmath unzip
+  fi
   PHP_FPM=$(systemctl list-unit-files | grep -o 'php[0-9.]*-fpm' | head -1)
   systemctl enable --now "$PHP_FPM" >/dev/null
   PHP_SOCK=$(ls /run/php/php*-fpm.sock | head -1)

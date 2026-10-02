@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createHostToken } from '@/lib/auth';
 import { jsonError } from '@/lib/http';
 import { getIntegrationUser, isIntegrationRequest } from '@/lib/integration';
+import { getMatchResult } from '@/lib/match-result';
 import { createRoom, findOpenRoomByExternalRef, getRoom } from '@/lib/rooms';
 import { firstIssue } from '@/lib/validation';
 
@@ -22,6 +23,8 @@ export async function POST(req: Request) {
   try {
     const owner = await getIntegrationUser();
     const ref = `cricscore:${matchCode}`;
+    // A finished match is closed for good
+    if (await getMatchResult(ref)) return jsonError('This match is over', 409);
     let room = await findOpenRoomByExternalRef(ref);
     if (!room) room = await getRoom(await createRoom(owner.id, title, `Live cricket from CricScore · Match ${matchCode}`, ref));
     const hostToken = await createHostToken({ userId: owner.id, name: owner.name, role: 'USER', scope: room!.room_id });

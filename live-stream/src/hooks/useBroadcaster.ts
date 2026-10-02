@@ -5,26 +5,45 @@ import { Compositor } from '@/lib/compositor';
 import { countCameras, describeMediaError, getCameraStream, getVideoOnly, stopStream, type Facing } from '@/lib/media';
 import { withBase } from '@/lib/paths';
 import { ChunkedRecorder, isRecordingSupported, type RecorderStatus } from '@/lib/recorder';
-import { ReplayBuffer, ReplayPlayer, isReplaySupported } from '@/lib/replay';
+import { ReplayBuffer, ReplayPlayer, isReplaySupported, type ReplayItem } from '@/lib/replay';
 import { createSocket, type ClientSocket } from '@/lib/socket-client';
-import type { LiveScore } from '@/types/score';
+import type { LiveScore, ScoreBall } from '@/types/score';
 import type { IceCandidatePayload, RoomStatus } from '@/types/socket';
 import { useIceServers } from './useIceServers';
 
 export type BroadcastPhase = 'preview' | 'live' | 'ended';
 export type SocketStatus = 'connecting' | 'connected' | 'disconnected';
 
-// After the final result comes in, the stream stays up this long (result card on air), then ends
-const AUTO_END_MS = 90_000;
+// After the final result comes in, the result card stays on air this long, then the stream closes for good
+const AUTO_END_MS = 15_000;
+// Each ball's replay clip: the last BALL_CLIP_S seconds of camera video, taken a moment after the
+// scorer records the ball (the scorer taps a few seconds after the ball is played)
+const BALL_CLIP_S = 20;
+const BALL_DELAY_MS = 2_500;
+
+const describeBall = (b: ScoreBall): { kind: string; label: string } => {
+  if (b.wicket) return { kind: 'W', label: 'WICKET' };
+  const extra: Record<string, string> = { wd: 'Wide', nb: 'No ball', lb: 'Leg bye', b: 'Bye', db: 'Dead ball' };
+  if (b.extra) return { kind: 'X', label: `${extra[b.extra] ?? 'Extra'}${b.runs > 1 ? ` +${b.runs}` : ''}` };
+  if (b.runs === 6) return { kind: '6', label: 'SIX' };
+  if (b.runs === 4) return { kind: '4', label: 'FOUR' };
+  return { kind: String(b.runs), label: b.runs ? `${b.runs} run${b.runs === 1 ? '' : 's'}` : 'Dot ball' };
+};
+
+// "16.4" for the ball just bowled; the 6th ball shows as x.6 rather than the next over's .0
+const ballOverLabel = (s: LiveScore) =>
+  (s.ball ?? 0) === 0 && (s.over ?? 0) > 0 ? `${(s.over ?? 0) - 1}.6` : `${s.over ?? 0}.${s.ball ?? 0}`;
 
 interface Options {
   // Rooms linked to a CricScore match draw the live scoreboard onto the video
   scoreOverlay: boolean;
+  // Names the recording kept on the device if it can't be uploaded during the match
+  title: string;
 }
 
 // Media pipeline: camera + mic → canvas compositor (adds scoreboard) → outgoing stream.
 // The outgoing stream (canvas video + mic audio) feeds every peer connection and the recorder.
-export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scoreOverlay }: Options) {
+export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scoreOverlay, title }: Options) {
   const iceServers = useIceServers();
   const socketRef = useRef<ClientSocket | null>(null);
   const cameraRef = useRef<MediaStream | null>(null);
@@ -63,7 +82,8 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   const [replaying, setReplaying] = useState<{ rate: number } | null>(null);
   const [matchOver, setMatchOver] = useState(false);
   const [autoEndAt, setAutoEndAt] = useState<number | null>(null);
-  const autoEndCancelledRef = useRef(false);
+  const lastBallRef = useRef<{ innings: number; deliveries: number } | null>(null);
+  const inningsPostedRef = useRef(new Set<number>());
 
   const refreshPeerCount = useCallback(() => {
     let n = 0;
@@ -171,6 +191,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
         compositorRef.current?.setScore(data.score);
         setScore(data.score);
         setMatchOver(data.score?.phase === 'innings_end' && data.score.inningsNum === 2);
+        onScoreRef.current(data.score);
       } catch {
         // keep the last score on screen
       }
@@ -183,6 +204,9 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     };
   }, [roomId, scoreOverlay, initialStatus]);
 
+  // Latest score handler, kept in a ref so the polling effect doesn't restart when it changes
+  const onScoreRef = useRef<(s: LiveScore | null) => void>(() => {});
+
   const stopRecorder = useCallback(async () => {
     const rec = recorderRef.current;
     recorderRef.current = null;
@@ -193,24 +217,32 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   const startRecorder = useCallback(async () => {
     if (!recordEnabledRef.current || !streamRef.current || !isRecordingSupported()) return;
     if (recorderRef.current?.active) return recorderRef.current.resume();
-    const rec = new ChunkedRecorder(roomId, streamRef.current, setRecorderStatus);
+    const rec = new ChunkedRecorder(roomId, title, streamRef.current, setRecorderStatus);
     recorderRef.current = rec;
     try {
       await rec.start();
     } catch (err) {
       recorderRef.current = null;
-      setRecorderStatus({ recording: false, paused: false, uploadedBytes: 0, pendingChunks: 0, error: (err as Error).message });
+      setRecorderStatus({
+        recording: false,
+        paused: false,
+        online: navigator.onLine,
+        savedBytes: 0,
+        uploadedBytes: 0,
+        pendingChunks: 0,
+        error: (err as Error).message,
+      });
     }
-  }, [roomId]);
+  }, [roomId, title]);
 
   // The replay buffer runs only while live: a second encoder costs battery on a phone
   const startReplayBuffer = useCallback(() => {
     const camera = cameraRef.current;
     if (!camera || !isReplaySupported() || replayBufRef.current) return;
-    const buf = new ReplayBuffer();
-    buf.start(new MediaStream(camera.getVideoTracks()));
+    const buf = new ReplayBuffer(roomId);
+    void buf.start(new MediaStream(camera.getVideoTracks()));
     replayBufRef.current = buf;
-  }, []);
+  }, [roomId]);
 
   const stopReplayBuffer = useCallback(() => {
     replayPlayerRef.current?.stop();
@@ -232,7 +264,8 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     if (!buf || !compositor || replayPlayerRef.current) return;
     const clips = await buf.take(seconds);
     if (!clips.length) return setError('Nothing to replay yet. Give it a few seconds.');
-    const player = new ReplayPlayer(clips, rate, () => {
+    const items = clips.map((c) => ({ url: c.url, ms: c.end - c.start }));
+    const player = new ReplayPlayer(items, rate, () => {
       compositor.setReplay(null);
       buf.release(clips);
       replayPlayerRef.current = null;
@@ -244,6 +277,79 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   }, []);
 
   const stopReplay = useCallback(() => replayPlayerRef.current?.stop(), []);
+
+  // A ball replay from the server (any ball of the match, also after a page refresh)
+  const playClip = useCallback((url: string) => {
+    const compositor = compositorRef.current;
+    if (!compositor || replayPlayerRef.current) return;
+    const items: ReplayItem[] = [{ url, ms: BALL_CLIP_S * 1000 }];
+    const player = new ReplayPlayer(items, 1, () => {
+      compositor.setReplay(null);
+      replayPlayerRef.current = null;
+      setReplaying(null);
+    });
+    replayPlayerRef.current = player;
+    compositor.setReplay(player);
+    setReplaying({ rate: 1 });
+  }, []);
+
+  // Uploads the replay clip of the ball that was just scored
+  const captureBall = useCallback(
+    async (s: LiveScore) => {
+      const buf = replayBufRef.current;
+      if (!buf || !s.lastBall || !s.deliveries) return;
+      const clips = await buf.take(BALL_CLIP_S + 2);
+      try {
+        if (!clips.length) return;
+        const totalS = (clips[clips.length - 1].end - clips[0].start) / 1000;
+        const form = new FormData();
+        form.append(
+          'meta',
+          JSON.stringify({
+            innings: s.inningsNum ?? 1,
+            delivery: s.deliveries,
+            over: ballOverLabel(s),
+            ...describeBall(s.lastBall),
+            caption: (s.lastCommentary ?? '').slice(0, 300),
+            trimStart: Math.max(0, totalS - BALL_CLIP_S),
+          }),
+        );
+        clips.forEach((c, i) => form.append('clip', c.blob, `piece-${i}.${c.blob.type.includes('mp4') ? 'mp4' : 'webm'}`));
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const res = await fetch(withBase(`/api/rooms/${roomId}/balls`), { method: 'POST', body: form }).catch(() => null);
+          if (res && (res.ok || (res.status >= 400 && res.status < 500))) break;
+          await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+        }
+      } finally {
+        buf.release(clips);
+      }
+    },
+    [roomId],
+  );
+
+  onScoreRef.current = (s) => {
+    if (!s || !scoreOverlay) return;
+    const innings = s.inningsNum ?? 1;
+    if (s.phase === 'innings_end') {
+      if (!inningsPostedRef.current.has(innings)) {
+        inningsPostedRef.current.add(innings);
+        const title = `${s.battingTeam ?? 'Innings'} innings · ${s.runs ?? 0}/${s.wickets ?? 0} (${s.over ?? 0}.${s.ball ?? 0} ov)`;
+        void fetch(withBase(`/api/rooms/${roomId}/innings`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ innings, title }),
+        }).catch(() => inningsPostedRef.current.delete(innings));
+      }
+      return;
+    }
+    if (s.phase !== 'scoring' || s.deliveries == null) return;
+    const prev = lastBallRef.current;
+    lastBallRef.current = { innings, deliveries: s.deliveries };
+    // Only balls scored while this page is open (not the state found on load, not undos)
+    if (prev && prev.innings === innings && s.deliveries > prev.deliveries && liveRef.current) {
+      setTimeout(() => void captureBall(s), BALL_DELAY_MS);
+    }
+  };
 
   // Signaling
   useEffect(() => {
@@ -378,10 +484,9 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   }, [closeAllPeers, stopRecorder, stopReplayBuffer]);
 
   // Match over: count down, then end the stream (which finishes the recording and builds the
-  // full-match video on the server). The streamer can cancel and keep going.
+  // full-match video on the server). A finished match can't be reopened.
   useEffect(() => {
-    if (!matchOver) autoEndCancelledRef.current = false;
-    setAutoEndAt(matchOver && phase === 'live' && !autoEndCancelledRef.current ? Date.now() + AUTO_END_MS : null);
+    setAutoEndAt(matchOver && phase === 'live' ? Date.now() + AUTO_END_MS : null);
   }, [matchOver, phase]);
 
   useEffect(() => {
@@ -390,10 +495,6 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     return () => clearTimeout(t);
   }, [autoEndAt, endStream]);
 
-  const cancelAutoEnd = useCallback(() => {
-    autoEndCancelledRef.current = true;
-    setAutoEndAt(null);
-  }, []);
 
   // Disabling a track sends silence/black frames without renegotiating
   const toggleMic = useCallback(() => {
@@ -467,8 +568,8 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     replaying,
     startReplay,
     stopReplay,
+    playClip,
     matchOver,
     autoEndAt,
-    cancelAutoEnd,
   };
 }

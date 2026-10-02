@@ -3,6 +3,8 @@ import { parseCookie } from 'cookie';
 import { SESSION_COOKIE, canControlRoom, verifySessionToken } from '../lib/auth';
 import { markRoomRecordingsReady, failInterruptedUploads } from '../lib/recordings';
 import { buildMatchVideo, resumeMatchVideos } from '../lib/match-video';
+import { resumeHighlights } from '../lib/highlights';
+import { captureMatchResult } from '../lib/match-result';
 import { iceSignalSchema, joinRoomSchema, sdpSignalSchema } from '../lib/validation';
 import * as rooms from '../lib/rooms';
 import type {
@@ -43,6 +45,7 @@ export function registerSocketHandlers(io: IO): void {
   rooms.closeDanglingViewerSessions().catch((err) => console.error('[socket] closing stale sessions failed', err));
   failInterruptedUploads()
     .then(resumeMatchVideos)
+    .then(resumeHighlights)
     .catch((err) => console.error('[socket] resetting interrupted uploads failed', err));
 
   // Identify logged-in users from the HTTP-only session cookie; anonymous viewers are allowed
@@ -90,6 +93,7 @@ export function registerSocketHandlers(io: IO): void {
       await markRoomRecordingsReady(room.dbId);
     }
     buildMatchVideo(roomId);
+    rooms.getRoom(roomId).then((r) => captureMatchResult(r?.external_ref ?? null)).catch(() => {});
     io.to(channel(roomId)).emit('stream-ended');
     for (const id of io.sockets.adapter.rooms.get(channel(roomId)) ?? []) {
       const s = io.sockets.sockets.get(id);

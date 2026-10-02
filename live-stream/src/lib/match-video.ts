@@ -39,6 +39,29 @@ export function buildMatchVideo(roomId: string) {
   queue = queue.then(() => build(roomId)).catch((err) => console.error('[match-video] failed', roomId, err));
 }
 
+// A part arrived after the full video was built (a phone that had no internet during the match).
+// Drop the old full video and build it again, unless it is already on its way to YouTube.
+export function rebuildMatchVideo(roomId: string) {
+  queue = queue
+    .then(async () => {
+      const room = await getRoom(roomId);
+      if (!room?.external_ref) return;
+      const parts = await listRecordings(room.id);
+      // Another part is still coming in; its own /finish will trigger the rebuild
+      if (parts.some((p) => p.segment !== FULL_SEGMENT && p.status === 'RECORDING')) return;
+      const full = parts.find((p) => p.segment === FULL_SEGMENT);
+      if (full) {
+        if (full.status === 'UPLOADING' || full.status === 'UPLOADED') return;
+        try {
+          unlinkSync(recordingPath(full));
+        } catch {}
+        await execute('DELETE FROM recordings WHERE id = ?', [full.id]);
+      }
+      await build(roomId);
+    })
+    .catch((err) => console.error('[match-video] rebuild failed', roomId, err));
+}
+
 async function build(roomId: string) {
   const room = await getRoom(roomId);
   if (!room?.external_ref || running.has(room.id)) return;

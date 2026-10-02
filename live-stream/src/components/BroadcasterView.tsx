@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useBroadcaster } from '@/hooks/useBroadcaster';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import type { RoomStatus } from '@/types/socket';
+import { BallList, useHighlights } from './Highlights';
+import LocalRecordingsPanel from './LocalRecordingsPanel';
+import MatchResultCard, { useMatchResult } from './MatchResult';
 import RecordingsPanel from './RecordingsPanel';
 import ShareLink from './ShareLink';
 import VideoSurface from './VideoSurface';
@@ -21,18 +24,28 @@ interface Props {
 const formatMB = (n: number) => `${(n / 1e6).toFixed(1)} MB`;
 
 export default function BroadcasterView({ roomId, title, description, initialStatus, hasScoreOverlay }: Props) {
-  const b = useBroadcaster(roomId, initialStatus, { scoreOverlay: hasScoreOverlay });
+  const b = useBroadcaster(roomId, initialStatus, { scoreOverlay: hasScoreOverlay, title });
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { isFullscreen, toggle } = useFullscreen(containerRef, videoRef);
+  // Bumped when a recording saved on the device finishes uploading, to reload the server list
+  const [recordingsKey, setRecordingsKey] = useState(0);
+  const result = useMatchResult(roomId, hasScoreOverlay && b.phase === 'ended');
 
   if (b.phase === 'ended') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold">Stream ended</h1>
-        <p className="mt-2 text-zinc-400">“{title}” is over. Viewers have been notified.</p>
-        <div className="mt-8">
-          <RecordingsPanel roomId={roomId} title={title} />
+      <div className={`mx-auto px-4 text-center ${result ? 'max-w-3xl py-10' : 'max-w-lg py-16'}`}>
+        {result ? (
+          <MatchResultCard result={result} />
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold">Stream ended</h1>
+            <p className="mt-2 text-zinc-400">“{title}” is over. Viewers have been notified.</p>
+          </>
+        )}
+        <div className="mt-8 space-y-8">
+          <LocalRecordingsPanel roomId={roomId} onUploaded={() => setRecordingsKey((k) => k + 1)} />
+          <RecordingsPanel key={recordingsKey} roomId={roomId} title={title} />
         </div>
         <div className="mt-8 flex justify-center gap-3">
           <Link href="/dashboard" className="rounded-lg bg-white/10 px-4 py-2 font-semibold hover:bg-white/20">
@@ -91,48 +104,9 @@ export default function BroadcasterView({ roomId, title, description, initialSta
           </button>
         </div>
 
-        {b.autoEndAt && <AutoEndBanner at={b.autoEndAt} onEndNow={b.endStream} onCancel={b.cancelAutoEnd} />}
+        {b.autoEndAt && <AutoEndBanner at={b.autoEndAt} onEndNow={b.endStream} />}
 
-        {live && hasScoreOverlay && b.replaySupported && (
-          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-zinc-900 p-3">
-            <span className="mr-1 text-sm font-semibold text-zinc-300">Replay</span>
-            {b.replaying ? (
-              <button
-                onClick={b.stopReplay}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold hover:bg-red-500"
-              >
-                ■ Back to live
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={() => b.startReplay(60)}
-                  disabled={b.replayAvailable < 3}
-                  className="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
-                >
-                  ⏪ Last 1 min
-                </button>
-                <button
-                  onClick={() => b.startReplay(15)}
-                  disabled={b.replayAvailable < 3}
-                  className="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
-                >
-                  Last 15 s
-                </button>
-                <button
-                  onClick={() => b.startReplay(10, 0.5)}
-                  disabled={b.replayAvailable < 3}
-                  className="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
-                >
-                  🐢 Slow-mo
-                </button>
-              </>
-            )}
-            <span className="ml-auto text-xs text-zinc-500">
-              {b.replaying ? 'Viewers see the replay now' : `${Math.min(60, b.replayAvailable)} s buffered`}
-            </span>
-          </div>
-        )}
+        {hasScoreOverlay && <ReplayPanel b={b} live={live} roomId={roomId} />}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <ControlButton active={b.micOn} onClick={b.toggleMic} disabled={!b.localStream} label={b.micOn ? 'Mute' : 'Unmute'}>
@@ -184,7 +158,8 @@ export default function BroadcasterView({ roomId, title, description, initialSta
               onChange={(e) => b.setRecordEnabled(e.target.checked)}
               className="h-4 w-4 accent-red-600"
             />
-            Record this stream (full match video is saved on the server, and on YouTube if connected)
+            Record this stream (saved on this device and uploaded while there’s internet; the full match video goes
+            to the server, and to YouTube if connected)
           </label>
         )}
         {b.recorder?.error && (
@@ -211,12 +186,19 @@ export default function BroadcasterView({ roomId, title, description, initialSta
               </StatusPill>
             )}
           </div>
-          {b.recorder?.recording && (
-            <p className="mt-3 text-xs text-zinc-400">
-              Recording saved to server: {formatMB(b.recorder.uploadedBytes)}
-              {b.recorder.pendingChunks > 0 && ` · ${b.recorder.pendingChunks} piece(s) uploading`}
-            </p>
-          )}
+          {b.recorder?.recording &&
+            (b.recorder.online ? (
+              <p className="mt-3 text-xs text-zinc-400">
+                Recording on server: {formatMB(b.recorder.uploadedBytes)}
+                {b.recorder.pendingChunks > 0 &&
+                  ` · ${formatMB(b.recorder.savedBytes - b.recorder.uploadedBytes)} on this device, uploading`}
+              </p>
+            ) : (
+              <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200 ring-1 ring-amber-500/30">
+                No internet: recording is being saved on this device ({formatMB(b.recorder.savedBytes - b.recorder.uploadedBytes)}{' '}
+                waiting). It uploads when the connection is back, or you can upload it after the match.
+              </p>
+            ))}
         </div>
         <ShareLink roomId={roomId} title={title} />
         <p className="px-1 text-xs leading-relaxed text-zinc-500">
@@ -228,8 +210,64 @@ export default function BroadcasterView({ roomId, title, description, initialSta
   );
 }
 
+const REPLAYS: [string, number, number][] = [
+  ['30 s', 30, 1],
+  ['1 min', 60, 1],
+  ['2 min', 120, 1],
+  ['3 min', 180, 1],
+  ['🐢 Slow-mo 10 s', 10, 0.5],
+];
+
+// Put a replay on air: the last 30 s … 3 min, or any ball of the match. Can be used again and
+// again; the buffer and the ball list survive a page refresh.
+function ReplayPanel({ b, live, roomId }: { b: ReturnType<typeof useBroadcaster>; live: boolean; roomId: string }) {
+  const { data } = useHighlights(roomId);
+  const ready = live && b.replaySupported;
+  return (
+    <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-zinc-900 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-sm font-semibold text-zinc-300">⏪ Replay last</span>
+        {b.replaying ? (
+          <button onClick={b.stopReplay} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold hover:bg-red-500">
+            ■ Back to live
+          </button>
+        ) : (
+          REPLAYS.map(([label, secs, rate]) => (
+            <button
+              key={label}
+              onClick={() => b.startReplay(secs, rate)}
+              disabled={!ready || b.replayAvailable < 3}
+              className="rounded-lg bg-white/10 px-3.5 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-40"
+            >
+              {label}
+            </button>
+          ))
+        )}
+      </div>
+      <p className="text-xs text-zinc-500">
+        {!b.replaySupported
+          ? 'This browser can’t record replays.'
+          : b.replaying
+            ? 'Viewers see the replay now. It returns to live by itself.'
+            : live
+              ? `${b.replayAvailable} s of video saved for replays (up to 3 min).`
+              : 'Go live to put replays on air.'}
+      </p>
+      <div>
+        <p className="mb-2 text-sm font-semibold text-zinc-300">Ball by ball</p>
+        <BallList
+          balls={data?.balls ?? []}
+          action="▶ On air"
+          disabled={!live || !!b.replaying}
+          onPlay={(ball) => ball.url && b.playClip(ball.url)}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Shown once the final result is in: the stream ends by itself so the full-match video gets built
-function AutoEndBanner({ at, onEndNow, onCancel }: { at: number; onEndNow: () => void; onCancel: () => void }) {
+function AutoEndBanner({ at, onEndNow }: { at: number; onEndNow: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500);
@@ -239,13 +277,10 @@ function AutoEndBanner({ at, onEndNow, onCancel }: { at: number; onEndNow: () =>
   return (
     <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-amber-500/10 px-4 py-3 ring-1 ring-amber-500/30">
       <p className="text-sm text-amber-100">
-        <span className="font-bold">Match over.</span> Ending the stream in {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}{' '}
-        and saving the full match video.
+        <span className="font-bold">🏆 Match over.</span> Closing the stream in {left} s. Every link will then show the
+        result and the full match video.
       </p>
       <div className="ml-auto flex gap-2">
-        <button onClick={onCancel} className="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-semibold hover:bg-white/20">
-          Keep streaming
-        </button>
         <button onClick={onEndNow} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold hover:bg-red-500">
           End now
         </button>

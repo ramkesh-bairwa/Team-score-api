@@ -21,16 +21,17 @@ export async function GET(_req: Request, { params }: Ctx) {
   });
 }
 
-const createSchema = z.object({ mimeType: z.string().max(100) });
+// late: a recording kept on the phone because there was no internet, uploaded after the match
+const createSchema = z.object({ mimeType: z.string().max(100), late: z.boolean().optional() });
 
 // Starts a new recording segment
 export async function POST(req: Request, { params }: Ctx) {
   if (!isSameOrigin(req)) return jsonError('Forbidden', 403);
   const access = await requireRoomControl((await params).roomId);
   if ('error' in access) return access.error;
-  if (access.room.status === 'ENDED') return jsonError('This stream has ended', 409);
   const parsed = createSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError('Invalid recording format', 400);
+  if (access.room.status === 'ENDED' && !parsed.data.late) return jsonError('This stream has ended', 409);
   try {
     const rec = await createRecording(access.room.id, access.room.room_id, parsed.data.mimeType);
     return NextResponse.json({ recording: toClientRecording(rec) }, { status: 201 });

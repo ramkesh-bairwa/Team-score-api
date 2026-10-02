@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import LocalRecordingsPanel from '@/components/LocalRecordingsPanel';
 import { RoomStatusBadge } from '@/components/ui';
 import { listRoomsByBroadcaster } from '@/lib/rooms';
 import { getAccountSession } from '@/lib/session';
@@ -23,6 +24,10 @@ export default async function DashboardPage() {
         <Link href="/create-live" className="rounded-lg bg-red-600 px-4 py-2 font-semibold hover:bg-red-500">
           + New live stream
         </Link>
+      </div>
+
+      <div className="mt-8 empty:hidden">
+        <LocalRecordingsPanel />
       </div>
 
       {rooms.length === 0 ? (

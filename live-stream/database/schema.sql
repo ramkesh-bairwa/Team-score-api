@@ -88,3 +88,51 @@ CREATE TABLE IF NOT EXISTS youtube_accounts (
   CONSTRAINT fk_youtube_accounts_user
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- One short replay clip per delivery of a CricScore match, uploaded by the camera device right after
+-- the ball is scored. Re-scoring the same delivery (after an undo) replaces its clip.
+CREATE TABLE IF NOT EXISTS ball_clips (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  live_room_id  INT UNSIGNED NOT NULL,
+  innings       TINYINT UNSIGNED NOT NULL,
+  delivery      SMALLINT UNSIGNED NOT NULL,       -- deliveries bowled in the innings, extras included
+  over_label    VARCHAR(10) NOT NULL,             -- e.g. "16.4"
+  kind          VARCHAR(8) NOT NULL,              -- '0'..'6', '4', '6', 'W', 'X' (extra)
+  label         VARCHAR(40) NOT NULL,             -- "SIX", "WICKET", "1 run", "Wide"…
+  caption       VARCHAR(300) NULL,                -- commentary line
+  file_name     VARCHAR(255) NULL,
+  status        ENUM('PROCESSING', 'READY', 'FAILED') NOT NULL DEFAULT 'PROCESSING',
+  size_bytes    BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_ball_clips_delivery (live_room_id, innings, delivery),
+  CONSTRAINT fk_ball_clips_room
+    FOREIGN KEY (live_room_id) REFERENCES live_rooms (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Full video of one innings, cut from the stream recording when the innings ends
+CREATE TABLE IF NOT EXISTS innings_videos (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  live_room_id  INT UNSIGNED NOT NULL,
+  innings       TINYINT UNSIGNED NOT NULL,
+  title         VARCHAR(200) NOT NULL,
+  file_name     VARCHAR(255) NULL,
+  status        ENUM('PROCESSING', 'READY', 'FAILED') NOT NULL DEFAULT 'PROCESSING',
+  size_bytes    BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  ended_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- when the innings ended (same clock as recordings)
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_innings_videos (live_room_id, innings),
+  CONSTRAINT fk_innings_videos_room
+    FOREIGN KEY (live_room_id) REFERENCES live_rooms (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Final result of a finished CricScore match, kept for good: once a match is over its links show
+-- this result (and no new camera room can be opened for it)
+CREATE TABLE IF NOT EXISTS match_results (
+  external_ref  VARCHAR(64) NOT NULL,
+  result_json   TEXT NOT NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (external_ref)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

@@ -6,6 +6,8 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { useViewer, type ViewerStatus } from '@/hooks/useViewer';
 import type { RoomStatus } from '@/types/socket';
 import { FullscreenIcon } from './BroadcasterView';
+import HighlightsPanel from './Highlights';
+import MatchResultCard, { useMatchResult } from './MatchResult';
 import MatchVideo from './MatchVideo';
 import VideoSurface from './VideoSurface';
 import { LiveBadge, Spinner, StatusPill, ViewerCount } from './ui';
@@ -47,16 +49,26 @@ export default function ViewerView({ roomId, title, description, broadcasterName
   };
 
   const live = v.status === 'live';
+  const result = useMatchResult(roomId, isMatch && v.status === 'ended');
+  // With the result on screen, an empty "nothing was recorded" player is just noise
+  const [videoStatus, setVideoStatus] = useState<string | null>(null);
+  const hideVideo = !!result && videoStatus === 'none';
   const spinning = ['connecting', 'negotiating', 'reconnecting', 'broadcaster-away'].includes(v.status);
 
   return (
     <div className="mx-auto max-w-5xl px-0 py-0 sm:px-4 sm:py-6">
-      <div ref={containerRef} className="relative aspect-video overflow-hidden bg-black sm:rounded-2xl sm:ring-1 sm:ring-white/10">
+      {result && (
+        <div className="mb-0 sm:mb-6">
+          <MatchResultCard result={result} />
+        </div>
+      )}
+      {result && !hideVideo && <h2 className="px-4 pb-2 pt-5 text-base font-bold sm:px-0 sm:pt-0">Full match video</h2>}
+      <div ref={containerRef} className={`relative aspect-video overflow-hidden bg-black sm:rounded-2xl sm:ring-1 sm:ring-white/10${hideVideo ? ' hidden' : ''}`}>
         <VideoSurface ref={videoRef} stream={v.remoteStream} onAutoplayBlocked={onAutoplayBlocked} />
 
         {v.status === 'ended' && isMatch ? (
           <div className="absolute inset-0">
-            <MatchVideo roomId={roomId} onYouTube={setYoutubeId} />
+            <MatchVideo roomId={roomId} onYouTube={setYoutubeId} onStatus={setVideoStatus} />
           </div>
         ) : v.status === 'ended' ? (
           <div className="absolute inset-0 grid place-items-center bg-zinc-950 p-6 text-center">
@@ -125,6 +137,7 @@ export default function ViewerView({ roomId, title, description, broadcasterName
         </div>
         <ConnectionStatus status={v.status} socketConnected={v.socketConnected} />
       </div>
+      {isMatch && <HighlightsPanel roomId={roomId} />}
     </div>
   );
 }

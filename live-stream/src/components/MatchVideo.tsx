@@ -14,7 +14,15 @@ interface Info {
 
 // Fills the player area once a match stream has ended: the full match video, or the recorded
 // parts back to back while the server is still building it
-export default function MatchVideo({ roomId, onYouTube }: { roomId: string; onYouTube?: (id: string | null) => void }) {
+export default function MatchVideo({
+  roomId,
+  onYouTube,
+  onStatus,
+}: {
+  roomId: string;
+  onYouTube?: (id: string | null) => void;
+  onStatus?: (status: Info['status']) => void;
+}) {
   const [info, setInfo] = useState<Info | null>(null);
   const [failed, setFailed] = useState(false);
   const [part, setPart] = useState(0);
@@ -28,10 +36,11 @@ export default function MatchVideo({ roomId, onYouTube }: { roomId: string; onYo
       setInfo(data);
       setFailed(false);
       onYouTube?.(data.youtubeVideoId);
+      onStatus?.(data.status);
     } catch {
       setFailed(true);
     }
-  }, [roomId, onYouTube]);
+  }, [roomId, onYouTube, onStatus]);
 
   useEffect(() => {
     load();

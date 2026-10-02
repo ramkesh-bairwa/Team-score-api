@@ -232,6 +232,43 @@ router.get('/:code/state', (req, res) => {
 
 const ballsOf = (overs) => (overs || []).reduce((n, o) => n + o.length, 0);
 
+// Final result of a finished match, for the "match over" screens: winner, margin, both innings
+// and each team's best batter and bowler
+const bestBatter = (inn) =>
+  [...(inn?.batters || [])].sort((a, b) => b.runs - a.runs || a.balls - b.balls)[0] || null;
+const bestBowler = (inn) =>
+  [...(inn?.bowlers || [])].sort((a, b) => b.wickets - a.wickets || a.runs - b.runs)[0] || null;
+const bat = (p) => p && { name: p.name, runs: p.runs, balls: p.balls, fours: p.fours || 0, sixes: p.sixes || 0, out: !!p.out };
+const bowl = (p) => p && { name: p.name, wickets: p.wickets, runs: p.runs, overs: p.overs, balls: p.balls };
+
+const finalResult = (sc) => {
+  const i1 = sc.innings1, i2 = sc.innings2;
+  if (!i1 || !i2) return null;
+  const t1 = sc.battingTeam?.name || 'Team 1', t2 = sc.fieldingTeam?.name || 'Team 2';
+  let winner = null, loser = null, margin = '';
+  if (i2.runs > i1.runs) {
+    const left = (sc.fieldingTeam?.players?.length || 11) - 1 - i2.wickets;
+    winner = t2; loser = t1; margin = `by ${left} wicket${left === 1 ? '' : 's'}`;
+  } else if (i2.runs < i1.runs) {
+    const by = i1.runs - i2.runs;
+    winner = t1; loser = t2; margin = `by ${by} run${by === 1 ? '' : 's'}`;
+  }
+  const team = (name, battingInn, bowlingInn) => ({
+    name,
+    bestBatter: bat(bestBatter(battingInn)),
+    bestBowler: bowl(bestBowler(bowlingInn)),
+  });
+  return {
+    winner, loser, tied: !winner, margin,
+    innings: [
+      { team: t1, runs: i1.runs, wickets: i1.wickets, overs: i1.overs, balls: i1.balls },
+      { team: t2, runs: i2.runs, wickets: i2.wickets, overs: i2.overs, balls: i2.balls },
+    ],
+    // Innings 1: team 1 bats, team 2 bowls; innings 2 the other way round
+    teams: [team(t1, i1, i2), team(t2, i2, i1)],
+  };
+};
+
 const summarize = (sess) => {
   const p = sess.payload;
   if (!p || !p.params) return { version: sess.version, phase: 'waiting' };
@@ -267,6 +304,7 @@ const summarize = (sess) => {
       runs: inn?.runs ?? 0, wickets: inn?.wickets ?? 0,
       over: inn?.overs ?? 0, ball: inn?.balls ?? 0,
       result,
+      final: p.inningsNum === 2 ? finalResult(sc) : null,
     };
   }
 
@@ -308,6 +346,8 @@ router.post('/:code/camera', async (req, res) => {
 
   const code = req.params.code.toUpperCase();
   const s = summarize(sess);
+  // A finished match stays closed: no new camera room, the links show the result
+  if (s.final) return res.status(409).json({ error: 'This match is over. The watch link now shows the result and the match video.' });
   const title = s.battingTeam && s.bowlingTeam ? `${s.battingTeam} vs ${s.bowlingTeam}` : `CricScore match ${code}`;
   try {
     const r = await fetch(`${target}/stream/api/integrations/cricscore/rooms`, {

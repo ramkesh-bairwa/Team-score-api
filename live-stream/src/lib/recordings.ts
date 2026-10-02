@@ -65,8 +65,10 @@ export function getRecording(id: number) {
 
 // Recording plus the room it belongs to, for authorization checks
 export function getRecordingWithRoom(id: number) {
-  return queryOne<RecordingRow & { room_id: string; broadcaster_id: number; title: string; description: string | null }>(
-    `SELECT rec.*, r.room_id, r.broadcaster_id, r.title, r.description
+  return queryOne<
+    RecordingRow & { room_id: string; room_status: string; broadcaster_id: number; title: string; description: string | null }
+  >(
+    `SELECT rec.*, r.room_id, r.status AS room_status, r.broadcaster_id, r.title, r.description
      FROM recordings rec JOIN live_rooms r ON r.id = rec.live_room_id WHERE rec.id = ? LIMIT 1`,
     [id],
   );
@@ -85,6 +87,11 @@ export async function recordChunk(id: number, bytes: number): Promise<void> {
 
 export async function markRecordingReady(id: number): Promise<void> {
   await execute("UPDATE recordings SET status = 'READY' WHERE id = ? AND status = 'RECORDING'", [id]);
+}
+
+// Late chunks from a phone that was offline: back to RECORDING so nothing uploads a half file
+export async function reopenRecording(id: number): Promise<void> {
+  await execute("UPDATE recordings SET status = 'RECORDING', upload_error = NULL WHERE id = ? AND status IN ('READY', 'FAILED')", [id]);
 }
 
 export async function markRoomRecordingsReady(liveRoomId: number): Promise<void> {

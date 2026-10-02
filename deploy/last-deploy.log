@@ -1,0 +1,6 @@
+Started Fri Oct  2 05:18:26 IST 2026
+Server: Ubuntu 26.04.1 LTS
+
+[1;32m▶ Checking the server before changing anything[0m
+
+[1;32m▶ Installing packages (nginx, certbot, Node.js if needed)[0m

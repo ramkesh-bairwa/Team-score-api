@@ -95,6 +95,7 @@ export default function BroadcasterView({ roomId, title, description, initialSta
               </span>
             )}
           </div>
+          {hasScoreOverlay && live && b.replaySupported && <VideoReplayBar b={b} />}
           <button
             onClick={toggle}
             className="absolute bottom-3 right-3 rounded-lg bg-black/60 p-2 text-white backdrop-blur hover:bg-black/80"
@@ -217,6 +218,38 @@ const REPLAYS: [string, number, number][] = [
   ['3 min', 180, 1],
   ['🐢 Slow-mo 10 s', 10, 0.5],
 ];
+
+// Replay buttons over the camera picture, so the camera operator can fire a replay while filming
+// (also in fullscreen). Kept at the top: the scoreboard is drawn along the bottom.
+function VideoReplayBar({ b }: { b: ReturnType<typeof useBroadcaster> }) {
+  const can = b.replayAvailable >= 3;
+  return (
+    <div className="absolute right-2 top-11 flex max-w-[calc(100%-1rem)] flex-wrap items-center justify-end gap-1.5 sm:right-3 sm:top-3">
+      {b.replaying ? (
+        <button
+          onClick={b.stopReplay}
+          className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-lg hover:bg-red-500 sm:text-sm"
+        >
+          ■ Back to live
+        </button>
+      ) : (
+        <>
+          <span className="rounded-full bg-black/60 px-2 py-1 text-xs font-bold text-white backdrop-blur sm:text-sm">⏪ Replay</span>
+          {REPLAYS.map(([label, secs, rate]) => (
+            <button
+              key={label}
+              onClick={() => b.startReplay(secs, rate)}
+              disabled={!can}
+              className="rounded-full bg-black/60 px-2.5 py-1 text-xs font-bold text-white backdrop-blur hover:bg-red-600 disabled:opacity-40 sm:text-sm"
+            >
+              {rate < 1 ? '🐢' : label.replace(' min', 'm').replace(' s', 's')}
+            </button>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
 
 // Put a replay on air: the last 30 s … 3 min, or any ball of the match. Can be used again and
 // again; the buffer and the ball list survive a page refresh.

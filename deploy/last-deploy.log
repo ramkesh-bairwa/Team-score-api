@@ -1,4 +1,4 @@
-Started Fri Oct  2 05:35:57 IST 2026
+Started Fri Oct  2 06:22:57 IST 2026
 Server: Ubuntu 26.04.1 LTS
 
 [1;32m▶ Checking the server before changing anything[0m
@@ -27,7 +27,7 @@ tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.proven
 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
 
-added 17 packages in 1s
+up to date in 429ms
 
 [1;32m▶ Running it as a service (restarts automatically, starts on boot)[0m
 
@@ -79,4 +79,4 @@ Live streaming OK (https://score.glamofashion.com/watch/<code>)
    Stream:   https://score.glamofashion.com/watch/<MATCH CODE>
    Logs:     journalctl -u cricscore -f
    Database: https://db.glamofashion.com (logins are in deploy/.credentials on your Mac)
-Finished Fri Oct  2 05:36:26 IST 2026 (exit 0)
+Finished Fri Oct  2 06:23:26 IST 2026 (exit 0)

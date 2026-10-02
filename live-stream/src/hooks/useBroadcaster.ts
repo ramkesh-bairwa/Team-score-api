@@ -410,6 +410,13 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       await pc.addIceCandidate(candidate).catch(() => {});
     });
 
+    // Replay asked for from the scorer's phone in the CricScore app
+    socket.on('replay-command', (cmd) => {
+      if (!liveRef.current) return;
+      if (cmd.action === 'stop') stopReplay();
+      else void startReplay(cmd.seconds, cmd.rate);
+    });
+
     // Server ended the room (e.g. reconnect grace period ran out)
     socket.on('stream-ended', () => {
       liveRef.current = false;
@@ -428,7 +435,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       closeAllPeers();
       void stopRecorder();
     };
-  }, [roomId, initialStatus, connectToViewer, closePeer, closeAllPeers, stopRecorder, stopReplayBuffer]);
+  }, [roomId, initialStatus, connectToViewer, closePeer, closeAllPeers, stopRecorder, stopReplayBuffer, startReplay, stopReplay]);
 
   const startLive = useCallback(() => {
     const socket = socketRef.current;

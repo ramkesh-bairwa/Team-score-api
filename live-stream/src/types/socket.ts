@@ -43,7 +43,11 @@ export interface ServerToClientEvents {
   'stream-ended': () => void;
   'viewer-count-updated': (payload: { count: number }) => void;
   'broadcaster-disconnected': () => void;
+  // Sent to the camera device when the scorer's phone asks for a replay
+  'replay-command': (payload: ReplayCommand) => void;
 }
+
+export type ReplayCommand = { action: 'start'; seconds: number; rate: number } | { action: 'stop' };
 
 export interface SocketData {
   userId: number | null;

@@ -5,6 +5,7 @@ import { markRoomRecordingsReady, failInterruptedUploads } from '../lib/recordin
 import { buildMatchVideo, resumeMatchVideos } from '../lib/match-video';
 import { resumeHighlights } from '../lib/highlights';
 import { captureMatchResult } from '../lib/match-result';
+import { setReplaySender } from '../lib/remote';
 import { iceSignalSchema, joinRoomSchema, sdpSignalSchema } from '../lib/validation';
 import * as rooms from '../lib/rooms';
 import type {
@@ -41,6 +42,14 @@ const reply = <T>(ack: unknown, value: T) => {
 
 export function registerSocketHandlers(io: IO): void {
   const state = new Map<string, RoomState>();
+
+  // Lets API routes (same process) hand a replay command to the camera device of a room
+  setReplaySender((roomId, cmd) => {
+    const room = state.get(roomId);
+    if (!room?.broadcasterSocketId || !room.live) return false;
+    io.to(room.broadcasterSocketId).emit('replay-command', cmd);
+    return true;
+  });
 
   rooms.closeDanglingViewerSessions().catch((err) => console.error('[socket] closing stale sessions failed', err));
   failInterruptedUploads()

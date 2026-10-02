@@ -370,6 +370,31 @@ router.post('/:code/camera', async (req, res) => {
   }
 });
 
+// POST /live/:code/replay { token, action: 'start'|'stop', seconds?, rate? }
+// A device in the match (scorer or stream phone) puts a replay on air on the camera device
+router.post('/:code/replay', async (req, res) => {
+  const sess = getSession(req, res);
+  if (!sess) return;
+  if (!authorized(sess, req.body?.token)) return res.status(403).json({ error: 'Not part of this match' });
+  const target = (process.env.LIVE_STREAM_URL || 'http://localhost:3100').replace(/\/$/, '');
+  const secret = process.env.LIVE_STREAM_SECRET;
+  if (!secret) return res.status(503).json({ error: 'Camera streaming is not configured on the server (LIVE_STREAM_SECRET)' });
+  const { action, seconds, rate } = req.body || {};
+  try {
+    const r = await fetch(`${target}/stream/api/integrations/cricscore/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+      body: JSON.stringify({ matchCode: req.params.code.toUpperCase(), action, seconds, rate }),
+      signal: AbortSignal.timeout(8000),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status === 409 ? 409 : 502).json({ error: data.error || 'Camera did not accept the replay' });
+    res.json({ ok: true });
+  } catch {
+    res.status(502).json({ error: 'Camera streaming is not running' });
+  }
+});
+
 // GET /live/:code/overlay -> public score summary (no token: shows score only)
 router.get('/:code/overlay', (req, res) => {
   const sess = getSession(req, res);

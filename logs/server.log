@@ -1,4 +1,4 @@
-◇ injected env (9) from .env // tip: ⌘ suppress logs { quiet: true }
-◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (9) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
 ✅ DB_RUN=true — MySQL API routes active
 🚀 Server running on port 3000

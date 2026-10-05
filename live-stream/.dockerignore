@@ -1,0 +1,14 @@
+node_modules
+.next
+.env
+.env.*
+.mysql
+recordings
+logs
+certs
+.DS_Store
+*.md
+*.log
+*.tsbuildinfo
+next-env.d.ts
+Dockerfile

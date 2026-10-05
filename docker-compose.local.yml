@@ -1,0 +1,18 @@
+# Local (on your Mac): docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+# API on http://localhost:3200, live-stream on http://localhost:3300/stream, MySQL from your Mac.
+# In .env set LIVE_STREAM_URL=http://live-stream:3300; host names below point MySQL at your Mac.
+services:
+  api:
+    network_mode: !reset null
+    ports: ["3200:3200"]
+    environment:
+      MYSQL_HOST: host.docker.internal
+      DB_HOST: host.docker.internal
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  live-stream:
+    network_mode: !reset null
+    ports: ["3300:3300"]
+    environment:
+      DATABASE_HOST: host.docker.internal
+      PORT: "3300"
+    extra_hosts: ["host.docker.internal:host-gateway"]

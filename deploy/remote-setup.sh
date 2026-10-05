@@ -11,6 +11,12 @@ PMA_USER="${PMA_USER:-cricadmin}"; PMA_DB_PASS="${PMA_DB_PASS:-}"   # MySQL logi
 WEB_USER="${WEB_USER:-admin}"; WEB_PASS="${WEB_PASS:-}"             # browser login in front of phpMyAdmin
 APP_PORT="${APP_PORT:-3200}"
 APP_DIR=/opt/cricscore
+
+# CricScore now runs in Docker from /var/www/cricscore; installing the old systemd copy would fight it for the port
+if command -v docker >/dev/null && docker ps -a --format '{{.Names}}' | grep -qx cricscore-api; then
+  echo "!!! CricScore runs in Docker on this server. Deploy with: bash deploy/docker-deploy.sh" >&2
+  exit 1
+fi
 BUNDLE=/tmp/cricscore-server.tgz
 
 say() { printf '\n\033[1;32m▶ %s\033[0m\n' "$*"; }

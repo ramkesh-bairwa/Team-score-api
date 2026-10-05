@@ -66,6 +66,12 @@ if (DB_RUN) {
 
 app.get('/health', (req, res) => res.json({ status: 'ok', db: DB_RUN }));
 
+// Welcome page and API docs: / (overview), /docs (Swagger UI), /openapi.json (spec)
+const openapi = require('./src/openapi');
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/docs', (req, res) => res.sendFile(path.join(__dirname, 'public', 'docs.html')));
+app.get('/openapi.json', (req, res) => res.json(openapi));
+
 const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 server.on('upgrade', streamProxy.upgrade);
 stream.listen(server);

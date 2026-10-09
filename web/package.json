@@ -3,17 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3400",
+    "dev": "PORT=${PORT:-3400} tsx server.ts",
     "build": "next build",
-    "start": "next start -p 3400",
+    "start": "NODE_ENV=production tsx server.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "http-proxy-middleware": "^4.2.0",
     "jsqr": "^1.4.0",
+    "mysql2": "^3.24.5",
     "next": "^16.4.0",
     "qrcode-generator": "^2.0.4",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "socket.io": "^4.8.4",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

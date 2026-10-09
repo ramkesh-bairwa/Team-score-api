@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1730">
+<title>Go Live · CricScore</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #000; color: #fff; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+  .top { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px;
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px; background: linear-gradient(#000c, #0000); }
+  .badge { padding: 5px 10px; border-radius: 8px; font-weight: 800; font-size: 13px; letter-spacing: 1px; background: #475569; }
+  .badge.live { background: #E63946; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .65; } }
+  .code { font-weight: 800; letter-spacing: 2px; opacity: .9; }
+  .viewers { margin-left: auto; font-weight: 700; background: #0006; padding: 5px 10px; border-radius: 8px; }
+  .bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 14px 14px max(16px, env(safe-area-inset-bottom));
+    background: linear-gradient(#0000, #000d); display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .status { font-size: 14px; font-weight: 600; text-align: center; min-height: 18px; text-shadow: 0 1px 3px #000; }
+  .row { display: flex; gap: 12px; align-items: center; }
+  .round { width: 52px; height: 52px; border-radius: 50%; border: none; background: #ffffff26; color: #fff; font-size: 22px; }
+  .round.off { background: #E63946; }
+  .go { min-width: 170px; height: 60px; border-radius: 30px; border: none; font-size: 18px; font-weight: 900; letter-spacing: 1px;
+    background: #E63946; color: #fff; box-shadow: 0 6px 20px #e6394680; }
+  .go.stop { background: #fff; color: #E63946; box-shadow: none; }
+  .go:disabled { opacity: .5; }
+  .share { font-size: 13px; color: #cbd5e1; background: #0008; border: 1px solid #ffffff30; border-radius: 10px; padding: 8px 12px; }
+  .center { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 30px; text-align: center;
+    background: #0B1730; font-size: 16px; line-height: 1.5; }
+  .center.show { display: flex; }
+  .rotate { display: none; }
+  @media (orientation: portrait) { .rotate { display: block; font-size: 12px; color: #fbbf24; } }
+</style>
+</head>
+<body>
+<video id="preview" autoplay playsinline muted></video>
+
+<div class="top">
+  <span class="badge" id="badge">OFFLINE</span>
+  <span class="code" id="code"></span>
+  <span class="viewers" id="viewers">👁 0</span>
+</div>
+
+<div class="bottom">
+  <div class="status" id="status">Allow camera access, then tap Go Live</div>
+  <div class="rotate">↻ Turn your phone sideways for the best video</div>
+  <div class="row">
+    <button class="round" id="flip" title="Switch camera">🔄</button>
+    <button class="go" id="go" disabled>GO LIVE</button>
+    <button class="round" id="mic" title="Microphone">🎙️</button>
+  </div>
+  <button class="share" id="share">🔗 Share watch link</button>
+</div>
+
+<div class="center" id="blocker"></div>
+
+<script src="/rtc/socket.io.min.js"></script>
+<script>
+  var code = location.pathname.split('/').filter(Boolean).pop().toUpperCase();
+  var key = new URLSearchParams(location.search).get('k') || '';
+  var watchUrl = location.origin + '/watch/' + code;
+  var $ = function (id) { return document.getElementById(id); };
+  var stream = null, socket = null, live = false, facing = 'environment', micOn = true, wakeLock = null;
+  var peers = {}; // viewerId -> RTCPeerConnection
+  var iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  $('code').textContent = code;
+
+  function status(t) { $('status').textContent = t; }
+  function block(html) { $('blocker').innerHTML = html; $('blocker').className = 'center show'; }
+
+  if (!key) block('This page needs the QR code from the CricScore app.<br><br>Open the app → ▶ YouTube / Live → <b>Go live from phone camera</b>.');
+  if (!navigator.mediaDevices || !window.RTCPeerConnection) block('This browser can’t stream video.<br>Please open the link in Chrome or Safari.');
+
+  fetch('/api/stream-ice').then(function (r) { return r.json(); }).then(function (d) { iceServers = d.iceServers; }).catch(function () {});
+
+  function startCamera() {
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    return navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+      audio: { echoCancellation: true, noiseSuppression: true },
+    }).then(function (s) {
+      stream = s;
+      stream.getAudioTracks().forEach(function (t) { t.enabled = micOn; });
+      $('preview').srcObject = stream;
+      $('preview').style.transform = facing === 'user' ? 'scaleX(-1)' : '';
+      $('go').disabled = false;
+      if (!live) status('Ready. Tap Go Live');
+      // Swap the new camera into connections that are already running
+      Object.keys(peers).forEach(function (id) {
+        peers[id].getSenders().forEach(function (sender) {
+          var t = stream.getTracks().find(function (tr) { return sender.track && tr.kind === sender.track.kind; });
+          if (t) sender.replaceTrack(t);
+        });
+      });
+    }).catch(function (e) {
+      block('Camera not available: ' + e.message + '<br><br>Allow camera and microphone access for this site, then reload.');
+    });
+  }
+
+  function newPeer(viewerId) {
+    closePeer(viewerId);
+    var pc = new RTCPeerConnection({ iceServers: iceServers });
+    peers[viewerId] = pc;
+    stream.getTracks().forEach(function (t) { pc.addTrack(t, stream); });
+    // Keep each viewer's copy to ~1.5 Mbps so several viewers fit in the phone's upload
+    pc.getSenders().forEach(function (sender) {
+      if (sender.track && sender.track.kind === 'video') {
+        var p = sender.getParameters();
+        p.encodings = p.encodings && p.encodings.length ? p.encodings : [{}];
+        p.encodings[0].maxBitrate = 1500000;
+        sender.setParameters(p).catch(function () {});
+      }
+    });
+    pc.onicecandidate = function (e) { if (e.candidate) socket.emit('signal', { to: viewerId, data: { candidate: e.candidate } }); };
+    pc.onconnectionstatechange = function () { if (pc.connectionState === 'failed') closePeer(viewerId); };
+    pc.createOffer().then(function (o) { return pc.setLocalDescription(o); })
+      .then(function () { socket.emit('signal', { to: viewerId, data: { sdp: pc.localDescription } }); });
+  }
+  function closePeer(id) { if (peers[id]) { peers[id].close(); delete peers[id]; } }
+
+  function goLive() {
+    live = true;
+    $('go').textContent = 'STOP';
+    $('go').className = 'go stop';
+    $('badge').textContent = 'LIVE';
+    $('badge').className = 'badge live';
+    status('Connecting…');
+    socket = io({ path: '/rtc', transports: ['websocket', 'polling'] });
+    socket.on('connect', function () { socket.emit('join', { code: code, role: 'broadcaster', key: key }); status('🔴 You are live. Share the watch link!'); });
+    socket.on('denied', function (m) { stopLive(); block(m); });
+    socket.on('replaced', function () { stopLive(); block('Streaming moved to another device.'); });
+    socket.on('viewer', newPeer);
+    socket.on('viewer-left', closePeer);
+    socket.on('signal', function (msg) {
+      var pc = peers[msg.from];
+      if (!pc) return;
+      if (msg.data.sdp) pc.setRemoteDescription(msg.data.sdp).catch(function () {});
+      if (msg.data.candidate) pc.addIceCandidate(msg.data.candidate).catch(function () {});
+    });
+    socket.on('status', function (s) { $('viewers').textContent = '👁 ' + s.viewers + ' / ' + s.maxViewers; });
+    socket.on('disconnect', function () { if (live) status('Reconnecting…'); });
+    if ('wakeLock' in navigator) navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }).catch(function () {});
+  }
+
+  function stopLive() {
+    live = false;
+    Object.keys(peers).forEach(closePeer);
+    if (socket) { socket.disconnect(); socket = null; }
+    if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
+    $('go').textContent = 'GO LIVE';
+    $('go').className = 'go';
+    $('badge').textContent = 'OFFLINE';
+    $('badge').className = 'badge';
+    $('viewers').textContent = '👁 0';
+    status('Stream stopped');
+  }
+
+  $('go').onclick = function () { live ? stopLive() : goLive(); };
+  $('flip').onclick = function () { facing = facing === 'environment' ? 'user' : 'environment'; startCamera(); };
+  $('mic').onclick = function () {
+    micOn = !micOn;
+    if (stream) stream.getAudioTracks().forEach(function (t) { t.enabled = micOn; });
+    $('mic').className = micOn ? 'round' : 'round off';
+  };
+  $('share').onclick = function () {
+    if (navigator.share) navigator.share({ title: 'Watch live', url: watchUrl }).catch(function () {});
+    else navigator.clipboard.writeText(watchUrl).then(function () { status('Watch link copied: ' + watchUrl); });
+  };
+  document.addEventListener('visibilitychange', function () {
+    if (live && document.visibilityState === 'visible' && 'wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }).catch(function () {});
+    }
+  });
+
+  if (key) startCamera().then(function () {
+    if (new URLSearchParams(location.search).get('autostart') === '1' && stream) goLive();
+  });
+</script>
+</body>
+</html>

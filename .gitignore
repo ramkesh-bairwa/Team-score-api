@@ -1,5 +1,14 @@
 node_modules/
+.next/
+out/
 .env
+.env.*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
 logs/
+data/
+/live-stream/recordings/
+/live-stream/.mysql/
 deploy/.credentials
-deploy/last-deploy.log
+.DS_Store

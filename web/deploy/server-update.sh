@@ -9,12 +9,13 @@
 # The live-stream container keeps running as it is.
 #
 # Run from your Mac:   bash web/deploy/server-update.sh      (asks for the server's root password once)
+# If you changed an API response on purpose, skip the comparison:   SKIP_COMPARE=1 bash web/deploy/server-update.sh
 set -euo pipefail
 HOST="${HOST:-root@187.126.117.103}"
 DOMAIN="${DOMAIN:-score.glamofashion.com}"
 SSH="ssh -o StrictHostKeyChecking=accept-new"
 
-$SSH "$HOST" "DOMAIN=$DOMAIN bash -s" <<'REMOTE'
+$SSH "$HOST" "DOMAIN=$DOMAIN SKIP_COMPARE=${SKIP_COMPARE:-0} bash -s" <<'REMOTE'
 set -euo pipefail
 OLD=/var/www/cricscore
 NEW=/var/www/cricscore-next
@@ -76,7 +77,7 @@ for path in /health /api/shared-teams "/api/v2/matches?limit=20" /api/stream-ice
   if [ "$a" = "$b" ]; then echo "  same  $path"; else echo "  DIFF  $path"; echo "    old: ${a:0:200}"; echo "    new: ${b:0:200}"; diffs=$((diffs+1)); fi
 done
 kill $TEST_PID 2>/dev/null || true; trap - EXIT
-[ $diffs = 0 ] || { tail -20 /tmp/cricscore-next-test.log; fail "New server answers differently — nothing was switched. The current API is still running."; }
+[ $diffs = 0 ] || [ "${SKIP_COMPARE:-0}" = 1 ] || { tail -20 /tmp/cricscore-next-test.log; fail "New server answers differently — nothing was switched. The current API is still running."; }
 
 say "systemd service cricscore-next (port $PORT)"
 cat > /etc/systemd/system/cricscore-next.service <<UNIT

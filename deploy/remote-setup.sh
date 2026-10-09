@@ -14,7 +14,7 @@ APP_DIR=/opt/cricscore
 
 # CricScore now runs in Docker from /var/www/cricscore; installing the old systemd copy would fight it for the port
 if command -v docker >/dev/null && docker ps -a --format '{{.Names}}' | grep -qx cricscore-api; then
-  echo "!!! CricScore runs in Docker on this server. Deploy with: bash deploy/docker-deploy.sh" >&2
+  echo "!!! CricScore still runs in Docker on this server (container cricscore-api). Move it off Docker first, then deploy." >&2
   exit 1
 fi
 BUNDLE=/tmp/cricscore-server.tgz

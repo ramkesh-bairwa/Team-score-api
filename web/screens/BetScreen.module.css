@@ -1,0 +1,120 @@
+/* Button reset (zero specificity so the classes below win) */
+:where(.container) button {
+  border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  cursor: pointer; text-align: center; -webkit-appearance: none; appearance: none;
+}
+:where(.container) button:active { opacity: 0.7; }
+:where(.container) button:disabled { cursor: default; opacity: 1; }
+:where(.container) input, :where(.container) textarea { outline: none; }
+:where(.container) input::placeholder, :where(.container) textarea::placeholder { color: var(--text-muted); }
+
+.container { min-height: 100dvh; width: 100%; background: var(--bg); display: flex; flex-direction: column; }
+.header {
+  position: sticky; top: 0; z-index: 10;
+  padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
+  background: var(--white); border-bottom: 1px solid var(--card-border);
+}
+.headerInner {
+  max-width: 720px; margin: 0 auto;
+  display: flex; flex-direction: row; align-items: center; justify-content: space-between;
+}
+.back { color: var(--primary); font-size: 15px; font-weight: 600; width: 60px; text-align: left; white-space: nowrap; }
+.headerTitle { color: var(--text); font-size: 17px; font-weight: 700; }
+.scroll {
+  width: 100%; max-width: 720px; margin: 0 auto; padding: 16px 16px 40px;
+  display: flex; flex-direction: column;
+}
+.matchLabel { font-size: 18px; font-weight: 800; color: var(--text); text-align: center; margin-bottom: 20px; overflow-wrap: anywhere; }
+.sectionTitle { font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 10px; margin-top: 4px; }
+.row { display: flex; flex-direction: row; gap: 8px; margin-bottom: 20px; }
+.typeBtn {
+  flex: 1 1 0%; min-width: 0; background: var(--white); border-radius: 16px; padding: 14px 6px;
+  display: flex; flex-direction: column; align-items: center;
+  border: 2px solid var(--card-border); position: relative;
+}
+.typeBtnActive { border-color: var(--primary); background: var(--primary-light); }
+.typeIcon { font-size: 28px; margin-bottom: 6px; }
+.typeText { font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 2px; }
+.typeTextActive { color: var(--primary); }
+.typeDesc { font-size: 11px; color: var(--text-muted); text-align: center; }
+.check {
+  position: absolute; top: 8px; right: 8px;
+  width: 20px; height: 20px; border-radius: 10px; background: var(--primary);
+  display: flex; justify-content: center; align-items: center;
+  color: var(--white); font-size: 11px; font-weight: 800;
+}
+.card {
+  background: var(--white); border-radius: 16px; padding: 16px; margin-bottom: 16px;
+  border: 1px solid var(--card-border); box-shadow: 0 2px 6px #00000012;
+  display: flex; flex-direction: column;
+}
+.amountRow { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.amountChip {
+  padding: 12px 18px; border-radius: 12px;
+  background: var(--divider); border: 1px solid var(--card-border);
+  font-size: 15px; font-weight: 700; color: var(--text-sub);
+}
+.amountChipActive { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+.customInput {
+  background: var(--bg); border-radius: 10px; padding: 12px 14px;
+  font-size: 16px; color: var(--text); border: 1px solid var(--primary); margin-top: 8px; width: 100%;
+}
+.amountConfirm { margin-top: 12px; background: var(--green-light); border-radius: 10px; padding: 10px 14px; }
+.amountConfirmText { color: var(--green); font-weight: 700; font-size: 14px; }
+.photoSubText { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; margin-top: -6px; }
+.photoRow { display: flex; flex-direction: row; gap: 12px; margin-bottom: 20px; }
+.photoCard {
+  flex: 1 1 0%; min-width: 0; background: var(--white); border-radius: 16px; padding: 14px;
+  display: flex; flex-direction: column; align-items: center; border: 1px solid var(--card-border);
+}
+.photoCapName { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; text-align: center; overflow-wrap: anywhere; }
+.photoTeamName { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; text-align: center; overflow-wrap: anywhere; }
+.captureBtn {
+  background: var(--divider); border-radius: 12px; padding: 16px 12px;
+  display: flex; flex-direction: column; align-items: center;
+  border: 1px solid var(--card-border); width: 100%;
+}
+.captureIcon { font-size: 28px; margin-bottom: 4px; }
+.captureBtnText { font-size: 12px; font-weight: 700; color: var(--text-sub); }
+.photoBtn { display: flex; flex-direction: column; align-items: center; }
+.photoImg { width: 100px; height: 100px; border-radius: 12px; margin-bottom: 4px; object-fit: cover; display: block; }
+.retakeText { font-size: 10px; color: var(--text-muted); text-align: center; }
+.photoDone { margin-top: 8px; background: var(--green-light); border-radius: 8px; padding: 4px 10px; }
+.photoDoneText { color: var(--green); font-size: 11px; font-weight: 700; }
+.expenseRow { display: flex; flex-direction: row; align-items: center; gap: 8px; margin-bottom: 8px; }
+.expenseInput {
+  background: var(--bg); border-radius: 10px; padding: 10px 12px;
+  font-size: 14px; color: var(--text); border: 1px solid var(--card-border); min-width: 0;
+}
+.expenseInput:focus, .noteInput:focus { border-color: var(--primary); }
+.expenseLabel { flex: 1 1 0%; }
+.expenseAmount { width: 90px; flex-shrink: 0; text-align: right; font-weight: 800; }
+.expenseRemove { padding: 6px; color: var(--text-muted); font-size: 14px; }
+.expenseChips { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.expenseChip { padding: 6px 10px; border-radius: 14px; background: var(--accent-light); color: var(--accent); font-size: 12px; font-weight: 700; }
+.noteInput {
+  background: var(--bg); border-radius: 10px; padding: 10px 12px; min-height: 56px;
+  font-size: 13px; color: var(--text); border: 1px solid var(--card-border); margin-top: 6px;
+  resize: vertical; width: 100%; font-family: inherit;
+}
+.expenseTotal {
+  display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-top: 12px;
+  background: var(--orange-light); border-radius: 10px; padding: 10px 14px;
+}
+.expenseTotalLabel { font-size: 13px; font-weight: 800; color: #9A3412; }
+.expenseTotalVal { font-size: 18px; font-weight: 900; color: var(--orange); }
+.ballRow { display: flex; flex-direction: row; gap: 8px; margin-bottom: 20px; }
+.ballBtn {
+  flex: 1 1 0%; min-width: 0; background: var(--white); border-radius: 14px; padding: 12px 0;
+  display: flex; flex-direction: column; align-items: center; border: 2px solid var(--card-border);
+}
+.ballBtnOn { border-color: var(--green); background: var(--green-light); }
+.ballIcon { font-size: 22px; margin-bottom: 4px; }
+.ballText { font-size: 12px; font-weight: 800; color: var(--text-sub); }
+.ballTextOn { color: var(--green); }
+.proceedBtn {
+  background: var(--green); border-radius: 14px; padding: 16px 12px; width: 100%;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+  color: var(--white); font-size: 16px; font-weight: 700;
+}
+.proceedBtnDisabled { background: var(--text-muted); box-shadow: none; }

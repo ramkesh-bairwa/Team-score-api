@@ -1,0 +1,99 @@
+.overlay {
+  position: fixed; inset: 0; z-index: 900; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  background-color: transparent; transition: background-color 0.25s ease;
+}
+.shown { background-color: #0F172A99; }
+.backdrop { position: absolute; inset: 0; }
+.sheet {
+  position: relative; width: 100%; max-width: 520px; max-height: 88dvh; box-sizing: border-box;
+  display: flex; flex-direction: column;
+  background-color: var(--white); border-top-left-radius: 26px; border-top-right-radius: 26px;
+  padding: 10px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+  transform: translateY(100%); transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.shown .sheet { transform: translateY(0); }
+@media (min-width: 640px) {
+  .overlay { justify-content: center; padding: 24px; }
+  .sheet { border-radius: 26px; max-height: calc(100dvh - 48px); }
+}
+.handle { align-self: center; width: 42px; height: 5px; border-radius: 3px; background-color: var(--card-border); margin-bottom: 14px; flex-shrink: 0; }
+.scroll { display: flex; flex-direction: column; overflow-y: auto; min-height: 0; scrollbar-width: none; }
+.scroll > * { flex-shrink: 0; }
+.scroll::-webkit-scrollbar { display: none; }
+.flex1 { flex: 1 1 0%; min-width: 0; display: flex; flex-direction: column; }
+.titleRow { display: flex; flex-direction: row; align-items: center; gap: 12px; margin-bottom: 16px; }
+.ytLogo {
+  width: 46px; height: 34px; border-radius: 10px; background-color: #FF0000; flex-shrink: 0;
+  display: flex; justify-content: center; align-items: center;
+}
+.ytLogoText { color: var(--white); font-size: 16px; font-weight: 900; margin-left: 2px; }
+.title { font-size: 19px; font-weight: 900; color: var(--text); }
+.sub { font-size: 13px; color: var(--text-sub); margin-top: 2px; }
+.phoneBox { background-color: #0B1730; border-radius: 16px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; }
+.camBox { background-color: #13244A; border-radius: 16px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; }
+.tabs { display: flex; flex-direction: row; background-color: #0B1730; border-radius: 10px; padding: 3px; margin-bottom: 12px; }
+.tab {
+  flex: 1 1 0%; padding: 8px 0; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; cursor: pointer; font-family: inherit;
+}
+.tabOn { background-color: var(--white); }
+.tabText { color: #CBD5E1; font-size: 13px; font-weight: 800; }
+.tabTextOn { color: #0B1730; }
+.qrWrap { align-self: center; background-color: var(--white); border-radius: 14px; padding: 6px; margin-bottom: 12px; display: flex; }
+.camLink {
+  color: #FACC15; font-size: 12px; font-weight: 700; margin-bottom: 10px; user-select: all;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+}
+.camErr { color: #FCA5A5; font-size: 12px; font-weight: 700; line-height: 18px; margin-bottom: 10px; }
+.camWarn { color: #FDBA74; font-size: 11px; line-height: 16px; font-weight: 600; margin-top: 10px; }
+.btnDarkGhost { background-color: #ffffff1f; }
+.phoneTitle { color: var(--white); font-size: 14px; font-weight: 900; margin-bottom: 6px; }
+.phoneText { color: #CBD5E1; font-size: 12px; line-height: 18px; margin-bottom: 10px; }
+.phoneOk { color: #4ADE80; font-size: 13px; font-weight: 800; }
+.linkBox {
+  background-color: #F8FAFC; border-radius: 16px; padding: 14px; border: 1px solid var(--card-border);
+  margin-bottom: 12px; display: flex; flex-direction: column;
+}
+.linkLabel { font-size: 10px; font-weight: 900; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 6px; }
+.link { font-size: 14px; font-weight: 700; color: var(--accent); overflow-wrap: anywhere; user-select: all; }
+.errorText { font-size: 13px; font-weight: 700; color: var(--primary); line-height: 19px; }
+.loader { align-self: flex-start; margin: 2px 0; }
+.btnDisabled { opacity: 0.5; }
+.errBtns { flex: 1 1 0%; display: flex; flex-direction: row; gap: 10px; }
+.btnGhost { background-color: var(--divider); border: 1px solid var(--card-border) !important; }
+.btnGhostText { color: var(--text-sub); font-size: 14px; font-weight: 700; }
+.linkBtns { display: flex; flex-direction: row; margin-top: 12px; }
+.btn {
+  flex: 1 1 0%; border-radius: 14px; padding: 13px 0; display: flex; align-items: center; justify-content: center;
+  border: 0; cursor: pointer; font-family: inherit; min-height: 48px; box-sizing: border-box;
+}
+.btn:active:not(:disabled), .tab:active, .closeBtn:active { opacity: 0.7; }
+.btn:disabled { cursor: default; }
+.btnPrimary { background-color: var(--accent); }
+.btnDark { background-color: var(--primary); flex: none; }
+.btnYt { background-color: #FF0000; flex: none; margin-top: 6px; }
+.btnPrimaryText { color: var(--white); font-size: 15px; font-weight: 800; }
+.warn {
+  background-color: var(--orange-light); border-radius: 12px; padding: 12px; margin-bottom: 12px;
+  border: 1px solid #EA580C40; display: flex; flex-direction: column;
+}
+.warnText { font-size: 12px; color: #9A3412; line-height: 18px; font-weight: 600; }
+.step { display: flex; flex-direction: row; gap: 12px; margin-bottom: 14px; }
+.stepNum {
+  width: 26px; height: 26px; border-radius: 13px; background-color: var(--text); flex-shrink: 0;
+  display: flex; justify-content: center; align-items: center;
+}
+.stepNumText { color: var(--white); font-size: 12px; font-weight: 900; }
+.stepTitle { font-size: 14px; font-weight: 800; color: var(--text); }
+.stepBody { font-size: 13px; color: var(--text-sub); line-height: 19px; margin-top: 2px; }
+.preview { background-color: var(--accent-light); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; flex-direction: column; }
+.previewLabel { font-size: 12px; font-weight: 800; color: var(--accent); margin-bottom: 2px; }
+.previewBody { font-size: 12px; color: var(--text-sub); line-height: 18px; }
+.closeBtn { display: flex; justify-content: center; padding: 14px 0; background: none; border: 0; cursor: pointer; font-family: inherit; }
+.closeText { color: var(--text-sub); font-size: 15px; font-weight: 700; }
+.spinner {
+  display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid rgba(37, 99, 235, 0.25);
+  border-top-color: var(--accent); animation: spin 0.8s linear infinite; box-sizing: border-box;
+}
+.spinnerLight { border-color: rgba(255, 255, 255, 0.35); border-top-color: #fff; }
+@keyframes spin { to { transform: rotate(360deg); } }

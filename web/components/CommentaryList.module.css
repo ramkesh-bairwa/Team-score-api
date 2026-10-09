@@ -1,0 +1,20 @@
+.empty { text-align: center; color: var(--text-muted); padding: 28px 0; font-size: 13px; }
+.list { display: flex; flex-direction: column; }
+.row { display: flex; flex-direction: row; padding: 10px 0; border-bottom: 1px solid var(--divider); }
+.rowBig { background-color: #F8FAFF; margin: 0 -12px; padding: 10px 12px; }
+.rowWicket { background-color: #FFF5F5; }
+.left { width: 44px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; margin-right: 10px; }
+.over { font-size: 11px; font-weight: 800; color: var(--text-sub); margin-bottom: 4px; }
+.badge {
+  min-width: 30px; height: 30px; border-radius: 15px; padding: 0 4px; box-sizing: border-box;
+  display: flex; justify-content: center; align-items: center;
+}
+.badgeText { font-size: 11px; font-weight: 900; }
+.body { flex: 1 1 0%; min-width: 0; display: flex; flex-direction: column; }
+.who {
+  font-size: 11px; font-weight: 800; color: var(--text-muted); margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.text { font-size: 13px; color: var(--text); line-height: 19px; overflow-wrap: anywhere; }
+.textBig { font-weight: 700; }
+.score { font-size: 11px; font-weight: 900; color: var(--text-sub); margin-left: 8px; margin-top: 1px; flex-shrink: 0; }

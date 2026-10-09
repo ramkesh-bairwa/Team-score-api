@@ -1,0 +1,215 @@
+/* Button reset (zero specificity so the classes below win) */
+:where(.container, .modalBox) button {
+  border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  cursor: pointer; text-align: center; -webkit-appearance: none; appearance: none;
+}
+:where(.container, .modalBox) button:active { opacity: 0.7; }
+:where(.container, .modalBox) button:disabled { cursor: default; }
+:where(.container, .modalBox) input { outline: none; }
+:where(.container, .modalBox) input::placeholder { color: var(--text-muted); }
+
+.container {
+  min-height: 100dvh; width: 100%; background: var(--bg);
+  display: flex; flex-direction: column;
+}
+.col { display: flex; flex-direction: column; }
+
+/* Header + step indicator stay on top while the page scrolls */
+.top { position: sticky; top: 0; z-index: 10; }
+.header {
+  padding: calc(14px + env(safe-area-inset-top)) 16px 12px; background: var(--white);
+  border-bottom: 1px solid var(--card-border);
+}
+.headerInner {
+  max-width: 720px; margin: 0 auto;
+  display: flex; flex-direction: row; align-items: center; justify-content: space-between;
+}
+.back { color: var(--primary); font-size: 15px; font-weight: 600; width: 60px; text-align: left; white-space: nowrap; }
+.headerTitle { color: var(--text); font-size: 17px; font-weight: 700; text-align: center; }
+
+.stepRow {
+  display: flex; flex-direction: row; align-items: center; justify-content: center;
+  padding: 16px 0; background: var(--white); border-bottom: 1px solid var(--card-border);
+}
+.stepItem { display: flex; flex-direction: row; align-items: center; }
+.stepCircle {
+  width: 28px; height: 28px; border-radius: 14px; background: var(--divider);
+  display: flex; justify-content: center; align-items: center;
+}
+.stepCircleActive { background: var(--primary); }
+.stepCircleDone { background: var(--green); }
+.stepNum { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.stepNumOn { color: var(--white); }
+.stepLabel { font-size: 11px; color: var(--text-muted); margin-left: 6px; }
+.stepLabelActive { color: var(--primary); font-weight: 700; }
+.stepLine { width: 28px; height: 2px; background: var(--card-border); margin: 0 6px; }
+
+.scroll {
+  width: 100%; max-width: 720px; margin: 0 auto; padding: 16px 16px 40px;
+  display: flex; flex-direction: column;
+}
+.sectionTitle { font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 8px; margin-top: 4px; letter-spacing: 0.5px; }
+.card {
+  background: var(--white); border-radius: 16px; padding: 16px; margin-bottom: 12px;
+  border: 1px solid var(--card-border); box-shadow: 0 2px 8px #00000012;
+  display: flex; flex-direction: column;
+}
+.inputLabel { font-size: 13px; color: var(--text-sub); font-weight: 600; margin-bottom: 8px; }
+.input {
+  background: var(--bg); border-radius: 10px; padding: 12px 14px;
+  font-size: 15px; color: var(--text); border: 1px solid var(--card-border); margin-bottom: 4px;
+  width: 100%; min-width: 0;
+}
+.input:focus, .modalInput:focus { border-color: var(--primary); }
+.divider { height: 1px; background: var(--divider); margin: 12px 0; }
+.primaryBtn {
+  background: var(--primary); border-radius: 14px; padding: 16px 0; margin-top: 8px;
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
+  color: var(--white); font-size: 16px; font-weight: 700; width: 100%;
+}
+
+.teamTabs {
+  display: flex; flex-direction: row; background: var(--white); border-radius: 12px;
+  padding: 4px; margin-bottom: 12px; border: 1px solid var(--card-border);
+}
+.teamTab {
+  flex: 1 1 0%; padding: 10px 4px; border-radius: 10px;
+  font-size: 13px; font-weight: 600; color: var(--text-sub); min-width: 0;
+}
+.teamTabActive { background: var(--primary); color: var(--white); }
+
+.addRow { display: flex; flex-direction: row; gap: 10px; align-items: center; }
+.addInput { flex: 1 1 0%; margin-bottom: 0; }
+.addBtn {
+  background: var(--accent-light); padding: 12px 16px; border-radius: 10px;
+  border: 1px solid #2563EB40; color: var(--accent); font-weight: 700; font-size: 14px;
+  white-space: nowrap;
+}
+
+.playerRow {
+  display: flex; flex-direction: row; align-items: center; padding: 12px 0; cursor: pointer; outline: none;
+}
+.playerRow:active { opacity: 0.7; }
+.playerRowBorder { border-bottom: 1px solid var(--divider); }
+.playerAvatar { width: 36px; height: 36px; border-radius: 18px; margin-right: 12px; object-fit: cover; flex-shrink: 0; }
+.playerNumBadge {
+  width: 36px; height: 36px; border-radius: 18px; background: var(--divider);
+  display: flex; justify-content: center; align-items: center; margin-right: 12px; flex-shrink: 0;
+}
+.playerNum { font-size: 12px; font-weight: 700; color: var(--text-sub); }
+.playerInfo { flex: 1 1 0%; min-width: 0; display: flex; flex-direction: column; }
+.playerName { font-size: 15px; color: var(--text); font-weight: 600; margin-bottom: 4px; overflow-wrap: anywhere; }
+.rolesWrap { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px; }
+.roleBadge { padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+.playerMobile { font-size: 12px; color: var(--text-sub); margin-bottom: 4px; }
+.hintText { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: -4px; margin-bottom: 8px; }
+.editBtn { padding: 6px; margin-right: 2px; color: var(--accent); font-size: 16px; font-weight: 700; }
+.removeBtn { padding: 6px; color: var(--text-muted); font-size: 14px; }
+
+.teamLabelRow { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+.pickBtn {
+  background: var(--green-light); border-radius: 10px; padding: 5px 10px; margin-bottom: 8px;
+  color: var(--green); font-size: 12px; font-weight: 800; white-space: nowrap;
+}
+.loadedText { font-size: 12px; color: var(--green); font-weight: 700; margin-top: 2px; }
+.saveTeamBtn {
+  border-radius: 14px; padding: 13px 0; margin-top: 4px;
+  border: 1.5px dashed var(--green); background: var(--green-light);
+  color: var(--green); font-size: 14px; font-weight: 800; width: 100%;
+}
+
+.emptyBox { display: flex; flex-direction: column; align-items: center; padding: 32px 0; }
+.emptyIcon { font-size: 36px; margin-bottom: 8px; }
+.emptyText { color: var(--text-muted); font-size: 14px; }
+
+.matchTypeRow { display: flex; flex-direction: row; gap: 12px; margin-bottom: 16px; }
+.matchTypeBtn {
+  flex: 1 1 0%; background: var(--white); border-radius: 16px; padding: 16px;
+  display: flex; flex-direction: column; align-items: center;
+  border: 2px solid var(--card-border); position: relative; min-width: 0;
+}
+.matchTypeBtnActive { border-color: var(--primary); background: var(--primary-light); }
+.matchTypeIcon { font-size: 28px; margin-bottom: 6px; }
+.matchTypeTitle { font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 4px; text-align: center; }
+.matchTypeTitleActive { color: var(--primary); }
+.matchTypeDesc { font-size: 11px; color: var(--text-muted); text-align: center; line-height: 16px; white-space: pre-line; }
+.matchTypeCheck {
+  position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 10px;
+  background: var(--primary); display: flex; justify-content: center; align-items: center;
+  color: var(--white); font-size: 11px; font-weight: 800;
+}
+
+.oversRow { display: flex; flex-direction: row; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.oversChip {
+  padding: 10px 16px; border-radius: 10px; background: var(--divider);
+  border: 1px solid var(--card-border); font-size: 14px; font-weight: 600; color: var(--text-sub);
+}
+.oversChipActive { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+.oversInput {
+  width: 70px; background: var(--bg); border-radius: 10px; padding: 10px 12px;
+  font-size: 14px; color: var(--text); border: 1px solid var(--card-border); text-align: center;
+}
+.oversInputActive { border-color: var(--primary); background: var(--primary-light); }
+
+.captainTeamLabel { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+.captainRow {
+  display: flex; flex-direction: row; align-items: center; padding: 12px 0;
+  border-bottom: 1px solid var(--divider); flex-wrap: wrap; gap: 4px; text-align: left; width: 100%;
+}
+.captainRowActive {
+  background: var(--green-light); margin: 0 -16px; padding: 12px 16px;
+  border-radius: 10px; width: calc(100% + 32px);
+}
+.radio {
+  width: 20px; height: 20px; border-radius: 10px; border: 2px solid var(--card-border);
+  margin-right: 12px; display: flex; justify-content: center; align-items: center; flex-shrink: 0;
+}
+.radioActive { border-color: var(--green); }
+.radioDot { width: 10px; height: 10px; border-radius: 5px; background: var(--green); }
+.captainName { font-size: 15px; color: var(--text); margin-right: 8px; }
+.captainNameActive { font-weight: 700; color: var(--green); }
+.captainBadge {
+  font-size: 11px; color: var(--green); font-weight: 700; background: var(--green-light);
+  padding: 3px 8px; border-radius: 8px;
+}
+
+/* Player modal (bottom sheet) */
+.modalBox { padding: 24px 24px 40px; max-height: 92dvh; overflow-y: auto; }
+.modalTitle { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+.modalSub { font-size: 13px; color: var(--text-sub); margin-bottom: 20px; }
+.rolesGrid { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.roleBtn {
+  display: flex; flex-direction: row; align-items: center; gap: 6px;
+  padding: 12px 14px; border-radius: 12px;
+  background: var(--divider); border: 1px solid var(--card-border);
+  position: relative;
+}
+.roleBtnIcon { font-size: 16px; }
+.roleBtnText { font-size: 13px; font-weight: 700; color: var(--text-sub); }
+.roleCheck {
+  position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; border-radius: 8px;
+  display: flex; justify-content: center; align-items: center;
+  color: var(--white); font-size: 9px; font-weight: 800;
+}
+.confirmBtn {
+  background: var(--primary); border-radius: 14px; padding: 14px 0; margin-top: 8px;
+  color: var(--white); font-size: 16px; font-weight: 700; width: 100%; flex-shrink: 0;
+}
+.modalInput {
+  background: var(--bg); border-radius: 10px; padding: 12px 14px;
+  font-size: 15px; color: var(--text); border: 1px solid var(--card-border); margin-bottom: 10px; width: 100%;
+  flex-shrink: 0;
+}
+.photoPickerBtn { align-self: center; margin-bottom: 16px; border-radius: 40px; flex-shrink: 0; }
+.photoPickerImg { width: 80px; height: 80px; border-radius: 40px; object-fit: cover; display: block; }
+.photoPickerPlaceholder {
+  width: 80px; height: 80px; border-radius: 40px; background: var(--divider);
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  border: 2px solid var(--card-border);
+}
+.photoPickerIcon { font-size: 24px; }
+.photoPickerText { font-size: 10px; color: var(--text-muted); font-weight: 600; margin-top: 2px; }
+.cancelBtn {
+  margin-top: 10px; padding: 12px 0; width: 100%; flex-shrink: 0;
+  color: var(--text-sub); font-size: 14px; font-weight: 600;
+}

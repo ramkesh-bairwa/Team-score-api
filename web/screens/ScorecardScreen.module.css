@@ -1,0 +1,206 @@
+.container { min-height: 100dvh; width: 100%; display: flex; flex-direction: column; background: var(--bg); }
+.col { display: flex; flex-direction: column; }
+.flex1 { flex: 1 1 0%; min-width: 0; }
+.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.btnReset {
+  border: 0; background: none; margin: 0; padding: 0; font: inherit; color: inherit; text-align: inherit;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.btnReset:active:not(:disabled) { opacity: 0.7; }
+.btnReset:disabled { cursor: default; }
+
+/* Header */
+.header {
+  position: sticky; top: 0; z-index: 10; width: 100%;
+  background: var(--white); border-bottom: 1px solid var(--card-border);
+  padding: max(12px, env(safe-area-inset-top)) 12px 10px;
+}
+.headerInner {
+  display: flex; flex-direction: row; align-items: center; justify-content: space-between;
+  max-width: 820px; margin: 0 auto;
+}
+.backBtn { width: 40px; height: 36px; display: flex; flex-direction: column; justify-content: center; flex-shrink: 0; }
+.back { color: var(--text); font-size: 22px; font-weight: 600; }
+.headerMid { flex: 1 1 0%; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.headerTitle { color: var(--text); font-size: 15px; font-weight: 800; max-width: 100%; }
+.headerSub { color: var(--text-muted); font-size: 11px; font-weight: 600; margin-top: 1px; }
+
+.scrollArea { flex: 1 1 0%; width: 100%; }
+.scroll {
+  display: flex; flex-direction: column; width: 100%; max-width: 820px; margin: 0 auto;
+  padding: 12px 12px calc(40px + env(safe-area-inset-bottom));
+}
+
+/* Video button */
+.videoBtn {
+  display: flex; flex-direction: row; align-items: center; gap: 12px; background: #0B1730;
+  border-radius: 16px; padding: 14px; margin-bottom: 12px; width: 100%;
+}
+.videoBtnIcon {
+  flex-shrink: 0; color: var(--white); font-size: 16px; width: 38px; height: 38px; border-radius: 19px;
+  background: #EF233C; text-align: center; line-height: 38px; overflow: hidden;
+}
+.videoBtnTitle { color: var(--white); font-size: 15px; font-weight: 900; }
+.videoBtnSub { color: #94A3B8; font-size: 12px; margin-top: 2px; }
+.videoBtnArrow { color: #FACC15; font-size: 26px; font-weight: 700; }
+
+/* Summary banner */
+.summary { display: flex; flex-direction: column; background: #0B1730; border-radius: 18px; padding: 16px; margin-bottom: 12px; }
+.summaryTop { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.summaryMeta { flex: 1 1 0%; color: #94A3B8; font-size: 10px; font-weight: 800; letter-spacing: 0.8px; margin-right: 8px; }
+.statusPill {
+  display: flex; flex-direction: row; align-items: center; gap: 5px; flex-shrink: 0;
+  background: #16A34A; border-radius: 10px; padding: 3px 8px;
+}
+.statusPillLive { background: var(--primary); }
+.statusPillBreak { background: #D97706; }
+.liveDot { width: 6px; height: 6px; border-radius: 3px; background: var(--white); }
+.statusPillText { color: var(--white); font-size: 9px; font-weight: 900; letter-spacing: 0.8px; }
+.teamRow { display: flex; flex-direction: row; align-items: center; padding: 6px 0; }
+.badge {
+  width: 34px; height: 34px; border-radius: 17px; background: var(--primary); flex-shrink: 0;
+  display: flex; justify-content: center; align-items: center; margin-right: 10px;
+}
+.badge2 { background: var(--accent); }
+.badgeText { color: var(--white); font-size: 10px; font-weight: 900; }
+.teamName { flex: 1 1 0%; color: var(--white); font-size: 14px; font-weight: 800; }
+.teamScore { color: var(--white); font-size: 20px; font-weight: 900; flex-shrink: 0; }
+.teamOvers { color: #94A3B8; font-size: 12px; font-weight: 600; }
+.yetToBat { color: #64748B; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.teamName.dim, .teamScore.dim { color: #94A3B8; }
+.statusLine { margin-top: 10px; font-size: 13px; font-weight: 800; }
+.statusWin { color: #4ADE80; }
+.statusLive { color: #FACC15; }
+.statusBreak { color: #FBBF24; }
+.toss { margin-top: 6px; color: #94A3B8; font-size: 11px; font-weight: 600; }
+
+/* Loser to pay */
+.expenseCard {
+  display: flex; flex-direction: column; background: var(--white); border-radius: 16px; padding: 14px;
+  margin-bottom: 12px; border: 1px solid #EA580C40;
+}
+.expenseHead { display: flex; flex-direction: row; align-items: center; margin-bottom: 8px; }
+.expenseIcon { font-size: 26px; margin-right: 10px; }
+.expenseTitle { font-size: 15px; font-weight: 900; color: var(--text); }
+.expenseSub { font-size: 11px; color: var(--text-muted); }
+.expenseTotal { font-size: 22px; font-weight: 900; color: var(--orange); }
+.expenseRow {
+  display: flex; flex-direction: row; justify-content: space-between; gap: 8px;
+  padding: 6px 0; border-top: 1px solid var(--divider);
+}
+.expenseItem { font-size: 13px; color: var(--text-sub); font-weight: 600; }
+.expenseAmt { font-size: 13px; color: var(--text); font-weight: 800; }
+.expenseNote { font-size: 12px; color: var(--text-sub); margin-top: 8px; line-height: 18px; }
+.expenseVerdict { margin-top: 10px; background: var(--orange-light); border-radius: 10px; padding: 10px; }
+.expenseVerdictTie { background: var(--accent-light); }
+.expenseVerdictText { font-size: 13px; font-weight: 900; color: #9A3412; }
+.expenseVerdictTextTie { color: var(--accent); }
+
+/* Innings tabs */
+.tabs {
+  display: flex; flex-direction: row; background: var(--white); border-radius: 14px;
+  border: 1px solid var(--card-border); margin-bottom: 12px; overflow: hidden;
+}
+.tab {
+  flex: 1 1 0%; padding: 10px 0; display: flex; flex-direction: column; align-items: center; text-align: center;
+  border-bottom: 3px solid transparent;
+}
+.tabOn { border-bottom-color: var(--primary); background: #FFF7F7; }
+.tabTeam { font-size: 12px; font-weight: 900; color: var(--text-sub); letter-spacing: 0.5px; }
+.tabTeamOn { color: var(--primary); }
+.tabScore { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-top: 2px; }
+.tabScoreOn { color: var(--text); }
+.tabTeam.tabOff, .tabScore.tabOff { color: #CBD5E1; }
+.viewRow { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.viewToggle { display: flex; flex-direction: row; background: #E2E8F0; border-radius: 10px; padding: 3px; flex-shrink: 0; }
+.viewBtn { padding: 5px 10px; border-radius: 8px; }
+.viewBtnOn { background: var(--white); }
+.viewBtnText { font-size: 11px; font-weight: 700; color: var(--text-sub); }
+.viewBtnTextOn { color: var(--text); font-weight: 900; }
+.logCard {
+  display: flex; flex-direction: column; background: var(--white); border-radius: 14px; padding: 0 12px;
+  margin-bottom: 12px; border: 1px solid var(--card-border);
+}
+.inningsTitle { flex: 1 1 0%; min-width: 0; font-size: 12px; font-weight: 900; color: var(--text-sub); letter-spacing: 0.5px; margin-left: 2px; margin-right: 6px; }
+
+/* Bet settlement */
+.betCard {
+  display: flex; flex-direction: column;
+  background: var(--white); border-radius: 20px; padding: 16px; margin-bottom: 12px;
+  border: 2px solid #EA580C30; box-shadow: 0 2px 8px #00000012;
+}
+.betHeader { display: flex; flex-direction: row; align-items: center; gap: 10px; margin-bottom: 14px; }
+.betHeaderIcon { font-size: 28px; }
+.betCardTitle { font-size: 16px; font-weight: 800; color: var(--text); }
+.betHeaderSub { font-size: 11px; color: var(--text-muted); }
+.resultBanner {
+  display: flex; flex-direction: column; border-radius: 12px; padding: 14px; margin-bottom: 14px;
+  border: 1px solid; align-items: center; text-align: center;
+}
+.resultBannerText { font-size: 15px; font-weight: 800; margin-bottom: 2px; }
+.resultBannerSub { font-size: 12px; font-weight: 600; }
+.betAmountBox {
+  display: flex; flex-direction: row; background: var(--bg); border-radius: 12px;
+  padding: 14px; margin-bottom: 14px; align-items: center;
+}
+.betAmountItem { flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; }
+.betDivider { width: 1px; height: 36px; background: var(--card-border); }
+.betAmountLabel { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+.betAmountVal { font-size: 22px; font-weight: 900; color: var(--orange); }
+.betStatusVal { font-size: 14px; font-weight: 800; }
+.teamsRow { display: flex; flex-direction: row; gap: 10px; margin-bottom: 14px; }
+.teamBetCard {
+  flex: 1 1 0%; min-width: 0; border-radius: 14px; padding: 12px; display: flex; flex-direction: column;
+  align-items: center; border: 1.5px solid;
+}
+.winnerCard { background: var(--green-light); border-color: #16A34A50; }
+.loserCard { background: var(--primary-light); border-color: #E6394640; }
+.teamBetBadge { font-size: 10px; font-weight: 800; color: var(--green); margin-bottom: 4px; }
+.teamBetName { font-size: 13px; font-weight: 800; color: var(--text); text-align: center; margin-bottom: 2px; }
+.teamBetCap { font-size: 11px; color: var(--text-sub); margin-bottom: 6px; }
+.teamBetAmount { font-size: 18px; font-weight: 900; color: var(--green); }
+.betSubText { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
+.photoRow { display: flex; flex-direction: row; gap: 10px; }
+.photoCard {
+  flex: 1 1 0%; min-width: 0; display: flex; flex-direction: column; align-items: center; background: var(--bg);
+  border-radius: 14px; padding: 12px; border: 1px solid var(--card-border);
+}
+.photoCardWinner { border-color: #16A34A60; background: var(--green-light); }
+.photoRoleBadge { border-radius: 8px; padding: 3px 8px; margin-bottom: 6px; }
+.photoRoleText { font-size: 10px; font-weight: 800; }
+.photoCapName { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 2px; text-align: center; }
+.photoTeamName { font-size: 10px; color: var(--text-muted); margin-bottom: 8px; text-align: center; }
+.photoBtn {
+  border: 0; background: none; padding: 0; margin: 0; cursor: pointer; font: inherit;
+  display: flex; flex-direction: column; align-items: center;
+}
+.photoBtn:active { opacity: 0.7; }
+.payPhoto { width: 64px; height: 64px; border-radius: 12px; margin-bottom: 4px; object-fit: cover; display: block; }
+.retakeText { font-size: 9px; color: var(--text-muted); text-align: center; }
+.captureIcon { font-size: 22px; margin-bottom: 2px; }
+.markPaidBtn {
+  display: flex; flex-direction: column; align-items: center; font: inherit; cursor: pointer; margin: 0;
+  background: var(--white); border-radius: 10px; padding: 8px 12px; border: 1px solid var(--card-border);
+}
+.markPaidBtn:active { opacity: 0.7; }
+.markPaidBtnText { color: var(--text-sub); font-weight: 700; font-size: 11px; }
+.paidBadge { margin-top: 6px; background: var(--green-light); border-radius: 8px; padding: 4px 8px; }
+.paidBadgeText { color: var(--green); font-size: 10px; font-weight: 800; }
+.allConfirmedBanner {
+  display: flex; flex-direction: column; margin-top: 12px; background: var(--green-light); border-radius: 12px;
+  padding: 12px; align-items: center; text-align: center; border: 1px solid #16A34A40;
+}
+.allConfirmedText { color: var(--green); font-weight: 800; font-size: 13px; }
+
+/* Bottom buttons */
+.start2ndBtn {
+  display: flex; flex-direction: column; align-items: center; width: 100%;
+  background: var(--green); border-radius: 14px; padding: 16px 12px; margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+.start2ndBtnText { color: var(--white); font-size: 15px; font-weight: 700; text-align: center; }
+.newMatchBtn {
+  display: flex; flex-direction: column; align-items: center; width: 100%;
+  background: var(--white); border-radius: 14px; padding: 16px 12px; border: 1px solid var(--card-border);
+}
+.newMatchBtnText { color: var(--text); font-size: 15px; font-weight: 700; }

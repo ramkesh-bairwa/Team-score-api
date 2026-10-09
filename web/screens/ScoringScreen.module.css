@@ -1,0 +1,394 @@
+/* Web port of ScoringScreen StyleSheet (same values as the app). */
+
+.container {
+  display: flex; flex-direction: column;
+  width: 100%; height: 100vh; height: 100dvh; min-height: 0;
+  background: #EEF2F7; overflow: hidden; position: relative;
+}
+.container button {
+  border: none; background: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.container button:active { opacity: .7; }
+
+.noMatch { flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.noMatchText { font-size: 15px; font-weight: 800; color: var(--text-sub); }
+.container .noMatchBtn { background: var(--primary); color: #fff; border-radius: 12px; padding: 11px 22px; font-weight: 800; }
+
+/* ── Header ── */
+.header {
+  position: relative; flex-shrink: 0;
+  background: #0B1730; padding: 40px 16px 24px;
+  border-bottom-left-radius: 28px; border-bottom-right-radius: 28px; overflow: hidden;
+}
+.headerGlow {
+  position: absolute; width: 260px; height: 260px; border-radius: 130px;
+  background: var(--primary); opacity: .22; top: -120px; right: -80px; pointer-events: none;
+}
+.headerInner { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 720px; margin: 0 auto; }
+.topRow { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.container .iconBtn {
+  width: 32px; height: 32px; border-radius: 16px; background: #FFFFFF14;
+  display: flex; justify-content: center; align-items: center; transition: background .15s;
+}
+.container .iconBtn:hover { background: #FFFFFF26; }
+.iconBtnText { color: #fff; font-size: 13px; font-weight: 700; }
+.topActions { display: flex; flex-direction: row; gap: 8px; }
+.container .ytBtn {
+  display: flex; flex-direction: row; align-items: center; gap: 6px;
+  background: #FF0000; border-radius: 16px; padding: 5px 10px 5px 6px; transition: filter .15s;
+}
+.container .ytBtn:hover { filter: brightness(1.1); }
+.ytPlay { width: 18px; height: 18px; border-radius: 5px; background: #fff; display: flex; justify-content: center; align-items: center; }
+.ytPlayText { color: #FF0000; font-size: 8px; font-weight: 900; margin-left: 1px; line-height: 1; }
+.container .pill {
+  display: flex; flex-direction: row; align-items: center; gap: 6px;
+  background: #FFFFFF1F; border-radius: 16px; padding: 6px 10px; border: 1px solid transparent; transition: background .15s;
+}
+.container .pill:hover { background: #FFFFFF33; }
+.container .pillLive { background: #16A34A40; border: 1px solid #4ADE8060; }
+.pillText { color: #fff; font-size: 8px; font-weight: 800; letter-spacing: .5px; white-space: nowrap; }
+.liveDot { width: 7px; height: 7px; border-radius: 4px; background: #4ADE80; }
+.matchLine { color: #94A3B8; font-size: 8px; font-weight: 800; letter-spacing: 1px; }
+.scoreLine { display: flex; flex-direction: row; align-items: flex-end; justify-content: space-between; }
+.score { color: #fff; font-size: 52px; font-weight: 900; line-height: 56px; }
+.scoreWkts { font-size: 32px; color: #CBD5E1; font-weight: 800; }
+.oversBox { display: flex; flex-direction: column; align-items: flex-end; padding-bottom: 6px; }
+.oversVal { color: #fff; font-size: 24px; font-weight: 900; line-height: 1.2; }
+.oversOf { color: #94A3B8; font-size: 10px; font-weight: 600; }
+.progressTrack { height: 5px; border-radius: 3px; background: #FFFFFF1A; margin-top: 4px; overflow: hidden; }
+.progressFill { height: 5px; border-radius: 3px; background: #FACC15; transition: width .3s; }
+.statRow { display: flex; flex-direction: row; gap: 8px; margin-top: 8px; }
+.statChip {
+  flex: 1 1 0%; min-width: 0; background: #FFFFFF12; border-radius: 10px; padding: 5px 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+.container .statChipBtn { background: #FFFFFF24; border-radius: 10px; padding: 5px 0; transition: background .15s; }
+.container .statChipBtn:hover { background: #FFFFFF38; }
+.statLabel { color: #94A3B8; font-size: 8px; font-weight: 800; letter-spacing: 1px; }
+.statVal { color: #fff; font-size: 13px; font-weight: 800; margin-top: 1px; }
+.statusBanner {
+  display: flex; flex-direction: row; align-items: center; gap: 8px; margin-top: 8px;
+  background: #FACC15; border-radius: 12px; padding: 6px 12px;
+}
+.statusBannerHot { background: #FB923C; }
+.statusIcon { font-size: 12px; }
+.statusText { flex: 1 1 0%; min-width: 0; color: #1E1B04; font-size: 13px; font-weight: 900; }
+
+/* Centred content column (full width on phones) */
+.column { display: flex; flex-direction: column; flex-shrink: 0; width: 100%; max-width: 748px; margin: 0 auto; position: relative; z-index: 1; }
+
+/* ── This over ── */
+.overCard {
+  display: flex; flex-direction: column;
+  margin: -14px 14px 0; background: #fff; border-radius: 18px; padding: 10px 14px;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, .12);
+}
+.overHead { display: flex; flex-direction: row; justify-content: space-between; margin-bottom: 8px; }
+.overTitle { font-size: 8px; font-weight: 900; color: var(--text-muted); letter-spacing: 1px; }
+.overRuns { font-size: 8px; font-weight: 800; color: var(--text); }
+.overBalls {
+  display: flex; flex-direction: row; gap: 8px; align-items: center;
+  overflow-x: auto; scrollbar-width: none;
+}
+.overBalls::-webkit-scrollbar { display: none; }
+.ballChip { flex-shrink: 0; width: 36px; height: 36px; border-radius: 18px; display: flex; justify-content: center; align-items: center; }
+.ballChipText { font-size: 8px; font-weight: 900; }
+.ballSlot { flex-shrink: 0; width: 36px; height: 36px; border-radius: 18px; border: 1.5px dashed var(--card-border); }
+
+/* ── Tabs ── */
+.tabs { display: flex; flex-direction: row; margin: 12px 14px 0; background: #E2E8F0; border-radius: 14px; padding: 4px; }
+.container .tab { flex: 1 1 0%; min-width: 0; padding: 9px 0; border-radius: 11px; display: flex; justify-content: center; align-items: center; transition: background .15s; }
+.container .tab:hover { background: #FFFFFF80; }
+.container .tabActive, .container .tabActive:hover { background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, .08); }
+.tabText { font-size: 9px; font-weight: 700; color: var(--text-sub); white-space: pre; }
+.tabTextActive { color: var(--text); font-weight: 800; }
+
+/* ── Scrollable middle ── */
+.scrollArea { flex: 1 1 0%; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.scrollArea::-webkit-scrollbar { display: none; }
+.scroll { display: flex; flex-direction: column; padding: 14px 14px 12px; width: 100%; max-width: 748px; margin: 0 auto; }
+
+.card {
+  display: flex; flex-direction: column;
+  background: #fff; border-radius: 18px; padding: 14px; margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+}
+.cardHead { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cardTitle { font-size: 8px; font-weight: 900; color: var(--text-muted); letter-spacing: 1px; }
+.cardTitleGap { margin-bottom: 12px; }
+.container .swapChip {
+  background: var(--accent-light); border-radius: 20px; padding: 5px 12px;
+  border: 1px solid #2563EB30; transition: background .15s;
+}
+.container .swapChip:hover { background: #DBEAFE; }
+.swapChipText { color: var(--accent); font-size: 11px; font-weight: 800; white-space: pre; }
+
+/* Batters / bowler */
+.batterRow { display: flex; flex-direction: row; align-items: center; padding: 7px 10px; border-radius: 12px; margin-top: 4px; }
+.batterRowOn { background: #F0FDF4; }
+.strikeDot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 4px; background: var(--card-border); margin-right: 10px; }
+.strikeDotOn { background: var(--green); box-shadow: 0 0 4px rgba(22, 163, 74, .6); }
+.batterInfo { flex: 1 1 0%; min-width: 0; display: flex; flex-direction: column; }
+.batterName { font-size: 13px; font-weight: 700; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.batterNameOn { color: var(--text); font-weight: 900; }
+.batterMeta { font-size: 10px; color: var(--text-muted); margin-top: 1px; font-weight: 600; }
+.batterRuns { font-size: 17px; font-weight: 900; color: var(--text); white-space: nowrap; }
+.batterBalls { font-size: 10px; font-weight: 600; color: var(--text-muted); white-space: pre; }
+.container .bowlerLine {
+  display: flex; flex-direction: row; align-items: center; gap: 8px; margin-top: 8px; padding: 9px 10px 0;
+  border-top: 1px solid var(--divider); text-align: left; width: 100%;
+}
+.container .bowlerLine:active { opacity: .6; }
+.bowlerIcon { font-size: 12px; }
+.bowlerName { flex: 1 1 0%; min-width: 0; font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bowlerFig { font-size: 14px; font-weight: 900; color: var(--text); white-space: nowrap; }
+
+/* ── Scoring pad (pinned at the bottom) ── */
+.padDock { flex-shrink: 0; background: #EEF2F7; padding: 0 14px calc(env(safe-area-inset-bottom, 0px)); }
+.padInner { display: flex; flex-direction: column; width: 100%; max-width: 720px; margin: 0 auto; }
+.padCard { margin-bottom: 0; box-shadow: 0 -2px 12px rgba(15, 23, 42, .06), 0 2px 8px rgba(15, 23, 42, .06); }
+.padLabel { font-size: 9px; font-weight: 900; color: var(--text-muted); letter-spacing: 1.2px; margin-bottom: 8px; }
+.runRow { display: flex; flex-direction: row; justify-content: space-between; margin-bottom: 14px; }
+.container .runCircle {
+  flex-shrink: 0; width: 46px; height: 46px; border-radius: 50%; background: #F8FAFC;
+  display: flex; justify-content: center; align-items: center; border: 1.5px solid #E2E8F0;
+  box-shadow: 0 2px 3px rgba(15, 23, 42, .06); transition: transform .1s, filter .15s, background .15s;
+}
+.container .runCircle:hover { background: #EEF2F7; }
+.container .runCircle:active { transform: scale(.94); }
+.container .run4, .container .run4:hover { background: var(--accent); border-color: #1D4ED8; box-shadow: 0 2px 6px rgba(37, 99, 235, .35); }
+.container .run6, .container .run6:hover { background: #7C3AED; border-color: #6D28D9; box-shadow: 0 2px 6px rgba(124, 58, 237, .35); }
+.container .run4:hover, .container .run6:hover { filter: brightness(1.08); }
+.runNum { font-size: 17px; font-weight: 900; color: var(--text); }
+.runNumLight { color: #fff; }
+.extraRow { display: flex; flex-direction: row; gap: 6px; margin-bottom: 14px; }
+.container .extraChip {
+  flex: 1 1 0%; min-width: 0; padding: 8px 0; border-radius: 10px; display: flex; justify-content: center;
+  background: var(--orange-light); border: 1px solid #EA580C35; transition: background .15s;
+}
+.container .extraChip:hover { background: #FFEDD5; }
+.extraChipText { font-size: 11px; font-weight: 900; color: var(--orange); letter-spacing: .5px; }
+.container .deadChip, .container .deadChip:hover { background: #F1F5F9; border-color: #CBD5E1; }
+.deadChipText { color: #64748B; }
+.actionRow { display: flex; flex-direction: row; gap: 10px; }
+.container .undoBtn {
+  flex: 1 1 0%; padding: 11px 0; border-radius: 12px; display: flex; justify-content: center;
+  background: #fff; border: 1.5px solid #CBD5E1; transition: background .15s;
+}
+.container .undoBtn:hover { background: #F8FAFC; }
+.undoText { font-size: 12px; font-weight: 800; color: #334155; white-space: pre; }
+.container .btnDisabled { opacity: .4; }
+.container .wicketBtn {
+  flex: 1.8 1 0%; padding: 11px 0; border-radius: 12px; display: flex; justify-content: center; background: var(--primary);
+  box-shadow: 0 3px 6px rgba(230, 57, 70, .3); transition: filter .15s;
+}
+.container .wicketBtn:hover { filter: brightness(1.08); }
+.wicketBtnText { color: #fff; font-size: 12px; font-weight: 900; letter-spacing: 2px; }
+.container .endBtn { display: flex; justify-content: center; padding: 10px 0; }
+.container .endBtn:hover .endBtnText { color: var(--text-sub); }
+.endBtnText { color: var(--text-muted); font-size: 11px; font-weight: 700; white-space: pre; }
+
+/* ── Graph tab ── */
+.emptyChart { text-align: center; color: var(--text-muted); padding: 30px 0; font-size: 9px; }
+.tiles { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; row-gap: 10px; }
+.tile {
+  width: 31.5%; background: #fff; border-radius: 14px; padding: 14px 0;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .05);
+}
+.tileVal { font-size: 13px; font-weight: 900; }
+.tileLabel { font-size: 8px; color: var(--text-muted); font-weight: 700; margin-top: 3px; letter-spacing: .5px; }
+
+/* ── Modals (portal to body: own button reset) ── */
+.modalOverlay button, .dirOverlay button {
+  border: none; background: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.modalOverlay button:active, .dirOverlay button:active { opacity: .7; }
+
+.modalOverlay {
+  position: fixed; inset: 0; z-index: 900;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  background: rgba(0, 0, 0, 0); transition: background .25s ease;
+}
+.modalOverlay.overlayShown { background: #00000070; }
+.modalOverlay > * { transform: translateY(100%); transition: transform .26s cubic-bezier(.2, .8, .2, 1); }
+.modalOverlay.overlayShown > * { transform: translateY(0); }
+
+.modalBox {
+  display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: 92dvh; overflow-y: auto;
+  background: #fff; border-top-left-radius: 24px; border-top-right-radius: 24px;
+  padding: 24px 24px calc(40px + env(safe-area-inset-bottom, 0px));
+}
+.modalTitle { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.modalSub { font-size: 9px; color: var(--text-sub); margin-bottom: 20px; }
+.modalOverlay .modalPlayerRow {
+  display: flex; flex-direction: row; align-items: center; justify-content: space-between;
+  padding: 14px 0; border-bottom: 1px solid var(--divider); width: 100%; text-align: left;
+}
+.modalOverlay .modalPlayerRow:hover { background: #F8FAFC; }
+.modalPlayerText { font-size: 11px; color: var(--text); font-weight: 600; }
+.modalPlayerSub { font-size: 8px; color: var(--text-muted); }
+.modalOverlay .modalCancel { margin-top: 16px; display: flex; justify-content: center; align-self: stretch; }
+.modalOverlay .modalCancel:hover .modalCancelText { color: var(--text); }
+.modalCancelText { color: var(--text-sub); font-size: 10px; font-weight: 600; }
+
+/* Player pickers */
+.pickerSearch {
+  background: var(--bg); border-radius: 12px; padding: 10px 14px;
+  font-size: 14px; color: var(--text); border: 1px solid var(--card-border); margin-bottom: 6px; outline: none; width: 100%;
+}
+.pickerSearch:focus { border-color: #CBD5E1; }
+.pickerSearch::placeholder { color: var(--text-muted); }
+.pickerList { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
+.pickerEmpty { text-align: center; color: var(--text-muted); padding: 20px 0; font-size: 13px; }
+
+/* Wide modal buttons */
+.runsGrid { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.modalOverlay .wideBtn {
+  width: 62px; height: 56px; border-radius: 14px; background: var(--orange-light);
+  display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #EA580C40;
+}
+.modalOverlay .wideBtn:hover { filter: brightness(.97); }
+.modalOverlay .wideBtn4 { background: var(--orange); border-color: var(--orange); }
+.modalOverlay .wideBtn6 { background: #7C3AED; border-color: #7C3AED; }
+.wideBtnText { font-size: 15px; font-weight: 900; color: var(--orange); }
+.wideBtnSub { font-size: 9px; font-weight: 700; color: var(--text-muted); margin-top: 1px; }
+.wideBtnText4 { color: #fff; }
+
+/* Wicket sheet */
+.wkSheet {
+  display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: 85dvh; overflow-y: auto;
+  background: #fff; border-top-left-radius: 24px; border-top-right-radius: 24px;
+  padding: 22px 22px calc(36px + env(safe-area-inset-bottom, 0px));
+}
+.wkLabel { font-size: 10px; font-weight: 900; color: var(--text-muted); letter-spacing: 1.2px; margin-top: 6px; margin-bottom: 8px; }
+.wkChips { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.modalOverlay .wkChip { padding: 8px 12px; border-radius: 18px; background: #F1F5F9; border: 1px solid #E2E8F0; }
+.modalOverlay .wkRun {
+  width: 44px; height: 36px; border-radius: 18px; display: flex; justify-content: center; align-items: center;
+  background: #F1F5F9; border: 1px solid #E2E8F0;
+}
+.modalOverlay .wkChip:hover, .modalOverlay .wkRun:hover { background: #E2E8F0; }
+.modalOverlay .wkChipOn, .modalOverlay .wkChipOn:hover { background: var(--primary); border-color: var(--primary); }
+.wkChipText { font-size: 12px; font-weight: 700; color: var(--text); }
+.wkChipTextOn { color: #fff; }
+.wkPreview { margin-top: 10px; background: var(--primary-light); border-radius: 12px; padding: 12px; }
+.wkPreviewText { font-size: 13px; font-weight: 800; color: var(--text); white-space: pre-wrap; }
+.wkPreviewHow { font-weight: 600; color: var(--text-sub); }
+.modalOverlay .wkConfirm { margin-top: 14px; background: var(--primary); border-radius: 14px; padding: 14px 0; display: flex; justify-content: center; }
+.modalOverlay .wkConfirm:hover { filter: brightness(1.08); }
+.wkConfirmText { color: #fff; font-size: 15px; font-weight: 900; letter-spacing: .5px; }
+
+/* ── Direction (full screen) ── */
+.dirOverlay {
+  position: fixed; inset: 0; z-index: 900; overflow-y: auto;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  background: #0a1628; opacity: 0; transition: opacity .2s ease;
+}
+.dirOverlay.overlayShown { opacity: 1; }
+.dirHeader { display: flex; flex-direction: column; align-items: center; margin-bottom: 16px; padding-top: 48px; flex-shrink: 0; }
+.dirTitle { font-size: 16px; font-weight: 900; color: #fff; letter-spacing: .5px; }
+.dirSub { font-size: 9px; color: #94a3b8; margin-top: 4px; }
+
+.fieldOuter { flex-shrink: 0; width: 320px; height: 320px; }
+.fieldWrap {
+  width: 320px; height: 320px; border-radius: 160px; background: #14532d;
+  position: relative; overflow: hidden; transform-origin: top left;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, .6);
+}
+.slice {
+  position: absolute; width: 320px; height: 160px; top: 0; left: 0;
+  transform-origin: bottom center; pointer-events: none;
+}
+.dirOverlay .sliceLabel {
+  position: absolute; left: 50%; top: 50%; z-index: 6;
+  display: flex; align-items: center; justify-content: center;
+}
+.sliceBadge {
+  display: flex; flex-direction: column; align-items: center;
+  border-radius: 8px; padding: 4px 6px; box-shadow: 0 2px 3px rgba(0, 0, 0, .5);
+}
+.dirOverlay .sliceLabel:hover .sliceBadge { filter: brightness(1.12); }
+.sliceBadgeText { font-size: 8px; font-weight: 900; color: #fff; text-align: center; line-height: 8px; white-space: pre; }
+.sliceLine {
+  position: absolute; left: 50%; top: 50%; width: 320px; height: 1.5px;
+  background: #ffffff20; z-index: 2; pointer-events: none;
+}
+.infieldRing {
+  position: absolute; left: 70px; top: 70px; width: 180px; height: 180px; border-radius: 90px;
+  border: 1.5px solid #ffffff30; z-index: 3; pointer-events: none;
+}
+.boundaryRing {
+  position: absolute; left: 1px; top: 1px; width: 318px; height: 318px; border-radius: 159px;
+  border: 2.5px solid #ffffff35; z-index: 3; pointer-events: none;
+}
+
+/* Pitch */
+.pitch {
+  position: absolute; left: 138px; top: 90px; width: 44px; height: 140px;
+  background: #c8a96e; border-radius: 5px; z-index: 8;
+  display: flex; flex-direction: column; align-items: center;
+  border: 1px solid #a08450; box-shadow: 0 3px 6px rgba(0, 0, 0, .5);
+  overflow: visible; pointer-events: none;
+}
+.pitchSurface { flex: 1 1 0%; width: 100%; background: #c8a96e; }
+.creaseTop { flex-shrink: 0; width: 44px; height: 2px; background: #fff; opacity: .95; margin-top: 18px; }
+.creaseBottom { flex-shrink: 0; width: 44px; height: 2px; background: #fff; opacity: .95; margin-bottom: 18px; }
+.wicketTop, .wicketBottom {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: row; gap: 4px; align-items: flex-end; z-index: 10;
+}
+.wicketTop { top: 4px; }
+.wicketBottom { bottom: 4px; }
+.stump { width: 4px; height: 16px; background: #fff; border-radius: 2px; box-shadow: 0 1px 1px rgba(0, 0, 0, .4); }
+.bowlerEndWrap, .nonStrikerWrap, .strikerWrap {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; z-index: 12;
+}
+.bowlerEndWrap { top: -52px; }
+.nonStrikerWrap { bottom: 26px; }
+.strikerWrap { bottom: -56px; }
+.ballIcon { font-size: 13px; }
+.batIcon { font-size: 14px; }
+.endLabel, .strikerName {
+  font-size: 8px; font-weight: 800; color: #fbbf24; background: #1e293b;
+  padding: 2px 5px; border-radius: 5px; margin-top: 2px; max-width: 70px; text-align: center;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.strikerName { font-weight: 900; color: #facc15; }
+.nonStrikerName {
+  font-size: 8px; font-weight: 700; color: #fff; background: #334155;
+  padding: 1px 4px; border-radius: 4px; max-width: 60px; text-align: center;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.dirOverlay .skipDirBtn {
+  flex-shrink: 0; margin: 20px 0 24px; padding: 11px 36px;
+  border-radius: 24px; border: 1.5px solid #334155; transition: background .15s;
+}
+.dirOverlay .skipDirBtn:hover { background: #1e293b; }
+.skipDirText { color: #94a3b8; font-size: 10px; font-weight: 700; }
+
+/* ── Short phones: let the whole page scroll instead of squeezing the middle ── */
+@media (max-height: 600px) {
+  .container { height: auto; min-height: 100dvh; overflow: visible; }
+  .scrollArea { flex: none; overflow: visible; }
+  .padDock { padding-bottom: 12px; }
+}
+
+/* ── Laptops / desktops ── */
+@media (min-width: 900px) {
+  .header { padding-top: 28px; }
+  .container .runCircle { width: 60px; height: 60px; }
+  .runNum { font-size: 20px; }
+  .container .extraChip { padding: 11px 0; }
+  .container .undoBtn, .container .wicketBtn { padding: 14px 0; }
+  .padDock { padding-bottom: 8px; }
+  .modalOverlay { justify-content: center; }
+  .modalBox, .wkSheet { border-radius: 24px; padding-bottom: 28px; }
+}
+@media (min-width: 900px) and (min-height: 760px) {
+  .fieldOuter { width: 416px; height: 416px; }
+  .fieldWrap { transform: scale(1.3); }
+}

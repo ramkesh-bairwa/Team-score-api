@@ -1,0 +1,63 @@
+/* Button reset (zero specificity so the classes below win) */
+:where(.container) button {
+  border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  cursor: pointer; text-align: center; -webkit-appearance: none; appearance: none;
+}
+:where(.container) button:active { opacity: 0.7; }
+:where(.container) button:disabled { cursor: default; opacity: 1; }
+
+.container { min-height: 100dvh; width: 100%; background: var(--bg); display: flex; flex-direction: column; }
+.header {
+  position: sticky; top: 0; z-index: 10;
+  padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
+  background: var(--white); border-bottom: 1px solid var(--card-border);
+}
+.headerInner {
+  max-width: 720px; margin: 0 auto;
+  display: flex; flex-direction: row; align-items: center; justify-content: space-between;
+}
+.back { color: var(--primary); font-size: 15px; font-weight: 600; width: 60px; text-align: left; white-space: nowrap; }
+.headerTitle { color: var(--text); font-size: 17px; font-weight: 700; }
+.scroll {
+  width: 100%; max-width: 720px; margin: 0 auto; padding: 20px 20px 40px;
+  display: flex; flex-direction: column;
+}
+.matchLabel { font-size: 22px; font-weight: 900; color: var(--text); text-align: center; margin-bottom: 4px; overflow-wrap: anywhere; }
+.oversLabel { font-size: 13px; color: var(--text-sub); text-align: center; margin-bottom: 28px; }
+.sectionTitle { font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 12px; margin-top: 4px; }
+.row { display: flex; flex-direction: row; gap: 12px; margin-bottom: 24px; }
+.teamBtn {
+  flex: 1 1 0%; min-width: 0; background: var(--white); border-radius: 16px; padding: 20px 8px;
+  display: flex; flex-direction: column; align-items: center;
+  border: 2px solid var(--card-border); position: relative;
+}
+.teamBtnActive { border-color: var(--primary); background: var(--primary-light); }
+.teamBtnIcon { font-size: 28px; margin-bottom: 6px; }
+.teamBtnText { font-size: 14px; font-weight: 700; color: var(--text-sub); overflow-wrap: anywhere; }
+.teamBtnTextActive { color: var(--primary); }
+.check {
+  position: absolute; top: 8px; right: 8px;
+  width: 20px; height: 20px; border-radius: 10px; background: var(--primary);
+  display: flex; justify-content: center; align-items: center;
+  color: var(--white); font-size: 11px; font-weight: 800;
+}
+.choiceBtn {
+  flex: 1 1 0%; min-width: 0; background: var(--white); border-radius: 16px; padding: 20px 0;
+  display: flex; flex-direction: column; align-items: center; border: 2px solid var(--card-border);
+}
+.choiceBtnActive { border-color: var(--green); background: var(--green-light); }
+.choiceIcon { font-size: 28px; margin-bottom: 6px; }
+.choiceText { font-size: 14px; font-weight: 700; color: var(--text-sub); }
+.choiceTextActive { color: var(--green); }
+.summaryBox {
+  background: var(--white); border-radius: 14px; padding: 16px; margin-bottom: 24px;
+  border: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 8px;
+}
+.summaryRow { font-size: 14px; color: var(--text-sub); }
+.bold { font-weight: 700; color: var(--text); }
+.startBtn {
+  background: var(--green); border-radius: 14px; padding: 16px 0; width: 100%;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+  color: var(--white); font-size: 16px; font-weight: 700;
+}
+.startBtnDisabled { background: var(--text-muted); box-shadow: none; }

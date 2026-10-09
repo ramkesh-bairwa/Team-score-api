@@ -1,0 +1,133 @@
+.container { min-height: 100dvh; width: 100%; display: flex; flex-direction: column; background: #EEF2F7; }
+.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.btnReset {
+  border: 0; background: none; margin: 0; padding: 0; font: inherit; color: inherit;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.btnReset:active:not(:disabled) { opacity: 0.7; }
+.btnReset:disabled { cursor: default; }
+
+.header {
+  position: sticky; top: 0; z-index: 10; width: 100%; background: #0B1730;
+  padding: max(12px, env(safe-area-inset-top)) 12px 12px;
+}
+.headerInner { display: flex; flex-direction: row; align-items: center; max-width: 720px; margin: 0 auto; }
+.headerBtn {
+  width: 36px; height: 36px; border-radius: 18px; background: #FFFFFF1A; flex-shrink: 0;
+  display: flex; justify-content: center; align-items: center;
+}
+.headerBtnText { color: #FFFFFF; font-size: 16px; font-weight: 800; }
+.headerMid { flex: 1 1 0%; min-width: 0; margin-left: 12px; margin-right: 8px; display: flex; flex-direction: column; }
+.headerTitle { color: #FFFFFF; font-size: 16px; font-weight: 900; }
+.headerSub { color: #94A3B8; font-size: 11px; font-weight: 600; margin-top: 1px; }
+.livePill {
+  display: flex; flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0;
+  background: var(--primary); border-radius: 12px; padding: 5px 10px;
+}
+.livePillOff { background: #475569; }
+.liveDot { width: 7px; height: 7px; border-radius: 4px; background: #FFFFFF; }
+.liveDotOff { background: #CBD5E1; }
+.livePillText { color: #FFFFFF; font-size: 11px; font-weight: 900; letter-spacing: 1px; }
+
+.scrollArea { flex: 1 1 0%; width: 100%; }
+.scroll {
+  display: flex; flex-direction: column; width: 100%; max-width: 720px; margin: 0 auto;
+  padding: 14px 14px calc(40px + env(safe-area-inset-bottom));
+}
+
+.scoreCard {
+  position: relative; display: flex; flex-direction: column;
+  background: #0B1730; border-radius: 18px; padding: 16px; margin-bottom: 12px; overflow: hidden;
+}
+.waiting { color: #CBD5E1; font-size: 14px; font-weight: 700; text-align: center; padding: 30px 0; }
+.teamLine { color: #FFFFFF; font-size: 14px; font-weight: 800; }
+.vs { color: #94A3B8; font-weight: 600; }
+.scoreRow { display: flex; flex-direction: row; align-items: flex-end; justify-content: space-between; margin-top: 4px; }
+.score { color: #FFFFFF; font-size: 48px; font-weight: 900; line-height: 54px; }
+.wkts { color: #CBD5E1; font-size: 30px; }
+.overs { color: #FFFFFF; font-size: 22px; font-weight: 900; margin-bottom: 6px; }
+.oversOf { color: #94A3B8; font-size: 12px; font-weight: 600; }
+.statusLine {
+  margin-top: 6px; align-self: flex-start; background: #FACC15; color: #1E1B04; font-size: 13px; font-weight: 900;
+  padding: 5px 10px; border-radius: 8px; overflow: hidden;
+}
+.playerRow { display: flex; flex-direction: row; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.bowlerRow { border-top: 1px solid #FFFFFF1A; padding-top: 10px; }
+.playerName { flex: 1 1 0%; color: #CBD5E1; font-size: 14px; font-weight: 700; }
+.onStrike { color: #FFFFFF; font-weight: 900; }
+.playerRuns { color: #FFFFFF; font-size: 15px; font-weight: 900; flex-shrink: 0; }
+.playerBalls { color: #94A3B8; font-size: 12px; font-weight: 600; }
+.overRow { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip {
+  min-width: 30px; height: 30px; border-radius: 15px; padding: 0 4px; background: #FFFFFF1F;
+  display: flex; justify-content: center; align-items: center;
+}
+.chipW { background: var(--primary); }
+.chip4 { background: var(--accent); }
+.chip6 { background: #7C3AED; }
+.chipText { color: #FFFFFF; font-size: 11px; font-weight: 900; }
+.commentary { color: #E2E8F0; font-size: 12px; margin-top: 12px; line-height: 18px; }
+
+/* WICKET! / SIX! / FOUR! flash: springs in, holds 2.2 s, fades out over 0.3 s */
+.flash {
+  position: absolute; inset: 0; background: #0B1730E6;
+  display: flex; justify-content: center; align-items: center;
+  animation: flashSeq 3s linear forwards;
+}
+.flashText {
+  color: #FACC15; font-size: 52px; font-weight: 900; letter-spacing: 3px;
+  animation: flashPop 3s linear forwards;
+}
+@keyframes flashSeq {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes flashPop {
+  0% { transform: scale(0.5); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  15% { transform: scale(1); }
+  90% { transform: scale(1); }
+  100% { transform: scale(0.5); }
+}
+
+.card { display: flex; flex-direction: column; background: #FFFFFF; border-radius: 18px; padding: 16px; margin-bottom: 12px; }
+.ytHead { display: flex; flex-direction: row; align-items: center; gap: 10px; margin-bottom: 12px; }
+.ytLogo {
+  width: 40px; height: 28px; border-radius: 8px; background: #FF0000; flex-shrink: 0;
+  display: flex; justify-content: center; align-items: center;
+}
+.ytLogoText { color: #FFFFFF; font-size: 13px; font-weight: 900; margin-left: 2px; }
+.cardTitle { font-size: 16px; font-weight: 900; color: var(--text); }
+.step { display: flex; flex-direction: row; gap: 10px; margin-bottom: 10px; }
+.stepNum {
+  width: 22px; height: 22px; border-radius: 11px; background: var(--text); flex-shrink: 0;
+  display: flex; justify-content: center; align-items: center;
+}
+.stepNumText { color: #FFFFFF; font-size: 11px; font-weight: 900; }
+.stepText { flex: 1 1 0%; font-size: 13px; color: var(--text-sub); line-height: 19px; }
+.card > .stepText { flex: 0 0 auto; }
+.linkBox {
+  display: flex; flex-direction: column; background: #F8FAFC; border-radius: 12px; padding: 12px;
+  border: 1px solid var(--card-border); margin: 6px 0;
+}
+.linkLabel { font-size: 10px; font-weight: 900; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 4px; }
+.link { font-size: 13px; font-weight: 700; color: var(--accent); word-break: break-all; user-select: text; -webkit-user-select: text; }
+.btnRow { display: flex; flex-direction: row; gap: 8px; margin-top: 6px; }
+.btn {
+  border-radius: 12px; padding: 12px 8px; display: flex; flex-direction: column; align-items: center;
+  text-align: center; margin-top: 6px;
+}
+.btnRow .btn { flex: 1 1 0%; min-width: 0; }
+.btnBlue { background: var(--accent); }
+.btnDark { background: var(--text); }
+.btnRed { background: #FF0000; }
+.btnText { color: #FFFFFF; font-size: 14px; font-weight: 800; }
+.btnBusy { opacity: 0.6; }
+.camLogo { background: var(--primary); }
+.camError { font-size: 13px; color: var(--primary); font-weight: 700; margin-top: 8px; }
+.camWarn {
+  font-size: 12px; color: #9A3412; background: var(--orange-light); border-radius: 10px; padding: 10px;
+  margin-top: 8px; line-height: 18px; overflow: hidden;
+}
+.footnote { font-size: 11px; color: var(--text-muted); text-align: center; line-height: 16px; padding: 0 12px; }

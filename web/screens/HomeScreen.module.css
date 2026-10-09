@@ -1,0 +1,185 @@
+.container { min-height: 100dvh; width: 100%; background: var(--bg); display: flex; flex-direction: column; }
+
+/* Buttons behave like TouchableOpacity */
+.container button, .form button, .scanRow button, .modalCancelBtn {
+  border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  cursor: pointer; text-align: inherit; transition: opacity 0.12s;
+}
+.container button:active, .form button:active, .scanRow button:active, .modalCancelBtn:active { opacity: 0.7; }
+.container button:disabled, .form button:disabled, .scanRow button:disabled { cursor: default; }
+
+.header {
+  width: 100%; background: var(--white); border-bottom: 1px solid var(--card-border);
+  padding: max(24px, env(safe-area-inset-top)) 20px 16px;
+  position: sticky; top: 0; z-index: 5;
+}
+.headerInner {
+  max-width: 960px; margin: 0 auto;
+  display: flex; flex-direction: row; justify-content: space-between; align-items: center;
+}
+.headerGreet { color: var(--text-muted); font-size: 12px; margin-bottom: 2px; }
+.headerTitle { font-size: 24px; font-weight: 900; color: var(--text); letter-spacing: 1px; line-height: 1.25; }
+.headerAccent { color: var(--primary); }
+.headerBtns { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.container .clearBtn {
+  padding: 6px 12px; border-radius: 8px;
+  background: var(--primary-light); border: 1px solid #E6394630;
+  color: var(--primary); font-size: 12px; font-weight: 700;
+}
+.container .gearBtn {
+  width: 34px; height: 34px; border-radius: 17px; background: var(--divider);
+  display: flex; justify-content: center; align-items: center; border: 1px solid var(--card-border);
+}
+.gearText { font-size: 16px; line-height: 1; }
+
+.content {
+  width: 100%; max-width: 992px; margin: 0 auto; padding: 0 16px;
+  display: flex; flex-direction: column;
+}
+
+.container .startBanner {
+  margin-top: 16px; margin-bottom: 4px;
+  background: var(--primary); border-radius: 18px; padding: 18px;
+  display: flex; flex-direction: row; align-items: center; width: 100%;
+  box-shadow: 0 6px 16px rgba(230, 57, 70, 0.3);
+}
+.startBannerLeft { flex: 1 1 0%; display: flex; flex-direction: column; min-width: 0; }
+.startBannerTitle { color: var(--white); font-size: 17px; font-weight: 800; margin-bottom: 4px; }
+.startBannerSub { color: #ffffff99; font-size: 12px; }
+.startBannerBtn {
+  width: 44px; height: 44px; border-radius: 22px; flex-shrink: 0;
+  background: #ffffff25; display: flex; justify-content: center; align-items: center;
+}
+.startBannerBtnText { color: var(--white); font-size: 18px; }
+
+.syncBanner {
+  margin-top: 10px; display: flex; flex-direction: row; align-items: center; gap: 10px;
+  background: var(--accent-light); border-radius: 14px; padding: 10px 14px;
+  border: 1px solid #2563EB40;
+}
+.syncBannerOff { background: var(--orange-light); border-color: #EA580C40; }
+.syncBannerText { flex: 1 1 0%; font-size: 13px; font-weight: 800; color: var(--text); }
+.container .syncBannerBtn {
+  background: var(--accent); border-radius: 10px; padding: 7px 16px; min-width: 64px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--white); font-size: 13px; font-weight: 900; min-height: 31px;
+}
+
+.bannerGrid { display: flex; flex-direction: column; }
+.container .joinBanner {
+  margin-top: 10px; background: var(--white); border-radius: 16px; width: 100%;
+  padding: 12px 14px; display: flex; flex-direction: row; align-items: center; gap: 12px;
+  border: 1px solid #2563EB30;
+}
+.container .teamsBanner { border-color: #16A34A40; }
+.flex1 { flex: 1 1 0%; display: flex; flex-direction: column; min-width: 0; }
+.joinIcon { font-size: 22px; }
+.joinTitle { font-size: 14px; font-weight: 800; color: var(--accent); }
+.joinSub { font-size: 12px; color: var(--text-sub); margin-top: 1px; }
+.joinArrow { font-size: 26px; color: var(--accent); font-weight: 300; line-height: 1; }
+.container .teamsTitle { color: var(--green); }
+
+.scroll { padding: 16px 0 40px; display: flex; flex-direction: column; }
+
+.inProgressCard {
+  background: var(--primary); border-radius: 18px; padding: 16px; margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3); display: flex; flex-direction: column;
+}
+.inProgressHeader { display: flex; flex-direction: row; align-items: center; gap: 6px; margin-bottom: 6px; }
+.liveDot { width: 8px; height: 8px; border-radius: 4px; background: #FFD700; }
+.inProgressLabel { color: #FFD700; font-size: 10px; font-weight: 800; letter-spacing: 1px; }
+.inProgressTeams { color: var(--white); font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+.inProgressScore { color: #ffffffcc; font-size: 13px; font-weight: 600; margin-bottom: 12px; white-space: pre-wrap; }
+.inProgressBtns { display: flex; flex-direction: row; gap: 10px; align-items: center; }
+.container .resumeBtn {
+  flex: 1 1 0%; background: var(--white); border-radius: 12px; padding: 10px 0; text-align: center;
+  color: var(--primary); font-weight: 800; font-size: 14px;
+}
+.container .discardBtn {
+  width: 40px; height: 40px; border-radius: 20px; flex-shrink: 0;
+  background: #ffffff20; display: flex; justify-content: center; align-items: center;
+  color: var(--white); font-size: 16px; font-weight: 700;
+}
+
+.sectionTitle { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 12px; margin-top: 4px; }
+.offlineNote { font-size: 12px; font-weight: 700; color: var(--orange); margin-bottom: 8px; }
+.emptyBox { display: flex; flex-direction: column; align-items: center; padding: 60px 0; }
+.emptyIcon { font-size: 48px; margin-bottom: 12px; }
+.emptyText { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.emptySubText { font-size: 13px; color: var(--text-muted); }
+
+.matchGrid { display: grid; grid-template-columns: 1fr; column-gap: 12px; }
+@media (min-width: 760px) { .matchGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.container .matchCard {
+  background: var(--white); border-radius: 16px; padding: 16px; margin-bottom: 12px; width: 100%;
+  border: 1px solid var(--card-border); box-shadow: 0 2px 8px #00000012;
+  display: flex; flex-direction: column; align-items: stretch;
+}
+.matchCardTop { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+.chipRow { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.statusChip { padding: 3px 8px; border-radius: 8px; font-size: 10px; font-weight: 800; letter-spacing: 1px; }
+.completedChip { background: var(--green-light); color: var(--green); }
+.firstInningsChip { background: var(--accent-light); color: var(--accent); }
+.pendingChip {
+  font-size: 9px; font-weight: 900; color: var(--orange); background: var(--orange-light);
+  padding: 3px 6px; border-radius: 6px; overflow: hidden;
+}
+.matchDate { color: var(--text-muted); font-size: 11px; font-weight: 600; }
+.matchTeams { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.matchScoreRow { display: flex; flex-direction: row; align-items: baseline; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.matchScore { font-size: 22px; font-weight: 900; color: var(--primary); }
+.matchOvers { font-size: 12px; color: var(--text-sub); white-space: pre-wrap; }
+.matchResult { font-size: 12px; color: var(--green); font-weight: 700; margin-bottom: 4px; }
+.viewDetail { font-size: 12px; color: var(--accent); font-weight: 600; }
+
+/* Popups */
+.form { display: flex; flex-direction: column; align-self: stretch; }
+.modalTitle { font-size: 19px; font-weight: 800; color: var(--text); margin-bottom: 6px; text-align: center; }
+.modalSub { font-size: 14px; color: var(--text-sub); margin-bottom: 16px; text-align: center; line-height: 20px; white-space: pre-line; }
+.modalInput {
+  align-self: stretch; width: 100%; background: var(--bg); border-radius: 12px; padding: 12px 14px;
+  font-size: 15px; color: var(--text); border: 1px solid var(--card-border); margin-bottom: 12px; outline: none;
+}
+.modalInput:focus { border-color: var(--accent); }
+.modalInput::placeholder { color: var(--text-muted); }
+.codeInput { font-size: 24px; font-weight: 900; letter-spacing: 8px; text-align: center; }
+.roleLabel { align-self: flex-start; font-size: 10px; font-weight: 900; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 6px; }
+.roleRow { display: flex; flex-direction: row; gap: 8px; align-self: stretch; margin-bottom: 12px; }
+.form .roleBtn {
+  flex: 1 1 0%; border-radius: 12px; padding: 10px; border: 1.5px solid var(--card-border); background: var(--bg);
+  display: flex; flex-direction: column; align-items: flex-start; text-align: left;
+}
+.form .roleBtnOn { border-color: var(--accent); background: var(--accent-light); }
+.roleTitle { font-size: 12px; font-weight: 900; color: var(--text-sub); }
+.roleTitleOn { color: var(--accent); }
+.roleSub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.scanRow { display: flex; flex-direction: row; gap: 10px; align-self: stretch; }
+.scanRow .scanBtn {
+  flex: 1 1 0%; background: var(--text); border-radius: 12px; padding: 13px 0; min-height: 46px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--white); font-size: 14px; font-weight: 800; white-space: pre;
+}
+.scanRow .scanBtnGhost { background: var(--divider); border: 1px solid var(--card-border); color: var(--text); }
+.orRow { display: flex; flex-direction: row; align-items: center; gap: 10px; align-self: stretch; margin: 12px 0; }
+.orLine { flex: 1 1 0%; height: 1px; background: var(--card-border); }
+.orText { font-size: 11px; color: var(--text-muted); font-weight: 700; }
+.modalBtnRow { display: flex; flex-direction: row; gap: 10px; align-self: stretch; margin-top: 6px; }
+.form .modalConfirmBtn {
+  flex: 1 1 0%; background: var(--primary); border-radius: 14px; padding: 13px 0; min-height: 46px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--white); font-weight: 700; font-size: 15px;
+}
+.modalCancelBtn.modalCancelBtn {
+  flex: 1 1 0%; background: var(--divider); border-radius: 14px; padding: 13px 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--card-border); color: var(--text-sub); font-size: 15px; font-weight: 700;
+}
+.modalCancelBtn.modalCancelFull { flex: 0 0 auto; align-self: stretch; margin-top: 8px; }
+.waitSpinner { margin: 8px 0; display: flex; justify-content: center; }
+
+.spinner {
+  display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+  border: 2.5px solid; border-top-color: transparent; animation: spin 0.8s linear infinite;
+}
+.spinnerLarge { width: 36px; height: 36px; border-width: 3.5px; }
+@keyframes spin { to { transform: rotate(360deg); } }

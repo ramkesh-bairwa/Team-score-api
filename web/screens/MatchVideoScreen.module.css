@@ -1,0 +1,44 @@
+.container {
+  position: relative; height: 100dvh; min-height: 100dvh; width: 100%;
+  display: flex; flex-direction: column; background: #09090B; overflow: hidden;
+}
+.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; }
+.btnReset {
+  border: 0; background: none; margin: 0; padding: 0; font: inherit; color: inherit;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.btnReset:active:not(:disabled) { opacity: 0.7; }
+.btnReset:disabled { cursor: default; }
+.header {
+  flex-shrink: 0; width: 100%; background: #0B1730;
+  padding: max(12px, env(safe-area-inset-top)) 8px 10px;
+}
+.headerInner { display: flex; flex-direction: row; align-items: center; max-width: 1200px; margin: 0 auto; }
+.headerBtn {
+  min-width: 56px; height: 36px; display: flex; flex-direction: column; justify-content: center;
+  padding: 0 8px; flex-shrink: 0;
+}
+.back { color: #FFFFFF; font-size: 28px; font-weight: 600; line-height: 1; text-align: left; }
+.action { color: #FACC15; font-size: 14px; font-weight: 800; text-align: right; }
+.headerMid { flex: 1 1 0%; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.title { color: #FFFFFF; font-size: 15px; font-weight: 800; }
+.sub { color: #94A3B8; font-size: 11px; font-weight: 600; margin-top: 1px; }
+.web { flex: 1 1 0%; width: 100%; min-height: 0; border: 0; display: block; background: #09090B; }
+.loader {
+  position: absolute; left: 0; right: 0; top: 120px; display: flex; flex-direction: column;
+  align-items: center; pointer-events: none;
+}
+.spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.25); border-top-color: #FFFFFF;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.center {
+  flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px; text-align: center;
+}
+.errTitle { color: #FFFFFF; font-size: 17px; font-weight: 800; text-align: center; }
+.errBody { color: #94A3B8; font-size: 13px; text-align: center; margin-top: 6px; line-height: 19px; max-width: 420px; }
+.retry { margin-top: 16px; background: var(--accent); border-radius: 12px; padding: 11px 22px; }
+.retryText { color: #FFFFFF; font-weight: 800; font-size: 14px; }

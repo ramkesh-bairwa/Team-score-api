@@ -1,0 +1,32 @@
+.title { font-size: 19px; font-weight: 800; color: var(--text); margin-bottom: 6px; text-align: center; }
+.sub { font-size: 13px; color: var(--text-sub); text-align: center; line-height: 19px; margin-bottom: 14px; }
+.input {
+  align-self: stretch; width: 100%; box-sizing: border-box; background-color: var(--bg); border-radius: 12px;
+  padding: 12px 14px; font-size: 16px; font-weight: 700; color: var(--text);
+  border: 1px solid var(--card-border); outline: none;
+}
+.input::placeholder { color: var(--text-muted); font-weight: 700; }
+.input:focus { border-color: var(--accent); }
+.statusRow {
+  min-height: 34px; display: flex; flex-direction: column; justify-content: center;
+  align-self: stretch; align-items: center; margin: 6px 0;
+}
+.statusText { font-size: 13px; font-weight: 700; text-align: center; }
+.hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; text-align: center; }
+.btnRow { display: flex; flex-direction: row; gap: 10px; align-self: stretch; }
+.btn {
+  flex: 1 1 0%; border-radius: 14px; padding: 13px 0; display: flex; align-items: center; justify-content: center;
+  border: 0; cursor: pointer; font-family: inherit;
+}
+.btn:active, .cancel:active { opacity: 0.7; }
+.btnGhost { background-color: var(--divider); border: 1px solid var(--card-border); }
+.btnGhostText { color: var(--text-sub); font-size: 15px; font-weight: 700; }
+.btnPrimary { background-color: var(--accent); }
+.btnPrimaryText { color: var(--white); font-size: 15px; font-weight: 800; }
+.cancel { padding: 12px 0 0; background: none; border: 0; cursor: pointer; font-family: inherit; }
+.cancelText { color: var(--text-sub); font-size: 14px; font-weight: 600; }
+.spinner {
+  width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid rgba(37, 99, 235, 0.25);
+  border-top-color: var(--accent); animation: spin 0.8s linear infinite; box-sizing: border-box;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

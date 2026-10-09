@@ -1,0 +1,22 @@
+.box { background-color: #13244A; border-radius: 16px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; }
+.boxLight { background-color: #0B1730; }
+.title { color: #fff; font-size: 14px; font-weight: 900; margin-bottom: 10px; }
+.row { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+.btn {
+  min-width: 58px; padding: 0 12px; height: 38px; border-radius: 19px; background-color: #ffffff22;
+  display: flex; align-items: center; justify-content: center; border: 1px solid #ffffff33;
+  cursor: pointer; font-family: inherit; color: #fff; box-sizing: border-box;
+}
+.btn:active:not(:disabled) { opacity: 0.7; }
+.btn:disabled { cursor: default; }
+.stop { background-color: #EF233C; border-color: #EF233C; }
+.btnText { color: #fff; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.msg { font-size: 12px; font-weight: 700; margin-top: 10px; line-height: 17px; }
+.ok { color: #4ADE80; }
+.err { color: #FCA5A5; }
+.hint { color: #94A3B8; font-size: 11px; margin-top: 10px; line-height: 16px; }
+.spinner {
+  width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff; animation: spin 0.8s linear infinite; box-sizing: border-box;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -1,0 +1,36 @@
+.overlay {
+  position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center;
+  padding: 28px; background: rgba(15, 23, 42, 0.6); opacity: 0; transition: opacity 0.16s ease;
+}
+.shown { opacity: 1; }
+.card {
+  width: 100%; max-width: 380px; max-height: calc(100dvh - 56px); overflow-y: auto;
+  background: #fff; border-radius: 24px; padding: 26px 22px 20px;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
+  transform: scale(0.85); transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.wide { max-width: 520px; align-items: stretch; }
+.shown .card { transform: scale(1); }
+.iconRing {
+  width: 64px; height: 64px; border-radius: 32px; border: 6px solid;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 14px; flex-shrink: 0;
+}
+.iconText { font-size: 26px; }
+.title { font-size: 19px; font-weight: 800; color: var(--text); text-align: center; margin-bottom: 6px; }
+.message { font-size: 14px; color: var(--text-sub); text-align: center; line-height: 20px; white-space: pre-line; }
+.highlight {
+  margin-top: 16px; border: 1.5px dashed; border-radius: 14px; padding: 12px 20px;
+  align-self: stretch; display: flex; justify-content: center;
+}
+.highlightText { font-size: 30px; font-weight: 900; letter-spacing: 8px; }
+.btnRow { display: flex; flex-direction: row; gap: 10px; margin-top: 22px; align-self: stretch; }
+.btnCol { flex-direction: column; }
+.btn {
+  padding: 13px 0; border-radius: 14px; border: 0; color: #fff; font-size: 15px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+}
+.btn:hover { filter: brightness(0.95); }
+.btn:active { opacity: 0.8; }
+.btnFlex { flex: 1; }
+.btnCancel { background: var(--divider); border: 1px solid var(--card-border); color: var(--text-sub); }

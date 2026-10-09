@@ -1,0 +1,20 @@
+/* App theme (same colours as the mobile app's src/theme/colors.ts) */
+:root {
+  --bg: #F5F7FA; --card: #FFFFFF; --card-border: #E8ECF0;
+  --primary: #E63946; --primary-light: #FDECEA;
+  --accent: #2563EB; --accent-light: #EFF6FF;
+  --green: #16A34A; --green-light: #DCFCE7;
+  --orange: #EA580C; --orange-light: #FFF7ED;
+  --text: #111827; --text-sub: #6B7280; --text-muted: #9CA3AF;
+  --divider: #F3F4F6; --white: #FFFFFF;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+}
+button { font-family: inherit; }
+input, textarea, select { font-family: inherit; font-size: 16px; }
+a { color: inherit; text-decoration: none; }

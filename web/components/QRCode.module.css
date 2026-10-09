@@ -1,0 +1,2 @@
+.box { background-color: #FFFFFF; border-radius: 12px; display: flex; flex-direction: column; flex-shrink: 0; box-sizing: border-box; }
+.svg { display: block; }

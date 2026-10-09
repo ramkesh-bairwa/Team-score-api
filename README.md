@@ -15,7 +15,7 @@ old API (76/76 responses identical, plus WebRTC signaling and the `/stream` prox
 
 ```bash
 cd web && npm install && npm run dev      # http://localhost:3400 (website + API)
-cd web && npm run build && npm start      # production; settings from web/.env (same keys as the old API .env)
+bash web/deploy/server-update.sh     # deploy to the server (see web/README.md)
 ```
 
 ## Live stream

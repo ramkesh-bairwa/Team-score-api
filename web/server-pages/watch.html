@@ -68,8 +68,11 @@
   .unmute { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; display: none;
     background: #000a; border: 2px solid #fff6; color: #fff; font-size: 16px; font-weight: 800; padding: 14px 22px; border-radius: 30px; }
   .unmute.show { display: block; }
-  .flash { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(.3); opacity: 0; z-index: 4;
-    font-size: 64px; font-weight: 900; letter-spacing: 3px; color: #FACC15; text-shadow: 0 4px 30px #000; pointer-events: none; }
+  .flash { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(.3); opacity: 0; z-index: 4; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px 34px; border-radius: 20px; text-align: center; box-shadow: 0 10px 40px #000a; }
+  .flash .fe { font-size: clamp(36px, 6vw, 64px); line-height: 1; }
+  .flash .ft { font-size: clamp(32px, 5.5vw, 64px); font-weight: 900; letter-spacing: 3px; }
+  .flash .fs { font-size: clamp(13px, 1.6vw, 20px); font-weight: 700; opacity: .9; }
   .flash.go { animation: pop 3s ease forwards; }
   @keyframes pop { 10% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 20% { transform: translate(-50%, -50%) scale(1); }
     85% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); } }
@@ -87,7 +90,7 @@
 
 <div class="msg" id="msg"><div class="spinner"></div><div id="msgText">Connecting…</div></div>
 <button class="unmute" id="unmute">🔊 Tap for sound</button>
-<div class="flash" id="flash"></div>
+<div class="flash" id="flash"><div class="fe" id="fe"></div><div class="ft" id="ft"></div><div class="fs" id="fsub"></div></div>
 
 <div class="board" id="board">
   <div class="tb"><span id="tBat"></span></div>
@@ -221,9 +224,20 @@
       var e = document.createElement('span'); e.className = 'chip e'; box.appendChild(e);
     }
   }
-  function flash(t) {
-    var el = $('flash'); el.className = 'flash'; void el.offsetWidth;
-    el.textContent = t; el.className = 'flash go';
+  // Ball messages: SIX, FOUR, WICKET, WIDE, NO BALL, DEAD BALL (same as the camera phone)
+  var MSG = {
+    '6': ['🚀', 'SIX!', 'linear-gradient(135deg,#7c3aed,#4c1d95)'],
+    '4': ['🔥', 'FOUR!', 'linear-gradient(135deg,#2563eb,#1e3a8a)'],
+    W: ['☝️', 'WICKET!', 'linear-gradient(135deg,#dc2626,#7f1d1d)'],
+    wd: ['↔️', 'WIDE', 'linear-gradient(135deg,#f97316,#9a3412)'],
+    nb: ['🚫', 'NO BALL', 'linear-gradient(135deg,#e11d48,#881337)'],
+    db: ['⛔', 'DEAD BALL', 'linear-gradient(135deg,#475569,#1e293b)'],
+  };
+  function flash(k, sub) {
+    var m = MSG[k], el = $('flash');
+    $('fe').textContent = m[0]; $('ft').textContent = m[1]; $('fsub').textContent = sub || '';
+    el.style.background = m[2];
+    el.className = 'flash'; void el.offsetWidth; el.className = 'flash go';
     clearTimeout(flashTimer); flashTimer = setTimeout(function () { el.className = 'flash'; }, 3000);
   }
   function renderScore(d) {
@@ -270,7 +284,12 @@
     }
     if (lastDeliveries !== null && d.deliveries > lastDeliveries && d.lastBall) {
       var b = d.lastBall;
-      if (b.wicket) flash('WICKET!'); else if (!b.extra && b.runs === 6) flash('SIX!'); else if (!b.extra && b.runs === 4) flash('FOUR!');
+      var given = d.matchType === 'local' ? 0 : 1, extraRuns = b.runs - given;
+      if (b.wicket) flash('W');
+      else if (b.extra === 'wd' || b.extra === 'nb') flash(b.extra, extraRuns > 0 ? '+' + extraRuns + ' run' + (extraRuns > 1 ? 's' : '') : b.extra === 'nb' ? 'Free hit next ball' : '');
+      else if (b.extra === 'db') flash('db');
+      else if (!b.extra && b.runs === 6) flash('6');
+      else if (!b.extra && b.runs === 4) flash('4');
     }
     lastDeliveries = d.deliveries;
   }

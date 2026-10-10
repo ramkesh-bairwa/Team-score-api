@@ -109,7 +109,7 @@ export default function CameraLiveSheet({ visible, code, links, onClose, onYoutu
             <span className={st.ytLinkText}>▶ Stream to YouTube instead (more viewers)</span>
           </button>
           <button type="button" className={st.close} onClick={onClose}>
-            <span className={st.closeText}>Done</span>
+            <span className={st.closeText}>← Back to match</span>
           </button>
         </div>
       </div>

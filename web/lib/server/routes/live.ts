@@ -405,4 +405,51 @@ router.get('/:code/overlay', (req, res) => {
   res.json(summarize(sess));
 });
 
+// GET /live/:code/scorecard -> public full scorecard (batting + bowling of each innings so far),
+// for the camera phone's screen. Read-only; the same data the overlay feed is built from.
+const card = (inn, team, against) => inn && ({
+  team: team || '', against: against || '',
+  runs: inn.runs ?? 0, wickets: inn.wickets ?? 0, overs: inn.overs ?? 0, balls: inn.balls ?? 0,
+  batting: (inn.batters || []).map((b) => ({
+    name: b.name, runs: b.runs ?? 0, balls: b.balls ?? 0, fours: b.fours || 0, sixes: b.sixes || 0,
+    out: !!b.out, howOut: b.howOut || '', atCrease: !!b.atCrease, onStrike: !!b.onStrike,
+  })),
+  bowling: (inn.bowlers || []).map((b) => ({
+    name: b.name, overs: b.overs ?? 0, balls: b.balls ?? 0, runs: b.runs ?? 0, wickets: b.wickets ?? 0,
+    maidens: b.maidens || 0, bowling: !!b.bowling,
+  })),
+});
+
+router.get('/:code/scorecard', (req, res) => {
+  const sess = getSession(req, res);
+  if (!sess) return;
+  res.set('Cache-Control', 'no-store');
+  const p = sess.payload;
+  if (!p || !p.params) return res.json({ version: sess.version, phase: 'waiting', innings: [] });
+  const prm = p.params;
+  const base = { version: sess.version, phase: p.phase, inningsNum: p.inningsNum, overs: prm.overs, target: prm.target || null };
+
+  if (p.phase === 'innings_end') {
+    const sc = p.scorecardParams || {};
+    const t1 = sc.battingTeam?.name, t2 = sc.fieldingTeam?.name;
+    return res.json({ ...base, innings: [card(sc.innings1, t1, t2), card(sc.innings2, t2, t1)].filter(Boolean) });
+  }
+
+  const st = p.savedState || {};
+  const si = st.strikerIdx ?? 0;
+  const live = {
+    runs: st.totalRuns, wickets: st.wickets, overs: st.currentOver, balls: st.currentBall,
+    batters: [
+      ...(st.dismissed || []),
+      ...(st.batters || []).map((b, i) => ({ ...b, atCrease: !b.out, onStrike: !b.out && i === si })),
+    ],
+    bowlers: (st.bowlers || []).map((b, i) => ({ ...b, bowling: i === (st.currentBowlerIdx ?? 0) })),
+  };
+  const bat = prm.battingTeam?.name, field = prm.fieldingTeam?.name;
+  const innings = p.inningsNum === 2 && prm.innings1
+    ? [card(prm.innings1, prm.originalBattingTeam?.name || field, prm.originalFieldingTeam?.name || bat), card(live, bat, field)]
+    : [card(live, bat, field)];
+  res.json({ ...base, innings: innings.filter(Boolean) });
+});
+
 export default router;

@@ -46,17 +46,126 @@
   .ball.k6 { background: #8B2CF5; box-shadow: none; } .ball.k4 { background: #1E6BFF; box-shadow: none; } .ball.kW { background: #E11D2E; box-shadow: none; }
   .ball:disabled { opacity: .4; }
   .hint { font-size: 12px; color: #cbd5e1; text-shadow: 0 1px 3px #000; }
+  /* What goes out, shown on this phone during a replay */
+  #onair { display: none; object-fit: contain; z-index: 0; }
+  #onair.show { display: block; }
+  .tbtn { border: none; background: #0008; color: #fff; font-size: 13px; font-weight: 800; padding: 6px 10px; border-radius: 8px; box-shadow: inset 0 0 0 1px #ffffff30; }
+  /* Small live score under the top bar: batters + bowler */
+  .mini { position: fixed; left: 12px; top: calc(max(12px, env(safe-area-inset-top)) + 44px); display: none; min-width: 210px; max-width: min(320px, 70vw);
+    background: #0B1730e6; border-radius: 12px; overflow: hidden; font-size: 13px; box-shadow: 0 4px 16px #0008; }
+  .mini.show { display: block; }
+  .mini .mh { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px; background: linear-gradient(90deg, #E11D2E, #9f1239); font-weight: 900; }
+  .mini .mh b { font-size: 18px; } .mini .mh span { opacity: .85; font-size: 12px; font-weight: 700; }
+  .mini .mh i { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 800; color: #FFC531; }
+  .mini .mr { display: flex; justify-content: space-between; gap: 8px; padding: 4px 10px; color: #cbd5e1; white-space: nowrap; }
+  .mini .mr.on { color: #fff; font-weight: 800; }
+  .mini .mr .nm { overflow: hidden; text-overflow: ellipsis; }
+  .mini .mr.bw { border-top: 1px solid #ffffff1a; color: #e2e8f0; }
+  .mini .ov { display: flex; gap: 4px; padding: 5px 10px 8px; }
+  .mini .ov span { min-width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; font-size: 11px; font-weight: 900; padding: 0 4px; }
+  /* Ball messages: SIX, FOUR, WICKET, WIDE, NO BALL, DEAD BALL */
+  .flash { position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%) scale(.3); opacity: 0; z-index: 4; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 28px; border-radius: 18px; text-align: center; box-shadow: 0 10px 40px #000a; }
+  .flash .fe { font-size: 44px; line-height: 1; }
+  .flash .ft { font-size: 38px; font-weight: 900; letter-spacing: 2px; }
+  .flash .fs { font-size: 13px; font-weight: 700; opacity: .9; max-width: 70vw; }
+  .flash.pop { animation: pop 3s ease forwards; }
+  @keyframes pop { 10% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } 20% { transform: translate(-50%, -50%) scale(1); }
+    85% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); } }
+  /* Full scorecard sheet */
+  .sheet { position: fixed; inset: 0; z-index: 5; display: none; background: #000a; align-items: flex-end; justify-content: center; }
+  .sheet.show { display: flex; }
+  .sheetIn { width: 100%; max-width: 720px; max-height: 88vh; overflow-y: auto; background: #0B1730; border-radius: 18px 18px 0 0;
+    padding: 12px 14px max(16px, env(safe-area-inset-bottom)); }
+  .sh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 17px; }
+  .sh button { border: none; background: #ffffff1a; color: #fff; width: 34px; height: 34px; border-radius: 17px; font-size: 16px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .tabs button { flex: 1; border: none; background: #ffffff14; color: #cbd5e1; padding: 9px 6px; border-radius: 10px; font-weight: 800; font-size: 13px; }
+  .tabs button.on { background: #E11D2E; color: #fff; }
+  .inn { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 2px; font-weight: 900; }
+  .inn b { font-size: 22px; } .inn span { color: #94a3b8; font-size: 13px; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
+  th { text-align: right; color: #94a3b8; font-weight: 700; font-size: 11px; padding: 6px 4px; border-bottom: 1px solid #ffffff1a; }
+  td { text-align: right; padding: 7px 4px; border-bottom: 1px solid #ffffff0d; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; white-space: normal; }
+  td .ho { display: block; color: #94a3b8; font-size: 11px; }
+  tr.cur td:first-child { color: #FFC531; font-weight: 800; }
+  .empty { color: #94a3b8; font-size: 14px; padding: 20px 0; text-align: center; }
+  @media (max-width: 440px) { .code { display: none; } .top { gap: 6px; padding-left: 10px; padding-right: 10px; } .tbtn { padding: 6px 8px; } }
   .shape { font-size: 12px; font-weight: 800; background: #0006; padding: 5px 9px; border-radius: 8px; letter-spacing: .5px; }
+  /* Full-match recording */
+  .recb { display: none; border: none; background: #E63946; color: #fff; font-size: 12px; font-weight: 900; padding: 5px 9px; border-radius: 8px; letter-spacing: .5px; }
+  .recb.show { display: inline-block; animation: pulse 1.6s infinite; }
+  .top .tbtn, .viewers, .recb, .badge { white-space: nowrap; }
+  @media (max-width: 440px) { .top.rec .shape { display: none; } .top.rec .viewers { padding: 5px 7px; } }
+  .round.rec { color: #ff6b6b; }
+  .round.rec.on { background: #E63946; color: #fff; }
+  .lbl { color: #94a3b8; font-size: 11px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; margin: 8px 0 6px; }
+  .opts { display: flex; gap: 8px; }
+  .opt { flex: 1; border: none; background: #ffffff14; color: #cbd5e1; border-radius: 12px; padding: 10px 4px; font-weight: 800; font-size: 13px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .opt i { font-style: normal; font-size: 22px; }
+  .opt.on { background: #E11D2E; color: #fff; }
+  .opt:disabled { opacity: .45; }
+  .onote { color: #94a3b8; font-size: 12px; margin: 8px 2px 10px; line-height: 1.4; }
+  .yt { display: none; background: #ffffff0d; border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.45; margin-bottom: 10px; }
+  .yt.show { display: block; }
+  .yt .ucode { display: block; font-size: 26px; font-weight: 900; letter-spacing: 3px; color: #FFC531; margin: 4px 0; }
+  .yt .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .pbtn { border: none; border-radius: 10px; padding: 8px 12px; font-weight: 800; font-size: 13px; background: #ffffff1f; color: #fff; text-decoration: none; display: inline-block; }
+  .pbtn.red { background: #E63946; }
+  .yt select { background: #ffffff14; color: #fff; border: none; border-radius: 8px; padding: 7px 8px; font-weight: 700; font-size: 13px; }
+  .chk { display: flex; gap: 10px; align-items: center; font-size: 14px; margin: 4px 2px 12px; }
+  .chk input { width: 18px; height: 18px; accent-color: #E63946; }
+  .bigrec { width: 100%; height: 50px; border: none; border-radius: 25px; font-size: 16px; font-weight: 900; background: #E63946; color: #fff; }
+  .bigrec.stop { background: #fff; color: #E63946; }
+  .bigrec:disabled { opacity: .45; }
+  .ri { display: flex; align-items: center; gap: 8px; padding: 10px 2px; border-bottom: 1px solid #ffffff0d; font-size: 13px; }
+  .ri .rt { flex: 1; min-width: 0; }
+  .ri .rt b { display: block; font-size: 14px; }
+  .ri .rt span { color: #94a3b8; }
+  .ri .rt span.err { color: #fca5a5; }
 </style>
 </head>
 <body>
 <video id="preview" autoplay playsinline muted></video>
+<video id="onair" autoplay playsinline muted></video>
 
 <div class="top">
+  <button class="tbtn" id="backMatch" title="Back to the match">← Match</button>
   <span class="badge" id="badge">OFFLINE</span>
+  <button class="recb" id="recBadge" title="Recording">⏺ REC <span id="recTime">0:00</span></button>
   <span class="code" id="code"></span>
   <span class="shape" id="shape"></span>
   <span class="viewers" id="viewers">👁 0</span>
+  <button class="tbtn" id="cardBtn">📋 Score</button>
+</div>
+
+<div class="mini" id="mini"></div>
+<div class="flash" id="flash"><div class="fe" id="fe"></div><div class="ft" id="ft"></div><div class="fs" id="fsub"></div></div>
+<div class="sheet" id="sheet">
+  <div class="sheetIn">
+    <div class="sh"><b>📋 Scorecard</b><button id="sheetClose" aria-label="Close">✕</button></div>
+    <div class="tabs" id="tabs"></div>
+    <div id="cardBody"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+<div class="sheet" id="recSheet">
+  <div class="sheetIn">
+    <div class="sh"><b>⏺ Recording</b><button id="recClose" aria-label="Close">✕</button></div>
+    <div class="lbl">Save the recording to</div>
+    <div class="opts" id="recOpts">
+      <button class="opt" data-t="device"><i>📱</i>This phone</button>
+      <button class="opt" data-t="server"><i>☁️</i>Server</button>
+      <button class="opt" data-t="youtube"><i>▶️</i>YouTube</button>
+    </div>
+    <div class="onote" id="recOptNote"></div>
+    <div class="yt" id="ytBox"></div>
+    <label class="chk"><input type="checkbox" id="recAuto"> Start recording automatically when I go live</label>
+    <button class="bigrec" id="recToggle">⏺ Start recording</button>
+    <div class="lbl" style="margin-top:16px">Recordings of this match</div>
+    <div id="recList"><div class="empty">No recordings yet.</div></div>
+  </div>
 </div>
 
 <div class="bottom">
@@ -75,6 +184,7 @@
     <button class="round" id="flip" title="Switch camera">🔄</button>
     <button class="go" id="go" disabled>GO LIVE</button>
     <button class="round" id="mic" title="Microphone">🎙️</button>
+    <button class="round rec" id="recBtn" title="Recording">⏺</button>
   </div>
   <button class="share" id="flipPic" style="display:none">🙃 Picture upside down? Tap to fix</button>
   <button class="share" id="share">🔗 Share watch link</button>
@@ -124,12 +234,16 @@
       $('preview').style.transform = facing === 'user' ? 'scaleX(-1)' : '';
       src.srcObject = new MediaStream(stream.getVideoTracks());
       src.play().catch(function () {});
+      connectRecMic(); // the recording keeps going with this camera's mic
       if (live) cutClip(); // record the new camera from now on (keeps the clips so far)
       $('go').disabled = false;
       if (!live) status('Ready. Tap Go Live');
       // The canvas track stays the same; only the camera microphone track is new
       var audio = stream.getAudioTracks()[0];
-      if (!out) out = new MediaStream(canvas.captureStream(30).getVideoTracks().concat(audio ? [audio] : []));
+      if (!out) {
+        out = new MediaStream(canvas.captureStream(30).getVideoTracks().concat(audio ? [audio] : []));
+        $('onair').srcObject = new MediaStream(out.getVideoTracks());
+      }
       else {
         out.getAudioTracks().forEach(function (t) { out.removeTrack(t); });
         if (audio) out.addTrack(audio);
@@ -236,7 +350,8 @@
     if (isReplay) replayTag(W);
   }
   function replayTag(W) {
-    var h = 46, x = W - 230, y = 22, slow = replay.rate < 1;
+    // Below the viewer page's top bar, so it isn't covered there
+    var h = 46, x = W - 230, y = Math.round(canvas.height * 0.1), slow = replay.rate < 1;
     ctx.fillStyle = '#E11D2E';
     ctx.fillRect(x, y, 208, h);
     ctx.fillStyle = '#fff';
@@ -385,6 +500,9 @@
     $('replay').className = live && canReplay ? 'replay show' : 'replay';
     $('rbtns').style.display = replay ? 'none' : 'flex';
     $('backLive').style.display = replay ? 'block' : 'none';
+    // During a replay this phone shows what viewers see (the replay), not the camera
+    $('onair').className = replay ? 'show' : '';
+    if (replay) $('onair').play().catch(function () {});
     // A ball is replayable while its footage is still in the buffer
     var oldest = clips.length ? clips[0].start : rec ? recStart : Date.now();
     [].forEach.call($('rbtns').children, function (b) { b.disabled = !clips.length; });
@@ -411,8 +529,11 @@
     fetch('/api/live/' + code + '/overlay', { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
+        renderMini(d);
+        if (d && d.battingTeam) lastOverlay = d;
         if (!d || d.deliveries == null || d.phase === 'waiting') return;
         if (d.phase === 'innings_end') { lastDeliveries = null; return; }
+        if (lastDeliveries !== null && d.deliveries > lastDeliveries && d.lastBall) ballMessage(d);
         if (lastDeliveries !== null && d.deliveries > lastDeliveries && d.lastBall && live) {
           var b = d.lastBall;
           var kind = b.wicket ? 'W' : !b.extra && b.runs === 6 ? '6' : !b.extra && b.runs === 4 ? '4' : 'x';
@@ -430,6 +551,117 @@
   }
   pollScore();
 
+  // ── Ball messages (same as the viewer page) ──
+  var MSG = {
+    '6': ['🚀', 'SIX!', 'linear-gradient(135deg,#7c3aed,#4c1d95)'],
+    '4': ['🔥', 'FOUR!', 'linear-gradient(135deg,#2563eb,#1e3a8a)'],
+    W: ['☝️', 'WICKET!', 'linear-gradient(135deg,#dc2626,#7f1d1d)'],
+    wd: ['↔️', 'WIDE', 'linear-gradient(135deg,#f97316,#9a3412)'],
+    nb: ['🚫', 'NO BALL', 'linear-gradient(135deg,#e11d48,#881337)'],
+    db: ['⛔', 'DEAD BALL', 'linear-gradient(135deg,#475569,#1e293b)'],
+  };
+  var flashTimer = null;
+  function ballMessage(d) {
+    var b = d.lastBall;
+    var k = b.wicket ? 'W' : b.extra === 'wd' || b.extra === 'nb' || b.extra === 'db' ? b.extra : !b.extra && (b.runs === 6 || b.runs === 4) ? String(b.runs) : null;
+    if (!k) return;
+    var m = MSG[k], el = $('flash');
+    var extra = (k === 'wd' || k === 'nb') && b.runs > (d.matchType === 'local' ? 0 : 1) ? '+' + (b.runs - (d.matchType === 'local' ? 0 : 1)) + ' run' + (b.runs - (d.matchType === 'local' ? 0 : 1) > 1 ? 's' : '') : '';
+    $('fe').textContent = m[0];
+    $('ft').textContent = m[1];
+    $('fsub').textContent = extra || (k === 'nb' ? 'Free hit next ball' : '');
+    el.style.background = m[2];
+    el.className = 'flash'; void el.offsetWidth; el.className = 'flash pop';
+    clearTimeout(flashTimer); flashTimer = setTimeout(function () { el.className = 'flash'; }, 3000);
+  }
+
+  // ── Mini live score: batting + bowling ──
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function chipStyle(b) {
+    if (b.wicket) return 'background:#E11D2E';
+    if (b.extra) return 'background:#F97316';
+    if (b.runs === 6) return 'background:#8B2CF5';
+    if (b.runs === 4) return 'background:#1E6BFF';
+    if (b.runs === 0) return 'background:#ffffff24;color:#93A3C6';
+    return 'background:#F1F5FF;color:#0B1530';
+  }
+  function chipText(b, mt) {
+    if (b.wicket) return 'W';
+    if (b.extra === 'db') return 'DB';
+    if (b.extra === 'wd' || b.extra === 'nb') { var t = mt === 'local' ? b.runs : b.runs - 1; return b.extra + (t > 0 ? '+' + t : ''); }
+    if (b.extra) return b.runs + b.extra;
+    return String(b.runs);
+  }
+  function renderMini(d) {
+    var el = $('mini');
+    if (!d || d.phase === 'waiting' || d.runs == null) { el.className = 'mini'; return; }
+    var h = '<div class="mh"><b>' + esc(d.runs) + '/' + esc(d.wickets) + '</b><span>' + esc(d.over) + '.' + esc(d.ball) + ' ov · ' + esc(d.battingTeam) + '</span>';
+    if (d.target) h += '<i>Need ' + Math.max(0, d.target - d.runs) + '</i>';
+    h += '</div>';
+    if (d.phase === 'innings_end') {
+      h += '<div class="mr on"><span class="nm">' + esc(d.result || 'Innings break') + '</span></div>';
+    } else {
+      [[d.striker, true], [d.nonStriker, false]].forEach(function (x) {
+        if (x[0]) h += '<div class="mr' + (x[1] ? ' on' : '') + '"><span class="nm">' + (x[1] ? '🏏 ' : '') + esc(x[0].name) + '</span><span>' + esc(x[0].runs) + ' (' + esc(x[0].balls) + ')</span></div>';
+      });
+      if (d.bowler) h += '<div class="mr bw"><span class="nm">⚾ ' + esc(d.bowler.name) + '</span><span>' + esc(d.bowler.wickets) + '-' + esc(d.bowler.runs) + ' (' + esc(d.bowler.overs) + '.' + esc(d.bowler.balls) + ')</span></div>';
+      if ((d.thisOver || []).length) h += '<div class="ov">' + d.thisOver.map(function (b) { return '<span style="' + chipStyle(b) + '">' + esc(chipText(b, d.matchType)) + '</span>'; }).join('') + '</div>';
+    }
+    el.innerHTML = h;
+    el.className = 'mini show';
+  }
+
+  // ── Full scorecard ──
+  var card = null, cardTab = -1, cardTimer = null;
+  function sr(r, b) { return b ? (r / b * 100).toFixed(1) : '-'; }
+  function econ(r, o, b) { var balls = o * 6 + b; return balls ? (r / balls * 6).toFixed(2) : '-'; }
+  function renderCard() {
+    var body = $('cardBody'), tabs = $('tabs');
+    if (!card || !card.innings || !card.innings.length) { tabs.innerHTML = ''; body.innerHTML = '<div class="empty">The scorecard appears once the scorer starts the match.</div>'; return; }
+    if (cardTab < 0 || cardTab >= card.innings.length) cardTab = card.innings.length - 1;
+    tabs.innerHTML = card.innings.map(function (inn, i) {
+      return '<button data-i="' + i + '" class="' + (i === cardTab ? 'on' : '') + '">' + esc(inn.team || 'Innings ' + (i + 1)) + ' ' + esc(inn.runs) + '/' + esc(inn.wickets) + '</button>';
+    }).join('');
+    [].forEach.call(tabs.children, function (b) { b.onclick = function () { cardTab = +b.dataset.i; renderCard(); }; });
+    var inn = card.innings[cardTab];
+    var h = '<div class="inn"><b>' + esc(inn.runs) + '/' + esc(inn.wickets) + '</b><span>' + esc(inn.overs) + '.' + esc(inn.balls) + ' overs · ' + esc(inn.team) + ' batting</span></div>';
+    h += '<table><tr><th>Batting</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>';
+    h += inn.batting.length ? inn.batting.map(function (b) {
+      var how = b.out ? b.howOut || 'out' : b.atCrease ? 'not out' : '';
+      return '<tr class="' + (b.atCrease ? 'cur' : '') + '"><td>' + (b.onStrike ? '🏏 ' : '') + esc(b.name) + (how ? '<span class="ho">' + esc(how) + '</span>' : '') + '</td><td><b>' + esc(b.runs) + '</b></td><td>' + esc(b.balls) + '</td><td>' + esc(b.fours) + '</td><td>' + esc(b.sixes) + '</td><td>' + sr(b.runs, b.balls) + '</td></tr>';
+    }).join('') : '<tr><td colspan="6">—</td></tr>';
+    h += '</table><table><tr><th>Bowling</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr>';
+    h += inn.bowling.length ? inn.bowling.map(function (b) {
+      return '<tr class="' + (b.bowling ? 'cur' : '') + '"><td>' + (b.bowling ? '⚾ ' : '') + esc(b.name) + '</td><td>' + esc(b.overs) + '.' + esc(b.balls) + '</td><td>' + esc(b.maidens) + '</td><td>' + esc(b.runs) + '</td><td><b>' + esc(b.wickets) + '</b></td><td>' + econ(b.runs, b.overs, b.balls) + '</td></tr>';
+    }).join('') : '<tr><td colspan="6">—</td></tr>';
+    body.innerHTML = h + '</table>';
+  }
+  function loadCard() {
+    fetch('/api/live/' + code + '/scorecard', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d) { card = d; renderCard(); } })
+      .catch(function () {});
+  }
+  $('cardBtn').onclick = function () {
+    $('sheet').className = 'sheet show';
+    loadCard();
+    clearInterval(cardTimer); cardTimer = setInterval(loadCard, 4000);
+  };
+  function closeCard() { $('sheet').className = 'sheet'; clearInterval(cardTimer); }
+  $('sheetClose').onclick = closeCard;
+  $('sheet').onclick = function (e) { if (e.target === $('sheet')) closeCard(); };
+
+  // ── Back to the match (the scoring screen). Leaving this page ends the stream from this phone. ──
+  $('backMatch').onclick = function () {
+    if (live && !confirm('Going back to the match stops the live stream from this phone. Go back?')) return;
+    // Let the recording save its last piece (and a phone recording download) before leaving
+    Promise.resolve(live ? stopLive() : null).then(function () {
+      try { window.close(); } catch (e) {}
+      // Still here (the page wasn't opened as a pop-up): open the match on this tab
+      setTimeout(function () { location.href = '/scoring'; }, 300);
+    });
+  };
+
   [].forEach.call($('rbtns').children, function (b) {
     b.onclick = function () {
       var secs = +b.dataset.secs, rate = +(b.dataset.rate || 1), now = Date.now();
@@ -437,6 +669,467 @@
     };
   });
   $('backLive').onclick = stopReplay;
+
+  // ── Full-match recording ──
+  // While live, what viewers see (camera + replays) and the mic are recorded in 3-second pieces.
+  // Every piece is kept on this phone first (IndexedDB), so a dropped connection loses nothing. Then:
+  //   device  – when recording stops, the video is saved to the phone
+  //   server  – pieces go to the server while recording; the phone copy is removed once sent
+  //   youtube – same as server, then the server uploads the finished video to the connected channel
+  // Uploads left unfinished (page closed) carry on the next time this page is opened.
+  var REC_TYPES = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'];
+  var REC_SLICE_MS = 3000, UPLOAD_PIECE = 512 * 1024, SKIP = {};
+  var canRecord = !!window.MediaRecorder && !!window.indexedDB && REC_TYPES.some(function (t) { return MediaRecorder.isTypeSupported(t); });
+  function pref(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+  var recTarget = pref('cs.recTarget') || 'server';
+  var recAuto = pref('cs.recAuto') !== '0';
+  var ytAcct = pref('cs.ytAcct') || '', ytPrivacy = pref('cs.ytPrivacy') || 'unlisted';
+  var yt = { configured: null, connected: false, channel: '', connecting: null, msg: '' };
+  var recording = null;     // { r, mr, startedAt, saving }
+  var mem = {};             // local recording id -> its record (one shared object per recording)
+  var ready = {};           // local id -> finished video Blob, for "Save to phone"
+  var serverRecs = [];
+  var lastOverlay = null;
+  var recAudio = { ctx: null, dest: null, src: null };
+  if (!canRecord) $('recBtn').style.display = 'none';
+
+  // IndexedDB: 'recs' (one record per recording) and 'chunks' (key [recId, seq] -> Blob)
+  var dbp = null;
+  function db() {
+    if (!dbp) dbp = new Promise(function (resolve, reject) {
+      var req = indexedDB.open('cricscore-rec', 1);
+      req.onupgradeneeded = function () {
+        req.result.createObjectStore('recs', { keyPath: 'id' });
+        req.result.createObjectStore('chunks');
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { dbp = null; reject(req.error); };
+    });
+    return dbp;
+  }
+  function tx(stores, mode, fn) {
+    return db().then(function (d) {
+      return new Promise(function (resolve, reject) {
+        var t = d.transaction(stores, mode), out;
+        var r = fn(t);
+        if (r) r.onsuccess = function () { out = r.result; };
+        t.oncomplete = function () { resolve(out); };
+        t.onerror = t.onabort = function () { reject(t.error || new Error('Storage error')); };
+      });
+    });
+  }
+  function chunkRange(id) { return IDBKeyRange.bound([id, 0], [id, Infinity]); }
+  function putRec(r) { return tx('recs', 'readwrite', function (t) { t.objectStore('recs').put(r); }); }
+  function delRec(r) {
+    delete mem[r.id]; delete ready[r.id];
+    return tx(['recs', 'chunks'], 'readwrite', function (t) { t.objectStore('recs').delete(r.id); t.objectStore('chunks').delete(chunkRange(r.id)); });
+  }
+  function loadRecs() {
+    return tx('recs', 'readonly', function (t) { return t.objectStore('recs').getAll(); })
+      .then(function (list) { return list.map(function (r) { return mem[r.id] || (mem[r.id] = r); }); });
+  }
+  // A piece and the record's counters are written together, so they always agree
+  function addChunk(r, blob) {
+    return tx(['recs', 'chunks'], 'readwrite', function (t) {
+      t.objectStore('chunks').put(blob, [r.id, r.seq]);
+      r.seq++; r.bytes += blob.size;
+      t.objectStore('recs').put(r);
+    });
+  }
+
+  // The mic goes through Web Audio, so the recording keeps one audio track when the camera
+  // (and with it the mic track) is switched; a MediaRecorder stops if its tracks change
+  function recAudioTrack() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return (stream && stream.getAudioTracks()[0]) || null;
+    if (!recAudio.ctx) { recAudio.ctx = new AC(); recAudio.dest = recAudio.ctx.createMediaStreamDestination(); }
+    if (recAudio.ctx.state === 'suspended') recAudio.ctx.resume().catch(function () {});
+    connectRecMic();
+    return recAudio.dest.stream.getAudioTracks()[0];
+  }
+  function connectRecMic() {
+    if (!recAudio.ctx) return;
+    if (recAudio.src) { try { recAudio.src.disconnect(); } catch (e) {} recAudio.src = null; }
+    var a = stream && stream.getAudioTracks()[0];
+    if (a) { recAudio.src = recAudio.ctx.createMediaStreamSource(new MediaStream([a])); recAudio.src.connect(recAudio.dest); }
+  }
+  // Audio started without a tap (autostart) begins suspended: the first tap anywhere wakes it
+  document.addEventListener('click', function () { if (recAudio.ctx && recAudio.ctx.state === 'suspended') recAudio.ctx.resume().catch(function () {}); }, true);
+
+  function matchTitle() {
+    var d = lastOverlay, day = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    var teams = d && d.battingTeam && d.bowlingTeam ? d.battingTeam + ' vs ' + d.bowlingTeam : 'CricScore match ' + code;
+    return teams + ' · ' + day;
+  }
+  function fileName(r) {
+    var t = new Date(r.createdAt), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return 'CricScore-' + r.code + '-' + t.getFullYear() + p(t.getMonth() + 1) + p(t.getDate()) + '-' + p(t.getHours()) + p(t.getMinutes()) + (r.mime.indexOf('mp4') >= 0 ? '.mp4' : '.webm');
+  }
+  function mb(n) { return n >= 1e9 ? (n / 1e9).toFixed(2) + ' GB' : (n / 1e6).toFixed(n < 1e7 ? 1 : 0) + ' MB'; }
+  function clock(ms) { var s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; s %= 60; return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+
+  function startRecording() {
+    if (recording || !live || !canRecord || !out) return;
+    var target = recTarget;
+    if (target === 'youtube' && !yt.connected) {
+      target = 'server';
+      status('YouTube is not connected, so this recording is saved on the server. You can send it to YouTube later.');
+    }
+    var mime = REC_TYPES.find(function (t) { return MediaRecorder.isTypeSupported(t); });
+    var tracks = out.getVideoTracks().slice(), at = recAudioTrack();
+    if (at) tracks.push(at);
+    var mr;
+    try { mr = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: 2500000, audioBitsPerSecond: 128000 }); }
+    catch (e) { status('This phone can’t record the video: ' + e.message); return; }
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
+    var r = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), code: code, k: key, target: target, mime: mime,
+      title: matchTitle(), privacy: ytPrivacy, acct: target === 'youtube' ? ytAcct : '', createdAt: Date.now(),
+      seq: 0, bytes: 0, sentSeq: 0, sentBase: 0, serverId: null, closed: false,
+    };
+    mem[r.id] = r;
+    var cur = { r: r, mr: mr, startedAt: Date.now(), saving: putRec(r) };
+    mr.ondataavailable = function (e) {
+      if (!e.data || !e.data.size) return;
+      cur.saving = cur.saving.then(function () { return addChunk(r, e.data); })
+        .then(function () { if (r.target !== 'device') kickSync(); })
+        .catch(function () { status('⚠️ Could not save the recording on this phone (storage full?)'); });
+    };
+    mr.onerror = function () { status('⚠️ Recording stopped unexpectedly'); if (recording === cur) stopRecording(); };
+    mr.start(REC_SLICE_MS);
+    recording = cur;
+    renderRec();
+  }
+
+  function stopRecording() {
+    var cur = recording;
+    if (!cur) return Promise.resolve();
+    recording = null;
+    renderRec();
+    return new Promise(function (resolve) {
+      if (cur.mr.state === 'inactive') return resolve();
+      cur.mr.addEventListener('stop', function () { resolve(); }, { once: true });
+      cur.mr.stop();
+    })
+      .then(function () { return cur.saving; })
+      .then(function () { cur.r.closed = true; return putRec(cur.r); })
+      .then(function () {
+        if (cur.r.target === 'device') return finishOnPhone(cur.r);
+        status(cur.r.target === 'youtube' ? '⏹ Recording stopped. Sending it to YouTube…' : '⏹ Recording stopped. Saving it on the server…');
+        kickSync();
+      })
+      .catch(function (e) { status('⚠️ Recording: ' + e.message); })
+      .then(renderRecList);
+  }
+
+  // ── This phone ──
+  var iOSSafari = iOS;
+  function loadVideo(r) {
+    if (ready[r.id]) return Promise.resolve(ready[r.id]);
+    return tx('chunks', 'readonly', function (t) { return t.objectStore('chunks').getAll(chunkRange(r.id)); })
+      .then(function (blobs) { return (ready[r.id] = new Blob(blobs, { type: r.mime.split(';')[0] })); });
+  }
+  // iPhone: the share sheet ("Save Video" puts it in Photos). Elsewhere: a normal download.
+  function saveFile(r, blob) {
+    var file = window.File ? new File([blob], fileName(r), { type: blob.type }) : null;
+    if (iOSSafari && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      return navigator.share({ files: [file], title: r.title }).catch(function () {});
+    }
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName(r);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 60000);
+  }
+  function finishOnPhone(r) {
+    return loadVideo(r).then(function (blob) {
+      if (iOSSafari) {
+        // iPhone only saves from a tap: keep it ready and show the Save button
+        status('🎬 Recording ready. Tap ⏺ then “Save” to keep it on this phone.');
+        openRecSheet();
+      } else {
+        saveFile(r, blob);
+        status('🎬 Recording saved to this phone (' + mb(blob.size) + ')');
+      }
+    });
+  }
+
+  // ── Server / YouTube: send the pieces in order, by byte offset ──
+  var syncing = false, syncAgain = false, syncTimer = null;
+  function kickSync() {
+    if (syncing) { syncAgain = true; return; }
+    syncing = true; syncAgain = false;
+    clearTimeout(syncTimer);
+    loadRecs()
+      .then(function (list) {
+        return list.filter(function (r) { return r.target !== 'device'; }).reduce(function (p, r) {
+          return p.then(function () { return syncOne(r); });
+        }, Promise.resolve());
+      })
+      .then(function () {
+        syncing = false;
+        if (syncAgain) kickSync();
+      }, function () {
+        syncing = false;
+        syncTimer = setTimeout(kickSync, navigator.onLine === false ? 15000 : 5000);
+      })
+      .then(renderRecList);
+  }
+  window.addEventListener('online', kickSync);
+
+  function recApi(method, path, body) {
+    return fetch('/api/stream-rec/' + path, { method: method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+      .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { d._status = res.status; d._ok = res.ok; return d; }); });
+  }
+  function syncOne(r) {
+    if (r.failed) return Promise.resolve();
+    return ensureOnServer(r).then(function step() {
+      if (r.sentSeq >= r.seq) {
+        if (!r.closed) return;
+        return recApi('POST', r.code + '/' + r.serverId + '/finish', { k: r.k }).then(function (d) {
+          if (!d._ok) throw new Error(d.error || 'Could not finish the recording');
+          return delRec(r);
+        });
+      }
+      return tx('chunks', 'readonly', function (t) { return t.objectStore('chunks').get([r.id, r.sentSeq]); })
+        .then(function (blob) { return sendBlob(r, blob); })
+        .then(step);
+    }).catch(function (e) { if (e !== SKIP) throw e; });
+  }
+  function ensureOnServer(r) {
+    if (r.serverId) return Promise.resolve();
+    return recApi('POST', r.code, { k: r.k, target: r.target, mime: r.mime, title: r.title, privacy: r.privacy, acct: r.acct }).then(function (d) {
+      if (d._ok) { r.serverId = d.recording.id; return putRec(r); }
+      if (d._status >= 400 && d._status < 500) {
+        // The server won't take it (old camera link, YouTube disconnected…): keep it on this phone
+        r.target = 'device';
+        return putRec(r).then(function () {
+          status('⚠️ ' + (d.error || 'The server refused the recording') + '. It is kept on this phone instead.');
+          if (r.closed) finishOnPhone(r);
+          throw SKIP;
+        });
+      }
+      throw new Error(d.error || 'Server error');
+    });
+  }
+  function sendBlob(r, blob) {
+    if (!blob) { r.sentSeq++; return putRec(r); }
+    var pos = Math.max(0, (r.serverBytes || 0) - r.sentBase);
+    function next() {
+      if (pos >= blob.size) {
+        return tx(['recs', 'chunks'], 'readwrite', function (t) {
+          t.objectStore('chunks').delete([r.id, r.sentSeq]);
+          r.sentBase += blob.size; r.sentSeq++;
+          t.objectStore('recs').put(r);
+        });
+      }
+      var url = '/api/stream-rec/' + r.code + '/' + r.serverId + '?k=' + encodeURIComponent(r.k) + '&offset=' + (r.sentBase + pos);
+      return fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: blob.slice(pos, pos + UPLOAD_PIECE) })
+        .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) {
+          if ((res.ok || res.status === 409) && typeof d.bytes === 'number') {
+            if (d.bytes < r.sentBase) { r.failed = 'The server copy is missing a part'; return putRec(r).then(function () { throw SKIP; }); }
+            r.serverBytes = d.bytes;
+            pos = d.bytes - r.sentBase;
+            return next();
+          }
+          throw new Error(d.error || 'Upload failed');
+        }); });
+    }
+    return next();
+  }
+
+  // ── YouTube channel (Google device sign-in: enter a code at google.com/device) ──
+  function checkYt() {
+    return fetch('/api/stream-rec/youtube?acct=' + encodeURIComponent(ytAcct)).then(function (r) { return r.json(); }).then(function (d) {
+      yt.configured = !!d.configured; yt.connected = !!d.connected; yt.channel = d.channelTitle || '';
+      renderRec();
+    }).catch(function () {});
+  }
+  function connectYt() {
+    yt.msg = '';
+    recApi('POST', 'youtube/connect').then(function (d) {
+      if (!d._ok) { yt.msg = d.error || 'Could not start YouTube sign-in'; return renderRec(); }
+      yt.connecting = d;
+      renderRec();
+      var poll = function () {
+        if (yt.connecting !== d) return;
+        recApi('GET', 'youtube/poll?acct=' + d.acct).then(function (p) {
+          if (yt.connecting !== d) return;
+          if (p.status === 'pending' || !p._ok) return setTimeout(poll, (d.interval || 5) * 1000);
+          yt.connecting = null;
+          if (p.status === 'connected') {
+            ytAcct = d.acct; pref('cs.ytAcct', ytAcct);
+            yt.connected = true; yt.channel = p.channelTitle || '';
+          } else {
+            yt.msg = p.status === 'denied' ? 'Access was not allowed.' : p.status === 'expired' ? 'The code expired. Try again.' : (p.error || 'Sign-in failed');
+          }
+          renderRec();
+          renderRecList();
+        }).catch(function () { setTimeout(poll, 5000); });
+      };
+      setTimeout(poll, (d.interval || 5) * 1000);
+    });
+  }
+  function disconnectYt() {
+    if (!confirm('Disconnect this YouTube channel from this phone?')) return;
+    recApi('POST', 'youtube/disconnect', { acct: ytAcct });
+    ytAcct = ''; pref('cs.ytAcct', '');
+    yt.connected = false; yt.channel = '';
+    if (recTarget === 'youtube') setTarget('server');
+    renderRec();
+  }
+
+  // ── Recording sheet ──
+  var NOTES = {
+    device: 'Saved on this phone when the recording stops. Needs free space on the phone (about 1 GB per hour).',
+    server: 'Sent to the server while you stream, so nothing is lost if this phone dies. Download it any time.',
+    youtube: 'Sent to the server while you stream, then uploaded to your YouTube channel after the recording stops.',
+  };
+  function setTarget(t) { recTarget = t; pref('cs.recTarget', t); renderRec(); }
+  function renderRec() {
+    var on = !!recording;
+    $('recBadge').className = on ? 'recb show' : 'recb';
+    $('recBadge').parentNode.className = on ? 'top rec' : 'top';
+    $('recBtn').className = on ? 'round rec on' : 'round rec';
+    if (on) $('recTime').textContent = clock(Date.now() - recording.startedAt);
+    [].forEach.call($('recOpts').children, function (b) {
+      b.className = 'opt' + (b.dataset.t === recTarget ? ' on' : '');
+      b.disabled = on;
+    });
+    $('recOptNote').textContent = (on ? 'Stop the recording to change where it goes. ' : '') + NOTES[recTarget];
+    $('recAuto').checked = recAuto;
+    var tg = $('recToggle');
+    tg.disabled = !live && !on;
+    tg.className = on ? 'bigrec stop' : 'bigrec';
+    tg.textContent = on ? '■ Stop recording' : live ? '⏺ Start recording' : 'Go live to record';
+    renderYt();
+  }
+  function renderYt() {
+    var box = $('ytBox');
+    box.className = recTarget === 'youtube' ? 'yt show' : 'yt';
+    if (recTarget !== 'youtube') return;
+    var h = '';
+    if (yt.configured === false) {
+      h = 'YouTube upload is not set up on this server yet. Ask the admin to add the YouTube keys, or pick Server for now.';
+    } else if (yt.connecting) {
+      h = 'On any phone or computer open <b>' + esc(yt.connecting.verificationUrl.replace(/^https?:\/\//, '')) + '</b> and enter this code:'
+        + '<span class="ucode">' + esc(yt.connecting.userCode) + '</span>Waiting for you to allow access…'
+        + '<div class="acts"><a class="pbtn red" target="_blank" rel="noopener" href="' + esc(yt.connecting.verificationUrl) + '">Open Google</a><button class="pbtn" id="ytCancel">Cancel</button></div>';
+    } else if (yt.connected) {
+      h = '✅ Uploads go to <b>' + esc(yt.channel) + '</b>'
+        + '<div class="acts"><select id="ytPriv"><option value="unlisted">Unlisted</option><option value="private">Private</option><option value="public">Public</option></select>'
+        + '<button class="pbtn" id="ytOff">Disconnect</button></div>';
+    } else {
+      h = 'Connect your YouTube channel once. The recording is uploaded to it after it stops.'
+        + (yt.msg ? '<br><span style="color:#fca5a5">' + esc(yt.msg) + '</span>' : '')
+        + '<div class="acts"><button class="pbtn red" id="ytOn">Connect YouTube</button></div>';
+    }
+    box.innerHTML = h;
+    if ($('ytOn')) $('ytOn').onclick = connectYt;
+    if ($('ytOff')) $('ytOff').onclick = disconnectYt;
+    if ($('ytCancel')) $('ytCancel').onclick = function () { yt.connecting = null; renderRec(); };
+    if ($('ytPriv')) { $('ytPriv').value = ytPrivacy; $('ytPriv').onchange = function () { ytPrivacy = this.value; pref('cs.ytPrivacy', ytPrivacy); }; }
+  }
+
+  function renderRecList() {
+    var box = $('recList');
+    if (!box || $('recSheet').className.indexOf('show') < 0) return;
+    loadRecs().then(function (locals) {
+      locals = locals.filter(function (r) { return r.code === code; });
+      var items = [];
+      locals.forEach(function (r) {
+        var isCur = recording && recording.r === r, when = new Date(r.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        if (isCur) return items.push({ at: r.createdAt, html: '<b>⏺ Recording… ' + clock(Date.now() - recording.startedAt) + '</b><span>' + mb(r.bytes) + ' · started ' + when + '</span>' });
+        if (r.target === 'device') {
+          return items.push({ at: r.createdAt, html: '<b>📱 On this phone</b><span>' + mb(r.bytes) + ' · started ' + when + '</span>',
+            acts: '<button class="pbtn red" data-save="' + r.id + '">⬇ Save</button><button class="pbtn" data-del="' + r.id + '">🗑</button>' });
+        }
+        var pct = r.bytes ? Math.floor(r.sentBase / r.bytes * 100) : 0;
+        items.push({ at: r.createdAt, html: '<b>' + (r.failed ? '⚠️ Upload stopped' : '☁️ Sending to server… ' + pct + '%') + '</b><span' + (r.failed ? ' class="err">' + esc(r.failed) : '>' + mb(r.bytes) + ' · started ' + when + (navigator.onLine === false ? ' · waiting for internet' : '')) + '</span>',
+          acts: r.failed ? '<button class="pbtn" data-del="' + r.id + '">🗑</button>' : '' });
+      });
+      var pendingIds = locals.map(function (r) { return r.serverId; });
+      serverRecs.forEach(function (s) {
+        if (pendingIds.indexOf(s.id) >= 0) return;
+        var when = new Date(s.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        var dl = '<a class="pbtn" href="/api/stream-rec/' + code + '/' + s.id + '/file?k=' + encodeURIComponent(key) + '">⬇</a>';
+        var ytBtn = yt.connected ? '<button class="pbtn red" data-yt="' + s.id + '">▶ YouTube</button>' : '';
+        var it = { at: s.createdAt };
+        if (s.status === 'recording') { it.html = '<b>☁️ On server (not finished)</b><span>' + mb(s.bytes) + ' · started ' + when + '</span>'; it.acts = dl; }
+        else if (s.status === 'uploading') it.html = '<b>▶ Uploading to YouTube… ' + (s.youtube.progress || 0) + '%</b><span>' + mb(s.bytes) + ' · started ' + when + '</span>';
+        else if (s.status === 'uploaded') {
+          it.html = '<b>▶ On YouTube</b><span>' + esc(s.title) + '</span>';
+          it.acts = '<a class="pbtn red" target="_blank" rel="noopener" href="https://youtu.be/' + esc(s.youtube.videoId) + '">Open</a>' + dl;
+        } else if (s.status === 'failed') {
+          it.html = '<b>⚠️ YouTube upload failed</b><span class="err">' + esc(s.youtube.error || '') + '</span>';
+          it.acts = ytBtn.replace('▶ YouTube', '↻ Retry') + dl;
+        } else { it.html = '<b>☁️ Saved on server</b><span>' + mb(s.bytes) + ' · started ' + when + '</span>'; it.acts = ytBtn + dl; }
+        items.push(it);
+      });
+      items.sort(function (a, b) { return b.at - a.at; });
+      box.innerHTML = items.length ? items.map(function (it) {
+        return '<div class="ri"><div class="rt">' + it.html + '</div>' + (it.acts || '') + '</div>';
+      }).join('') : '<div class="empty">No recordings yet.</div>';
+      [].forEach.call(box.querySelectorAll('[data-save]'), function (b) {
+        b.onclick = function () {
+          var r = mem[b.dataset.save];
+          if (ready[r.id]) return saveFile(r, ready[r.id]);
+          b.textContent = '…';
+          // iPhone needs a fresh tap once the video is ready
+          loadVideo(r).then(function (blob) { if (iOSSafari) { b.textContent = '⬇ Save now'; } else { saveFile(r, blob); b.textContent = '⬇ Save'; } });
+        };
+      });
+      [].forEach.call(box.querySelectorAll('[data-del]'), function (b) {
+        b.onclick = function () {
+          if (!confirm('Delete this recording from this phone? This can’t be undone.')) return;
+          delRec(mem[b.dataset.del]).then(renderRecList);
+        };
+      });
+      [].forEach.call(box.querySelectorAll('[data-yt]'), function (b) {
+        b.onclick = function () {
+          b.disabled = true;
+          recApi('POST', code + '/' + b.dataset.yt + '/youtube', { k: key, acct: ytAcct, privacy: ytPrivacy }).then(function (d) {
+            if (!d._ok) status('⚠️ ' + (d.error || 'Could not start the YouTube upload'));
+            loadServerRecs();
+          });
+        };
+      });
+    });
+  }
+  function loadServerRecs() {
+    return fetch('/api/stream-rec/' + code + '?k=' + encodeURIComponent(key), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d) serverRecs = d.recordings || []; })
+      .catch(function () {})
+      .then(renderRecList);
+  }
+  var recSheetTimer = null;
+  function openRecSheet() {
+    $('recSheet').className = 'sheet show';
+    renderRec();
+    if (yt.configured === null || recTarget === 'youtube') checkYt();
+    loadServerRecs();
+    clearInterval(recSheetTimer);
+    recSheetTimer = setInterval(loadServerRecs, 4000);
+  }
+  function closeRecSheet() { $('recSheet').className = 'sheet'; clearInterval(recSheetTimer); }
+  $('recBtn').onclick = openRecSheet;
+  $('recBadge').onclick = openRecSheet;
+  $('recClose').onclick = closeRecSheet;
+  $('recSheet').onclick = function (e) { if (e.target === $('recSheet')) closeRecSheet(); };
+  [].forEach.call($('recOpts').children, function (b) {
+    b.onclick = function () { setTarget(b.dataset.t); if (b.dataset.t === 'youtube') checkYt(); };
+  });
+  $('recAuto').onchange = function () { recAuto = this.checked; pref('cs.recAuto', recAuto ? '1' : '0'); };
+  $('recToggle').onclick = function () { recording ? stopRecording() : startRecording(); };
+  setInterval(function () { if (recording) $('recTime').textContent = clock(Date.now() - recording.startedAt); }, 1000);
+  window.addEventListener('beforeunload', function (e) {
+    if (recording || syncing) { e.preventDefault(); e.returnValue = ''; }
+  });
+  if (canRecord) { kickSync(); checkYt(); }
+  renderRec();
 
   function goLive() {
     askMotion();
@@ -448,6 +1141,8 @@
     status('Connecting…');
     cutClip();
     showReplayUi();
+    if (recAuto) startRecording();
+    renderRec();
     socket = io({ path: '/rtc', transports: ['websocket', 'polling'] });
     socket.on('connect', function () { socket.emit('join', { code: code, role: 'broadcaster', key: key }); status('🔴 You are live. Share the watch link!'); });
     socket.on('denied', function (m) { stopLive(); block(m); });
@@ -479,6 +1174,9 @@
     $('badge').className = 'badge';
     $('viewers').textContent = '👁 0';
     status('Stream stopped');
+    var done = stopRecording();
+    renderRec();
+    return done;
   }
 
   $('go').onclick = function () { live ? stopLive() : goLive(); };

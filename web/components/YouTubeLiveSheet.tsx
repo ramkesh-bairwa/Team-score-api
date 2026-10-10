@@ -232,7 +232,7 @@ export default function YouTubeLiveSheet({ visible, session, getPayload, onClose
                 <span className={st.btnPrimaryText}>Open YouTube Studio</span>
               </button>
               <button type="button" className={st.closeBtn} onClick={onClose}>
-                <span className={st.closeText}>Done</span>
+                <span className={st.closeText}>← Back to match</span>
               </button>
             </div>
           </div>

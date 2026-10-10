@@ -1169,7 +1169,8 @@
     return ensureOnServer(r).then(function step() {
       if (r.sentSeq >= r.seq) {
         if (!r.closed) return;
-        return recApi('POST', r.code + '/' + r.serverId + '/finish', { k: r.k }).then(function (d) {
+        // The YouTube visibility chosen now applies, even if it was changed while recording
+        return recApi('POST', r.code + '/' + r.serverId + '/finish', { k: r.k, privacy: ytPrivacy }).then(function (d) {
           if (!d._ok) throw new Error(d.error || 'Could not finish the recording');
           return delRec(r);
         });

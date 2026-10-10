@@ -109,7 +109,9 @@ async function handle(req: Request) {
     return json({ bytes: res.bytes }, res.ok ? 200 : 409);
   }
 
-  if (action === 'finish' && req.method === 'POST') return json({ recording: publicView(finishRecording(code, r.id)!) });
+  if (action === 'finish' && req.method === 'POST') {
+    return json({ recording: publicView(finishRecording(code, r.id, PRIVACY.includes(b.privacy) ? b.privacy : undefined)!) });
+  }
 
   if (action === 'youtube' && req.method === 'POST') {
     if (!youtubeConfigured() || !validAcct(b.acct) || !getAccount(b.acct)) return fail(400, 'Connect a YouTube channel first');

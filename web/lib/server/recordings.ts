@@ -151,8 +151,11 @@ function fixHeader(r: Recording): Promise<void> {
 }
 
 // Recording finished: fix its header, then keep it or send it on to YouTube
-export function finishRecording(code: string, id: string) {
-  const r = patch(code, id, x => { if (x.status === 'recording') x.status = 'saved'; });
+export function finishRecording(code: string, id: string, privacy?: Privacy) {
+  const r = patch(code, id, x => {
+    if (x.status === 'recording') x.status = 'saved';
+    if (privacy && x.status === 'saved') x.privacy = privacy;
+  });
   if (!r || r.status !== 'saved' || !r.bytes) return r;
   // In the append queue, so a late piece can't land while the file is being rewritten
   const prev = appendQueues.get(r.id) || Promise.resolve();

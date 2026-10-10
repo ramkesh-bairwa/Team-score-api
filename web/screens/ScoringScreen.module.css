@@ -186,6 +186,7 @@
 }
 .container .swapChip:hover { background: #DBEAFE; }
 .container .swapChip:active { transform: scale(.96); }
+.cardActions { display: flex; gap: 6px; flex-shrink: 0; }
 
 .batterRow {
   display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-md);
@@ -391,6 +392,34 @@
 }
 .modalOverlay .wkConfirm:hover { filter: brightness(1.06); }
 .modalOverlay .wkConfirm:active { transform: scale(.98); }
+.modalOverlay .wkConfirmOff, .modalOverlay .wkConfirmOff:hover { filter: grayscale(.6); opacity: .5; box-shadow: none; cursor: not-allowed; }
+.modalOverlay .wkChipMuted:not(.wkChipOn) { opacity: .45; }
+
+/* "+ Add player" (pickers, openers, add-player sheet) */
+.addLabel { font-size: 11px; font-weight: 800; color: var(--ink-3); letter-spacing: 1.2px; text-transform: uppercase; margin: 14px 0 8px; }
+.addWrap { display: flex; flex-direction: column; margin-bottom: 10px; }
+.addRow { display: flex; gap: 8px; align-items: stretch; width: 100%; }
+.addRow .addInput { flex: 1 1 0%; min-width: 0; margin-bottom: 0; }
+.modalOverlay .addBtn {
+  flex-shrink: 0; min-height: 48px; padding: 0 16px; border-radius: var(--r-pill);
+  background: #EFF6FF; color: var(--sky); border: 1.5px solid rgba(37, 99, 235, .25);
+  font-size: 14px; font-weight: 800; white-space: nowrap; transition: background .15s, transform .08s;
+}
+.modalOverlay .addBtn:hover { background: #DBEAFE; }
+.modalOverlay .addBtn:active { transform: scale(.96); }
+.addErr { font-size: 12px; font-weight: 700; color: var(--brand); margin: 6px 0 0 14px; }
+.squadChip {
+  min-height: 32px; padding: 0 12px; border-radius: var(--r-pill); display: inline-flex; align-items: center;
+  background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--ink-2);
+}
+.allOutBox {
+  display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; padding: 12px 14px;
+  background: var(--brand-soft); border: 1px solid rgba(230, 57, 70, .2); border-radius: var(--r-md);
+}
+.allOutText { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.4; }
+@media (max-width: 380px) {
+  .modalOverlay .addBtn { padding: 0 12px; font-size: 13px; }
+}
 
 /* ── Shot direction (full screen) ── */
 .dirOverlay {

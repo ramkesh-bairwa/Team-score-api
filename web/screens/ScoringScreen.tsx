@@ -108,6 +108,41 @@ function Overlay({ visible, variant = 'slide', onDismiss, children }: {
   );
 }
 
+// "+ Add player" input used inside the pickers: trimmed, non-empty, no duplicate (case-insensitive)
+function AddPlayerRow({ existing, onAdd, placeholder = 'New player name', cta = '+ Add' }: {
+  existing: string[]; onAdd: (name: string) => void; placeholder?: string; cta?: string;
+}) {
+  const [name, setName] = useState('');
+  const [err, setErr] = useState('');
+  const submit = () => {
+    const n = name.trim().replace(/\s+/g, ' ');
+    if (!n) { setErr('Enter a player name'); return; }
+    if (existing.some(e => e.trim().toLowerCase() === n.toLowerCase())) { setErr(`${n} is already in the team`); return; }
+    onAdd(n);
+    setName('');
+    setErr('');
+  };
+  return (
+    <div className={s.addWrap}>
+      <form className={s.addRow} onSubmit={e => { e.preventDefault(); submit(); }}>
+        <input
+          className={`${s.pickerSearch} ${s.addInput}`}
+          placeholder={placeholder}
+          value={name}
+          maxLength={30}
+          onChange={e => { setName(e.target.value); if (err) setErr(''); }}
+          autoCorrect="off"
+          autoComplete="off"
+          spellCheck={false}
+          aria-label={placeholder}
+        />
+        <button type="submit" className={s.addBtn}>{cta}</button>
+      </form>
+      {err && <span className={s.addErr} role="alert">{err}</span>}
+    </div>
+  );
+}
+
 // Count of deliveries in a saved scoring state (used to pick the newest copy on remount)
 const deliveries = (st: any): number => {
   if (!st) return -1;
@@ -180,13 +215,21 @@ function Scoring({ navigation, route }: any) {
   const [currentBall, setCurrentBall] = useState(saved?.currentBall ?? 0);
   const [balls, setBalls] = useState<Ball[]>(saved?.balls ?? []);
   const [overHistory, setOverHistory] = useState<Ball[][]>(saved?.overHistory ?? []);
+  // Per-innings squads: start from the team rosters, players added during the match are appended.
+  // Older saved states (and the mobile app) don't have these, so fall back to the rosters.
+  const [batPlayers, setBatPlayers] = useState<string[]>(
+    Array.isArray(saved?.batPlayers) ? saved.batPlayers : [...(battingTeam.players ?? [])]);
+  const [bowlPlayers, setBowlPlayers] = useState<string[]>(
+    Array.isArray(saved?.bowlPlayers) ? saved.bowlPlayers : [...(fieldingTeam.players ?? [])]);
+  // Fresh innings: openers + opening bowler must be chosen before the first ball
+  const [openersPending, setOpenersPending] = useState<boolean>(saved ? saved.openersPending === true : true);
   const [batters, setBatters] = useState<PlayerScore[]>(saved?.batters ?? [
-    initBatter(battingTeam.players[0]),
-    initBatter(battingTeam.players[1]),
+    initBatter(battingTeam.players?.[0] ?? 'Batter 1'),
+    initBatter(battingTeam.players?.[1] ?? 'Batter 2'),
   ]);
   const [strikerIdx, setStrikerIdx] = useState(saved?.strikerIdx ?? 0);
   const [nextBatterIdx, setNextBatterIdx] = useState(saved?.nextBatterIdx ?? 2);
-  const [bowlers, setBowlers] = useState<BowlerScore[]>(saved?.bowlers ?? [initBowler(fieldingTeam.players[0])]);
+  const [bowlers, setBowlers] = useState<BowlerScore[]>(saved?.bowlers ?? [initBowler(fieldingTeam.players?.[0] ?? 'Bowler 1')]);
   const [currentBowlerIdx, setCurrentBowlerIdx] = useState(saved?.currentBowlerIdx ?? 0);
   // Batters who are out and have been replaced at the crease (kept for the scorecard)
   const [dismissed, setDismissed] = useState<PlayerScore[]>(saved?.dismissed ?? []);
@@ -214,6 +257,13 @@ function Scoring({ navigation, route }: any) {
   const [selectBowlerModal, setSelectBowlerModal] = useState(false);
   const [bowlerChangeManual, setBowlerChangeManual] = useState(false);
   const [selectBatterModal, setSelectBatterModal] = useState(false);
+  // Opening selection (striker, non-striker, opening bowler)
+  const [openStriker, setOpenStriker] = useState<string | null>(null);
+  const [openNonStriker, setOpenNonStriker] = useState<string | null>(null);
+  const [openBowler, setOpenBowler] = useState<string | null>(null);
+  // "+ Player" sheet during play
+  const [addPlayerModal, setAddPlayerModal] = useState(false);
+  const [addTeam, setAddTeam] = useState<'bat' | 'bowl'>('bat');
   const [wicketModal, setWicketModal] = useState(false);
   const [wideModal, setWideModal] = useState(false);
   const [directionModal, setDirectionModal] = useState(false);
@@ -258,7 +308,8 @@ function Scoring({ navigation, route }: any) {
 
   // Browser Back (= hardware back) asks for confirmation instead of leaving.
   // While a picker/sheet is open the app's Modal swallows the back press, so do the same here.
-  const anyModalOpen = selectBatterModal || selectBowlerModal || wicketModal || wideModal || directionModal || watchModal;
+  const anyModalOpen = selectBatterModal || selectBowlerModal || wicketModal || wideModal || directionModal || watchModal
+    || addPlayerModal || openersPending;
   useBackHandler(() => {
     if (!anyModalOpen) confirmLeave();
     return true;
@@ -267,7 +318,10 @@ function Scoring({ navigation, route }: any) {
   // Save state to storage on every meaningful change
   const stateRef = useRef<any>({});
   useEffect(() => {
-    stateRef.current = { totalRuns, wickets, currentOver, currentBall, balls, overHistory, batters, strikerIdx, nextBatterIdx, bowlers, currentBowlerIdx, dismissed, undoStack, fallOfWickets, ballLog };
+    stateRef.current = {
+      totalRuns, wickets, currentOver, currentBall, balls, overHistory, batters, strikerIdx, nextBatterIdx, bowlers, currentBowlerIdx,
+      dismissed, undoStack, fallOfWickets, ballLog, batPlayers, bowlPlayers, openersPending,
+    };
   });
 
   const persistState = (overrides: any = {}) => {
@@ -298,7 +352,7 @@ function Scoring({ navigation, route }: any) {
     localEditSeq.current++;
     persistState();
     pushLive({ phase: 'scoring', inningsNum, params: scoringParams, savedState: stateRef.current });
-  }, [totalRuns, wickets, currentOver, currentBall, balls, overHistory, batters, strikerIdx, nextBatterIdx, bowlers, currentBowlerIdx, dismissed, undoStack, fallOfWickets, ballLog]);
+  }, [totalRuns, wickets, currentOver, currentBall, balls, overHistory, batters, strikerIdx, nextBatterIdx, bowlers, currentBowlerIdx, dismissed, undoStack, fallOfWickets, ballLog, batPlayers, bowlPlayers, openersPending]);
 
   const applyRemoteState = (st: any) => {
     if (!st) return;
@@ -323,7 +377,17 @@ function Scoring({ navigation, route }: any) {
     setFallOfWickets(st.fallOfWickets ?? []);
     setBallLog(st.ballLog ?? []);
     setUndoStack(st.undoStack ?? []);
-    persistState(st);
+    // Squads / opening step: the mobile app may not send these, so keep what we have
+    if (Array.isArray(st.batPlayers)) setBatPlayers(st.batPlayers);
+    if (Array.isArray(st.bowlPlayers)) setBowlPlayers(st.bowlPlayers);
+    // Openers are settled once the other scorer has them (or sends a state without the flag)
+    setOpenersPending(st.openersPending === true);
+    persistState({
+      ...st,
+      batPlayers: Array.isArray(st.batPlayers) ? st.batPlayers : cur.batPlayers,
+      bowlPlayers: Array.isArray(st.bowlPlayers) ? st.bowlPlayers : cur.bowlPlayers,
+      openersPending: st.openersPending === true,
+    });
   };
 
   const applyRemote = (payload: LivePayload) => {
@@ -371,6 +435,7 @@ function Scoring({ navigation, route }: any) {
     setWideModal(false);
     setDirectionModal(false);
     setShareModal(false);
+    setAddPlayerModal(false);
     popup.show({
       type: 'info', icon: '📲', dismissable: false,
       title: 'Scoring Moved',
@@ -483,6 +548,55 @@ function Scoring({ navigation, route }: any) {
 
   const swapStrike = () => setStrikerIdx(strikerIdx === 0 ? 1 : 0);
 
+  // Players added during the match go into this innings' squads (saved + synced with the state)
+  const addBatPlayer = (name: string) => setBatPlayers(p => (p.some(x => x.toLowerCase() === name.toLowerCase()) ? p : [...p, name]));
+  const addBowlPlayer = (name: string) => setBowlPlayers(p => (p.some(x => x.toLowerCase() === name.toLowerCase()) ? p : [...p, name]));
+
+  // Opening step: pick striker / non-striker (different players) and the opening bowler
+  const pickOpener = (slot: 'striker' | 'nonStriker', p: string) => {
+    if (slot === 'striker') {
+      setOpenStriker(p);
+      if (openNonStriker === p) setOpenNonStriker(null);
+    } else {
+      setOpenNonStriker(p);
+      if (openStriker === p) setOpenStriker(null);
+    }
+  };
+  const openersReady = !!openStriker && !!openNonStriker && !!openBowler && openStriker !== openNonStriker;
+  const confirmOpeners = () => {
+    if (!openersReady) return;
+    setBatters([initBatter(openStriker!), initBatter(openNonStriker!)]);
+    setStrikerIdx(0);
+    setNextBatterIdx(2);
+    setBowlers([initBowler(openBowler!)]);
+    setCurrentBowlerIdx(0);
+    setOpenersPending(false);
+  };
+
+  // Incoming batter replaces the batter who is out (or the striker if nobody is marked out)
+  const bringInBatter = (p: string) => {
+    if (batters.some(b => b.name === p && !b.out)) return;
+    const outIdx = batters.findIndex(b => b.out);
+    const slot = outIdx >= 0 ? outIdx : strikerIdx;
+    const updated = [...batters];
+    if (outIdx >= 0) setDismissed([...dismissed, batters[outIdx]]);
+    updated[slot] = initBatter(p);
+    setBatters(updated);
+    setNextBatterIdx((i: number) => i + 1);
+    setSelectBatterModal(false);
+  };
+
+  const chooseBowler = (p: string) => {
+    const existing = bowlers.findIndex(b => b.name === p);
+    if (existing >= 0) {
+      setCurrentBowlerIdx(existing);
+    } else {
+      setBowlers(bwl => [...bwl, initBowler(p)]);
+      setCurrentBowlerIdx(bowlers.length);
+    }
+    setSelectBowlerModal(false);
+  };
+
   useEffect(() => {
     if (selectBatterModal || selectBowlerModal) setPickerSearch('');
   }, [selectBatterModal, selectBowlerModal]);
@@ -522,6 +636,7 @@ function Scoring({ navigation, route }: any) {
   };
 
   const deadBall = () => {
+    if (openersPending) return;
     pushUndo();
     setBalls([...balls, { runs: 0, extra: 'db' }]);
     setBallLog(l => [...l, {
@@ -554,7 +669,9 @@ function Scoring({ navigation, route }: any) {
     runs: totalRuns, wickets, overs: currentOver, balls: currentBall, batters: allBatters, bowlers,
     overHistory: balls.length ? [...overHistory, balls] : overHistory, fallOfWickets, ballLog,
   };
-  const yetToBat: string[] = battingTeam.players.filter((p: string) => !allBatters.some(b => b.name === p));
+  const yetToBat: string[] = batPlayers.filter((p: string) => !allBatters.some(b => b.name === p));
+  // Wickets alone have ended the innings (all out) but the scorer may add a player and carry on
+  const allOutNow = wickets > 0 && wickets >= batPlayers.length - 1;
   const matchSearch = (name: string) => name.toLowerCase().includes(pickerSearch.trim().toLowerCase());
 
   let statusText: string;
@@ -582,6 +699,7 @@ function Scoring({ navigation, route }: any) {
   }, { runs: -1, over: 0 });
 
   const handleRunPress = (run: number, extra?: string) => {
+    if (openersPending) return; // nothing is recorded until the openers + bowler are confirmed
     if (run > 0) {
       setPendingBall({ run, extra });
       setDirectionModal(true);
@@ -591,6 +709,7 @@ function Scoring({ navigation, route }: any) {
   };
 
   const addBall = (run: number, extra?: string, wicket?: WicketInfo) => {
+    if (openersPending) return;
     const isWicket = !!wicket;
     pushUndo();
     // For wides/no-balls `run` = 1 penalty + runs taken. Local match: no penalty run and the ball counts.
@@ -697,18 +816,15 @@ function Scoring({ navigation, route }: any) {
         over: `${newOver}.${newBall === 6 ? 0 : newBall}`,
         batter: updatedBatters[wicket.outIdx].name,
       }]);
-      // Ask for the next batter if anyone is left to bat
-      const batted = new Set([...dismissed, ...updatedBatters].map(b => b.name));
-      if (battingTeam.players.some((p: string) => !batted.has(p))) {
-        setSelectBatterModal(true);
-      }
     }
 
     const newTotalRuns = totalRuns + actualRun;
     const newWickets = wickets + (isWicket ? 1 : 0);
     const chaseWon = isSecondInnings && newTotalRuns >= target;
-    const allOut = newWickets >= battingTeam.players.length - 1;
-    const inningsEnded = chaseWon || newOver >= overs || (isWicket && allOut);
+    const inningsEnded = chaseWon || newOver >= overs;
+    // Next batter: always ask (even when the squad is used up) so a new player can be added.
+    // If it's all out (wickets >= squad - 1) the picker offers "End innings" instead.
+    if (wicket && !inningsEnded) setSelectBatterModal(true);
 
     // Persist state after every ball (the change effect then saves the complete state again)
     persistState({
@@ -725,6 +841,7 @@ function Scoring({ navigation, route }: any) {
   };
 
   const handleWicket = () => {
+    if (openersPending) return;
     setWkType('Bowled');
     setWkFielder(undefined);
     setWkOutNonStriker(false);
@@ -958,7 +1075,10 @@ function Scoring({ navigation, route }: any) {
             <div className={s.card}>
               <div className={s.cardHead}>
                 <span className={s.cardTitle}>At the crease</span>
-                <button className={s.swapChip} onClick={swapStrike}>⇄ Swap strike</button>
+                <div className={s.cardActions}>
+                  <button className={s.swapChip} onClick={() => { setAddTeam('bat'); setAddPlayerModal(true); }} aria-label="Add a player">+ Player</button>
+                  <button className={s.swapChip} onClick={swapStrike}>⇄ Swap<span className={s.hideXs}> strike</span></button>
+                </div>
               </div>
               {[striker, nonStriker].map((b, i) => (
                 <div key={b.name} className={`${s.batterRow} ${i === 0 ? s.batterRowOn : ''}`}>
@@ -1060,7 +1180,7 @@ function Scoring({ navigation, route }: any) {
             <span className={s.padLabel}>Extras</span>
             <div className={s.extraRow}>
               {[
-                { label: 'WD', onPress: () => setWideModal(true) },
+                { label: 'WD', onPress: () => { if (!openersPending) setWideModal(true); } },
                 { label: 'NB', onPress: () => handleRunPress(1, 'nb') },
                 { label: 'LB', onPress: () => handleRunPress(1, 'lb') },
                 { label: 'BYE', onPress: () => handleRunPress(1, 'b') },
@@ -1166,7 +1286,7 @@ function Scoring({ navigation, route }: any) {
             <>
               <span className={s.wkLabel}>{wkType === 'Stumped' ? 'Keeper' : 'Fielder'}</span>
               <div className={s.wkChips}>
-                {fieldingTeam.players.map((p: string) => (
+                {bowlPlayers.map((p: string) => (
                   <button key={p} className={`${s.wkChip} ${wkFielder === p ? s.wkChipOn : ''}`} aria-pressed={wkFielder === p} onClick={() => setWkFielder(p)}>
                     {p}
                   </button>
@@ -1210,7 +1330,21 @@ function Scoring({ navigation, route }: any) {
         <div className={s.modalBox}>
           <span className={s.modalGrip} />
           <span className={s.modalTitle}>🏏 Next batter</span>
-          <span className={s.modalSub}>Select incoming batter · {yetToBat.length} yet to bat</span>
+          <span className={s.modalSub}>
+            {yetToBat.length > 0
+              ? `Select incoming batter · ${yetToBat.length} yet to bat`
+              : 'Everyone has batted · add a new player to continue'}
+          </span>
+          {allOutNow && (
+            <div className={s.allOutBox}>
+              <span className={s.allOutText}>{battingTeam.name} are all out ({totalRuns}/{wickets}). Add a player to keep batting, or end the innings.</span>
+              <button
+                className={s.wkConfirm}
+                onClick={() => { setSelectBatterModal(false); endInnings(batters, bowlers, totalRuns, wickets, currentOver, currentBall); }}>
+                🏁 End innings
+              </button>
+            </div>
+          )}
           <input
             className={s.pickerSearch}
             placeholder="🔍  Search player"
@@ -1221,24 +1355,24 @@ function Scoring({ navigation, route }: any) {
             spellCheck={false}
           />
           <div className={s.pickerList}>
-            {yetToBat.filter(matchSearch).length === 0 && <span className={s.pickerEmpty}>No player matches “{pickerSearch}”</span>}
+            {yetToBat.filter(matchSearch).length === 0 && (
+              <span className={s.pickerEmpty}>{yetToBat.length === 0 ? 'No players left in the squad' : `No player matches “${pickerSearch}”`}</span>
+            )}
             {yetToBat.filter(matchSearch).map((p: string) => (
-              <button key={p} className={s.modalPlayerRow} onClick={() => {
-                const outIdx = batters.findIndex(b => b.out);
-                const slot = outIdx >= 0 ? outIdx : strikerIdx;
-                const updated = [...batters];
-                if (outIdx >= 0) setDismissed([...dismissed, batters[outIdx]]);
-                updated[slot] = initBatter(p);
-                setBatters(updated);
-                setNextBatterIdx((i: number) => i + 1);
-                setSelectBatterModal(false);
-              }}>
+              <button key={p} className={s.modalPlayerRow} onClick={() => bringInBatter(p)}>
                 <span className={s.playerAvatar} aria-hidden>{p.trim().charAt(0).toUpperCase()}</span>
                 <span className={s.modalPlayerText}>{p}</span>
                 <span className={s.modalPlayerChevron} aria-hidden>›</span>
               </button>
             ))}
           </div>
+          <span className={s.addLabel}>Not in the list?</span>
+          <AddPlayerRow
+            existing={batPlayers}
+            placeholder={`Add batter to ${battingTeam.name}`}
+            cta="+ Add & bat"
+            onAdd={n => { addBatPlayer(n); bringInBatter(n); }}
+          />
         </div>
       </Overlay>
 
@@ -1347,20 +1481,11 @@ function Scoring({ navigation, route }: any) {
             spellCheck={false}
           />
           <div className={s.pickerList}>
-            {fieldingTeam.players.filter(matchSearch).length === 0 && <span className={s.pickerEmpty}>No player matches “{pickerSearch}”</span>}
-            {fieldingTeam.players.filter(matchSearch).map((p: string) => {
+            {bowlPlayers.filter(matchSearch).length === 0 && <span className={s.pickerEmpty}>No player matches “{pickerSearch}”</span>}
+            {bowlPlayers.filter(matchSearch).map((p: string) => {
               const bw = bowlers.find(b => b.name === p);
               return (
-                <button key={p} className={s.modalPlayerRow} onClick={() => {
-                  const existing = bowlers.findIndex(b => b.name === p);
-                  if (existing >= 0) {
-                    setCurrentBowlerIdx(existing);
-                  } else {
-                    setBowlers(bwl => [...bwl, initBowler(p)]);
-                    setCurrentBowlerIdx(bowlers.length);
-                  }
-                  setSelectBowlerModal(false);
-                }}>
+                <button key={p} className={s.modalPlayerRow} onClick={() => chooseBowler(p)}>
                   <span className={s.playerAvatar} aria-hidden>{p.trim().charAt(0).toUpperCase()}</span>
                   <span className={s.modalPlayerText}>{p}</span>
                   {bw && (
@@ -1372,9 +1497,106 @@ function Scoring({ navigation, route }: any) {
               );
             })}
           </div>
+          <span className={s.addLabel}>Not in the list?</span>
+          <AddPlayerRow
+            existing={bowlPlayers}
+            placeholder={`Add bowler to ${fieldingTeam.name}`}
+            cta="+ Add & bowl"
+            onAdd={n => { addBowlPlayer(n); chooseBowler(n); }}
+          />
           {bowlerChangeManual && (
             <button className={s.modalCancel} onClick={() => setSelectBowlerModal(false)}>Cancel</button>
           )}
+        </div>
+      </Overlay>
+
+      {/* Opening selection: striker, non-striker and opening bowler (fresh innings only) */}
+      <Overlay visible={openersPending && !handedOff.current}>
+        <div className={s.modalBox}>
+          <span className={s.modalGrip} />
+          <span className={s.modalTitle}>🏏 Openers</span>
+          <span className={s.modalSub}>
+            {battingTeam.name} to bat · {fieldingTeam.name} to bowl. Choose the opening batters and bowler.
+          </span>
+
+          <span className={s.wkLabel}>Striker</span>
+          <div className={s.wkChips}>
+            {batPlayers.map((p: string) => (
+              <button key={p} className={`${s.wkChip} ${openStriker === p ? s.wkChipOn : ''}`} aria-pressed={openStriker === p} onClick={() => pickOpener('striker', p)}>
+                {p}
+              </button>
+            ))}
+          </div>
+          <AddPlayerRow existing={batPlayers} placeholder="Add batter as striker" onAdd={n => { addBatPlayer(n); pickOpener('striker', n); }} />
+
+          <span className={s.wkLabel}>Non-striker</span>
+          <div className={s.wkChips}>
+            {batPlayers.map((p: string) => (
+              <button
+                key={p}
+                className={`${s.wkChip} ${openNonStriker === p ? s.wkChipOn : ''} ${openStriker === p ? s.wkChipMuted : ''}`}
+                aria-pressed={openNonStriker === p}
+                onClick={() => pickOpener('nonStriker', p)}>
+                {p}
+              </button>
+            ))}
+          </div>
+          <AddPlayerRow existing={batPlayers} placeholder="Add batter as non-striker" onAdd={n => { addBatPlayer(n); pickOpener('nonStriker', n); }} />
+
+          <span className={s.wkLabel}>Opening bowler</span>
+          <div className={s.wkChips}>
+            {bowlPlayers.map((p: string) => (
+              <button key={p} className={`${s.wkChip} ${openBowler === p ? s.wkChipOn : ''}`} aria-pressed={openBowler === p} onClick={() => setOpenBowler(p)}>
+                {p}
+              </button>
+            ))}
+          </div>
+          <AddPlayerRow existing={bowlPlayers} placeholder={`Add bowler to ${fieldingTeam.name}`} onAdd={n => { addBowlPlayer(n); setOpenBowler(n); }} />
+
+          {openersReady && (
+            <div className={s.wkPreview}>
+              <span className={s.wkPreviewName}>🏏 {openStriker} * &nbsp;·&nbsp; {openNonStriker}</span>
+              <span className={s.wkPreviewHow}>🎳 {openBowler} to bowl the first over</span>
+            </div>
+          )}
+          <button
+            className={`${s.wkConfirm} ${!openersReady ? s.wkConfirmOff : ''}`}
+            disabled={!openersReady}
+            onClick={confirmOpeners}>
+            Start innings
+          </button>
+          <button className={s.modalCancel} onClick={() => { persistState(); navigation.navigate('Home'); }}>
+            Leave (match is saved)
+          </button>
+        </div>
+      </Overlay>
+
+      {/* "+ Player": add a new player to either side during the match */}
+      <Overlay visible={addPlayerModal} onDismiss={() => setAddPlayerModal(false)}>
+        <div className={s.modalBox}>
+          <span className={s.modalGrip} />
+          <span className={s.modalTitle}>➕ Add player</span>
+          <span className={s.modalSub}>New players can then be picked as the next batter or bowler.</span>
+          <div className={s.wkChips}>
+            {(['bat', 'bowl'] as const).map(k => (
+              <button key={k} className={`${s.wkChip} ${addTeam === k ? s.wkChipOn : ''}`} aria-pressed={addTeam === k} onClick={() => setAddTeam(k)}>
+                {k === 'bat' ? `🏏 ${battingTeam.name}` : `🎳 ${fieldingTeam.name}`}
+              </button>
+            ))}
+          </div>
+          <AddPlayerRow
+            key={addTeam}
+            existing={addTeam === 'bat' ? batPlayers : bowlPlayers}
+            placeholder={`Player name for ${addTeam === 'bat' ? battingTeam.name : fieldingTeam.name}`}
+            onAdd={n => (addTeam === 'bat' ? addBatPlayer(n) : addBowlPlayer(n))}
+          />
+          <span className={s.wkLabel}>Squad ({(addTeam === 'bat' ? batPlayers : bowlPlayers).length})</span>
+          <div className={s.wkChips}>
+            {(addTeam === 'bat' ? batPlayers : bowlPlayers).map((p: string) => (
+              <span key={p} className={s.squadChip}>{p}</span>
+            ))}
+          </div>
+          <button className={s.modalCancel} onClick={() => setAddPlayerModal(false)}>Done</button>
         </div>
       </Overlay>
     </div>

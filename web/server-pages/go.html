@@ -30,8 +30,7 @@
   .center { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 30px; text-align: center;
     background: #0B1730; font-size: 16px; line-height: 1.5; }
   .center.show { display: flex; }
-  .rotate { display: none; }
-  @media (orientation: portrait) { .rotate { display: block; font-size: 12px; color: #fbbf24; } }
+  .shape { font-size: 12px; font-weight: 800; background: #0006; padding: 5px 9px; border-radius: 8px; letter-spacing: .5px; }
 </style>
 </head>
 <body>
@@ -40,17 +39,18 @@
 <div class="top">
   <span class="badge" id="badge">OFFLINE</span>
   <span class="code" id="code"></span>
+  <span class="shape" id="shape"></span>
   <span class="viewers" id="viewers">👁 0</span>
 </div>
 
 <div class="bottom">
   <div class="status" id="status">Allow camera access, then tap Go Live</div>
-  <div class="rotate">↻ Turn your phone sideways for the best video</div>
   <div class="row">
     <button class="round" id="flip" title="Switch camera">🔄</button>
     <button class="go" id="go" disabled>GO LIVE</button>
     <button class="round" id="mic" title="Microphone">🎙️</button>
   </div>
+  <button class="share" id="flipPic" style="display:none">🙃 Picture upside down? Tap to fix</button>
   <button class="share" id="share">🔗 Share watch link</button>
 </div>
 
@@ -63,6 +63,17 @@
   var watchUrl = location.origin + '/watch/' + code;
   var $ = function (id) { return document.getElementById(id); };
   var stream = null, socket = null, live = false, facing = 'environment', micOn = true, wakeLock = null;
+  // What viewers get: the camera drawn onto a canvas, turned upright for how the phone is held
+  // (phone sideways = 16:9 landscape, upright = 9:16), even when the phone's auto-rotate is off
+  var out = null; // MediaStream sent to viewers
+  var canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
+  var src = document.createElement('video');
+  src.muted = true; src.playsInline = true;
+  // Kept in the page (invisible): some phones won't decode a video that isn't
+  src.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+  document.body.appendChild(src);
+  var flipped = false; // the scorer's fix if a phone reports its tilt the other way round
+  var layout = { w: 1280, h: 720, turn: 0 }, pendingLayout = null, tilt = null;
   var peers = {}; // viewerId -> RTCPeerConnection
   var iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
   $('code').textContent = code;
@@ -85,15 +96,22 @@
       stream.getAudioTracks().forEach(function (t) { t.enabled = micOn; });
       $('preview').srcObject = stream;
       $('preview').style.transform = facing === 'user' ? 'scaleX(-1)' : '';
+      src.srcObject = new MediaStream(stream.getVideoTracks());
+      src.play().catch(function () {});
       $('go').disabled = false;
       if (!live) status('Ready. Tap Go Live');
-      // Swap the new camera into connections that are already running
-      Object.keys(peers).forEach(function (id) {
-        peers[id].getSenders().forEach(function (sender) {
-          var t = stream.getTracks().find(function (tr) { return sender.track && tr.kind === sender.track.kind; });
-          if (t) sender.replaceTrack(t);
+      // The canvas track stays the same; only the camera microphone track is new
+      var audio = stream.getAudioTracks()[0];
+      if (!out) out = new MediaStream(canvas.captureStream(30).getVideoTracks().concat(audio ? [audio] : []));
+      else {
+        out.getAudioTracks().forEach(function (t) { out.removeTrack(t); });
+        if (audio) out.addTrack(audio);
+        Object.keys(peers).forEach(function (id) {
+          peers[id].getSenders().forEach(function (sender) {
+            if (sender.track && sender.track.kind === 'audio' && audio) sender.replaceTrack(audio);
+          });
         });
-      });
+      }
     }).catch(function (e) {
       block('Camera not available: ' + e.message + '<br><br>Allow camera and microphone access for this site, then reload.');
     });
@@ -103,7 +121,7 @@
     closePeer(viewerId);
     var pc = new RTCPeerConnection({ iceServers: iceServers });
     peers[viewerId] = pc;
-    stream.getTracks().forEach(function (t) { pc.addTrack(t, stream); });
+    out.getTracks().forEach(function (t) { pc.addTrack(t, out); });
     // Keep each viewer's copy to ~1.5 Mbps so several viewers fit in the phone's upload
     pc.getSenders().forEach(function (sender) {
       if (sender.track && sender.track.kind === 'video') {
@@ -120,7 +138,69 @@
   }
   function closePeer(id) { if (peers[id]) { peers[id].close(); delete peers[id]; } }
 
+  // ── Orientation ──
+  // Gravity tells which way the phone is held. Android and iOS report opposite signs.
+  var iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  function onMotion(e) {
+    var g = e.accelerationIncludingGravity;
+    if (!g || g.x == null || g.y == null) return;
+    var x = iOS ? -g.x : g.x, y = iOS ? -g.y : g.y;
+    // Hysteresis: only switch when clearly held the other way
+    if (Math.abs(x) > Math.abs(y) + 2.5) tilt = x > 0 ? 'left' : 'right';
+    else if (Math.abs(y) > Math.abs(x) + 2.5) tilt = 'up';
+  }
+  function askMotion() {
+    var D = window.DeviceMotionEvent;
+    if (D && typeof D.requestPermission === 'function') {
+      D.requestPermission().then(function (r) { if (r === 'granted') window.addEventListener('devicemotion', onMotion); }).catch(function () {});
+    } else window.addEventListener('devicemotion', onMotion);
+  }
+  askMotion();
+  // How much to turn the camera picture: -1 = 90° anticlockwise, 1 = 90° clockwise, 0 = as it is
+  function wantedTurn(vw, vh) {
+    if (vw >= vh) return 0; // the browser already gives a sideways picture
+    var held = tilt;
+    if (!held) { // no motion sensor: fall back to the screen's own rotation
+      var a = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+      held = a === 90 ? 'left' : (a === 270 || a === -90) ? 'right' : 'up';
+    }
+    if (held === 'up') return 0;
+    var t = held === 'left' ? -1 : 1;
+    if (facing === 'user') t = -t;
+    return flipped ? -t : t;
+  }
+  function draw() {
+    var vw = src.videoWidth, vh = src.videoHeight;
+    if (!vw) return;
+    var turn = wantedTurn(vw, vh);
+    var landscape = turn !== 0 || vw >= vh;
+    var want = { w: landscape ? 1280 : 720, h: landscape ? 720 : 1280, turn: turn };
+    if (want.w !== layout.w || want.turn !== layout.turn) {
+      // Switch only once the phone has settled (no flapping mid-turn)
+      var now = Date.now();
+      if (!pendingLayout || pendingLayout.w !== want.w || pendingLayout.turn !== want.turn) pendingLayout = { w: want.w, turn: want.turn, since: now };
+      else if (now - pendingLayout.since > 600 || !layout.ready) { layout = { w: want.w, h: want.h, turn: want.turn, ready: true }; pendingLayout = null; }
+    } else { pendingLayout = null; layout.ready = true; }
+    if (canvas.width !== layout.w) { canvas.width = layout.w; canvas.height = layout.h; }
+    $('shape').textContent = layout.w > layout.h ? '▭ 16:9' : '▯ 9:16';
+    $('flipPic').style.display = layout.turn ? 'block' : 'none';
+    var W = canvas.width, H = canvas.height;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    if (layout.turn) ctx.rotate(layout.turn * Math.PI / 2);
+    // Size of the picture once turned, fitted inside the canvas without cropping
+    var pw = layout.turn ? vh : vw, ph = layout.turn ? vw : vh;
+    var k = Math.min(W / pw, H / ph);
+    ctx.drawImage(src, -vw * k / 2, -vh * k / 2, vw * k, vh * k);
+    ctx.restore();
+  }
+  // setInterval keeps drawing when the screen dims; requestAnimationFrame would stop
+  setInterval(draw, 1000 / 30);
+
   function goLive() {
+    askMotion();
     live = true;
     $('go').textContent = 'STOP';
     $('go').className = 'go stop';
@@ -159,6 +239,7 @@
 
   $('go').onclick = function () { live ? stopLive() : goLive(); };
   $('flip').onclick = function () { facing = facing === 'environment' ? 'user' : 'environment'; startCamera(); };
+  $('flipPic').onclick = function () { flipped = !flipped; pendingLayout = null; layout.ready = false; };
   $('mic').onclick = function () {
     micOn = !micOn;
     if (stream) stream.getAudioTracks().forEach(function (t) { t.enabled = micOn; });

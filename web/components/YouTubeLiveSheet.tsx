@@ -1,7 +1,8 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { LiveSession, LivePayload, getCameraLinks, getOverlayLink, isLocalAddress } from '@/lib/services/live';
+import { LiveSession, LivePayload, getOverlayLink, isLocalAddress } from '@/lib/services/live';
+import { createCameraStream } from '@/lib/services/stream';
 import ServerSettings from './ServerSettings';
 import QRCode from './QRCode';
 import ReplayControls from './ReplayControls';
@@ -55,11 +56,13 @@ export default function YouTubeLiveSheet({ visible, session, getPayload, onClose
   const [qrFor, setQrFor] = useState<'studio' | 'watch'>('studio');
   const { mounted, shown } = useSheet(visible, onClose, serverModal);
 
+  // The camera page (/go) built into this server: score on the video, recording, and YouTube Live
+  // with just a stream key. (The separate camera studio app isn't kept up to date on the server.)
   const loadCamera = () => {
     setCamLoading(true);
     setCamError(null);
-    getCameraLinks(session)
-      .then(l => { setCam(l); setQrFor('studio'); })
+    createCameraStream(session)
+      .then(l => { setCam({ studioUrl: l.broadcastUrl, watchUrl: l.watchUrl }); setQrFor('studio'); })
       .catch((e: any) => setCamError(e.message))
       .finally(() => setCamLoading(false));
   };
@@ -128,8 +131,8 @@ export default function YouTubeLiveSheet({ visible, session, getPayload, onClose
                     </div>
                     <span className={st.phoneText}>
                       {qrFor === 'studio'
-                        ? 'Scan with the camera device (phone, tablet or laptop). The camera studio opens in its browser with the live score on the video. Tap "Go live" there. You keep scoring here.'
-                        : 'Anyone can scan this or open the link to watch live. After the match the same link plays the full match video.'}
+                        ? 'Scan with the camera phone. The camera opens in its browser. Tap the red ▶ there, paste your YouTube stream key, then tap GO LIVE: it streams to YouTube with the live score. You keep scoring here.'
+                        : 'Anyone can scan this or open the link to watch live in the browser.'}
                     </span>
                     <span className={st.camLink}>{cam.watchUrl}</span>
                     <div className={st.errBtns}>
@@ -149,7 +152,7 @@ export default function YouTubeLiveSheet({ visible, session, getPayload, onClose
                 ) : (
                   <>
                     <span className={st.phoneText}>
-                      Show a QR code. Any device that scans it becomes the camera in its web browser, with the live score drawn on the video. You can share a watch link, replay the last minute, and the full match video is saved when the match ends.
+                      Show a QR code. The phone that scans it becomes the camera in its web browser and can go live on YouTube with the live score on the video (only your YouTube stream key is needed). It can also record the match and replay balls.
                     </span>
                     {camError && <span className={st.camErr}>⛔ {camError}</span>}
                     <button type="button" className={`${st.btn} ${st.btnDark} ${camLoading ? st.btnDisabled : ''}`} onClick={loadCamera} disabled={camLoading}>

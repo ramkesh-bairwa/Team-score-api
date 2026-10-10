@@ -10,7 +10,7 @@ import HighlightsPanel from './Highlights';
 import MatchResultCard, { useMatchResult } from './MatchResult';
 import MatchVideo from './MatchVideo';
 import VideoSurface from './VideoSurface';
-import { LiveBadge, Spinner, StatusPill, ViewerCount } from './ui';
+import { Spinner, StatusPill, ViewerCount } from './ui';
 
 interface Props {
   roomId: string;
@@ -35,7 +35,9 @@ export default function ViewerView({ roomId, title, description, broadcasterName
   const v = useViewer(roomId, initialStatus);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { isFullscreen, toggle } = useFullscreen(containerRef, videoRef);
+  // The broadcaster sends 16:9, or 9:16 when filming with the phone upright
+  const [aspect, setAspect] = useState(16 / 9);
+  const { isFullscreen, toggle } = useFullscreen(containerRef, videoRef, aspect);
   const [needsUnmute, setNeedsUnmute] = useState(false);
   const onAutoplayBlocked = useCallback(() => setNeedsUnmute(true), []);
   const [youtubeId, setYoutubeId] = useState<string | null>(null);
@@ -56,15 +58,23 @@ export default function ViewerView({ roomId, title, description, broadcasterName
   const spinning = ['connecting', 'negotiating', 'reconnecting', 'broadcaster-away'].includes(v.status);
 
   return (
-    <div className="mx-auto max-w-5xl px-0 py-0 sm:px-4 sm:py-6">
+    <div className="mx-auto max-w-7xl px-0 py-0 sm:px-4 sm:py-6">
       {result && (
         <div className="mb-0 sm:mb-6">
           <MatchResultCard result={result} />
         </div>
       )}
       {result && !hideVideo && <h2 className="px-4 pb-2 pt-5 text-base font-bold sm:px-0 sm:pt-0">Full match video</h2>}
-      <div ref={containerRef} className={`relative aspect-video overflow-hidden bg-black sm:rounded-2xl sm:ring-1 sm:ring-white/10${hideVideo ? ' hidden' : ''}`}>
-        <VideoSurface ref={videoRef} stream={v.remoteStream} onAutoplayBlocked={onAutoplayBlocked} />
+      {/* Sized to the picture and to the screen: a landscape stream fills a desktop, an upright one
+          fills a phone. The scoreboard is part of the video, so it looks the same everywhere. */}
+      <div
+        ref={containerRef}
+        style={{ aspectRatio: String(aspect), maxWidth: `calc((100dvh - 3.5rem) * ${aspect})` }}
+        className={`relative mx-auto w-full overflow-hidden bg-black sm:rounded-2xl sm:ring-1 sm:ring-white/10 [&:fullscreen]:rounded-none${
+          aspect >= 1 ? ' player-landscape' : ''
+        }${hideVideo ? ' hidden' : ''}`}
+      >
+        <VideoSurface ref={videoRef} stream={v.remoteStream} onAutoplayBlocked={onAutoplayBlocked} onAspect={setAspect} />
 
         {v.status === 'ended' && isMatch ? (
           <div className="absolute inset-0">
@@ -104,14 +114,17 @@ export default function ViewerView({ roomId, title, description, broadcasterName
           </button>
         )}
 
-        <div className="absolute left-3 top-3 flex items-center gap-2">
-          {live && <LiveBadge />}
+        {/* While live the LIVE badge is part of the video (burned in by the studio), so the viewer
+            count moves to the top centre, clear of the on-video graphics */}
+        <div
+          className={`absolute top-3 flex items-center gap-2 ${live ? 'left-1/2 -translate-x-1/2' : 'left-3'}`}
+        >
           {v.status !== 'ended' && <ViewerCount count={v.viewerCount} />}
         </div>
         {!(v.status === 'ended' && isMatch) && (
           <button
             onClick={toggle}
-            className="absolute bottom-3 right-3 rounded-lg bg-black/60 p-2 text-white backdrop-blur hover:bg-black/80"
+            className="absolute bottom-3 right-3 rounded-lg bg-black/40 p-2 text-white opacity-70 backdrop-blur transition hover:bg-black/80 hover:opacity-100"
             aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           >
             <FullscreenIcon exit={isFullscreen} />

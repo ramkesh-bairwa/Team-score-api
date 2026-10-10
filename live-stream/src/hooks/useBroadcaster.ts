@@ -5,7 +5,7 @@ import { Compositor } from '@/lib/compositor';
 import { countCameras, describeMediaError, getCameraStream, getVideoOnly, stopStream, type Facing } from '@/lib/media';
 import { withBase } from '@/lib/paths';
 import { ChunkedRecorder, isRecordingSupported, type RecorderStatus } from '@/lib/recorder';
-import { ReplayBuffer, ReplayPlayer, isReplaySupported, type ReplayItem } from '@/lib/replay';
+import { ReplayBuffer, ReplayPlayer, isReplaySupported, planReplay, type ReplayItem } from '@/lib/replay';
 import { createSocket, type ClientSocket } from '@/lib/socket-client';
 import type { LiveScore, ScoreBall } from '@/types/score';
 import type { IceCandidatePayload, RoomStatus } from '@/types/socket';
@@ -81,6 +81,8 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   const [replayAvailable, setReplayAvailable] = useState(0);
   const [replaying, setReplaying] = useState<{ rate: number } | null>(null);
   const [matchOver, setMatchOver] = useState(false);
+  // Width / height of the outgoing video (16:9, or 9:16 when the phone is held upright)
+  const [aspect, setAspect] = useState(16 / 9);
   const [autoEndAt, setAutoEndAt] = useState<number | null>(null);
   const lastBallRef = useRef<{ innings: number; deliveries: number } | null>(null);
   const inningsPostedRef = useRef(new Set<number>());
@@ -158,6 +160,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
         if (cancelled) return stopStream(camera);
         const compositor = new Compositor();
         compositor.setSource(camera);
+        compositor.onLayoutChange((w, h) => setAspect(w / h));
         const out = new MediaStream([...compositor.stream.getVideoTracks(), ...camera.getAudioTracks()]);
         cameraRef.current = camera;
         compositorRef.current = compositor;
@@ -257,48 +260,85 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     return () => clearInterval(t);
   }, [phase]);
 
-  // Puts the last `seconds` of camera video on air (scoreboard stays live on top), then cuts back
-  const startReplay = useCallback(async (seconds: number, rate = 1) => {
-    const buf = replayBufRef.current;
+  // Replay progress (0..1) for the studio controls
+  const [replayProgress, setReplayProgress] = useState(0);
+  useEffect(() => {
+    if (!replaying) return setReplayProgress(0);
+    const t = setInterval(() => setReplayProgress(replayPlayerRef.current?.progress() ?? 0), 250);
+    return () => clearInterval(t);
+  }, [replaying]);
+
+  // Puts a replay on air: the player gets its first frame decoded before the compositor switches
+  // to it (so there's no black flash), and only one replay runs at a time.
+  const replayBusyRef = useRef(false);
+  const putOnAir = useCallback(async (items: ReplayItem[], rate: number, onDone?: () => void) => {
     const compositor = compositorRef.current;
-    if (!buf || !compositor || replayPlayerRef.current) return;
-    const clips = await buf.take(seconds);
-    if (!clips.length) return setError('Nothing to replay yet. Give it a few seconds.');
-    const items = clips.map((c) => ({ url: c.url, ms: c.end - c.start }));
-    const player = new ReplayPlayer(items, rate, () => {
-      compositor.setReplay(null);
-      buf.release(clips);
-      replayPlayerRef.current = null;
-      setReplaying(null);
+    if (!compositor || !items.length) {
+      onDone?.();
+      return false;
+    }
+    const player: ReplayPlayer = new ReplayPlayer(items, rate, () => {
+      if (replayPlayerRef.current === player) {
+        compositor.setReplay(null);
+        replayPlayerRef.current = null;
+        setReplaying(null);
+      }
+      onDone?.();
     });
     replayPlayerRef.current = player;
+    const ok = await Promise.race([player.ready, new Promise<boolean>((r) => setTimeout(() => r(false), 8000))]);
+    if (!ok || replayPlayerRef.current !== player) {
+      if (replayPlayerRef.current === player) player.stop();
+      return false;
+    }
     compositor.setReplay(player);
     setReplaying({ rate });
+    return true;
   }, []);
+
+  // The last `seconds` of camera video at `rate` (scoreboard stays live on top), then back to live.
+  // A new replay request while one is on air replaces it.
+  const startReplay = useCallback(
+    async (seconds: number, rate = 1) => {
+      const buf = replayBufRef.current;
+      if (!buf || !compositorRef.current || replayBusyRef.current) return;
+      replayBusyRef.current = true;
+      try {
+        replayPlayerRef.current?.stop();
+        const { clips, from } = await buf.take(seconds);
+        if (!clips.length) return setError('Nothing to replay yet. Give it a few seconds.');
+        const ok = await putOnAir(planReplay(clips, from), rate, () => buf.release(clips));
+        if (!ok) setError('The replay could not be played. Try again.');
+        else setError(null);
+      } finally {
+        replayBusyRef.current = false;
+      }
+    },
+    [putOnAir],
+  );
 
   const stopReplay = useCallback(() => replayPlayerRef.current?.stop(), []);
 
   // A ball replay from the server (any ball of the match, also after a page refresh)
-  const playClip = useCallback((url: string) => {
-    const compositor = compositorRef.current;
-    if (!compositor || replayPlayerRef.current) return;
-    const items: ReplayItem[] = [{ url, ms: BALL_CLIP_S * 1000 }];
-    const player = new ReplayPlayer(items, 1, () => {
-      compositor.setReplay(null);
-      replayPlayerRef.current = null;
-      setReplaying(null);
-    });
-    replayPlayerRef.current = player;
-    compositor.setReplay(player);
-    setReplaying({ rate: 1 });
-  }, []);
+  const playClip = useCallback(
+    async (url: string) => {
+      if (!compositorRef.current || replayBusyRef.current || replayPlayerRef.current) return;
+      replayBusyRef.current = true;
+      try {
+        if (!(await putOnAir([{ url, ms: BALL_CLIP_S * 1000 }], 1))) setError('That ball clip could not be played.');
+      } finally {
+        replayBusyRef.current = false;
+      }
+    },
+    [putOnAir],
+  );
 
   // Uploads the replay clip of the ball that was just scored
   const captureBall = useCallback(
     async (s: LiveScore) => {
       const buf = replayBufRef.current;
       if (!buf || !s.lastBall || !s.deliveries) return;
-      const clips = await buf.take(BALL_CLIP_S + 2);
+      const { clips } = await buf.take(BALL_CLIP_S + 2);
       try {
         if (!clips.length) return;
         const totalS = (clips[clips.length - 1].end - clips[0].start) / 1000;
@@ -420,6 +460,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     // Server ended the room (e.g. reconnect grace period ran out)
     socket.on('stream-ended', () => {
       liveRef.current = false;
+      compositorRef.current?.setLive(false);
       stopReplayBuffer();
       closeAllPeers();
       void stopRecorder().finally(() => {
@@ -447,6 +488,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       if (res.ok) {
         setError(null);
         setPhase('live');
+        compositorRef.current?.setLive(true);
         void startRecorder();
         startReplayBuffer();
       } else {
@@ -460,6 +502,7 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     const socket = socketRef.current;
     if (!socket) return;
     liveRef.current = false;
+    compositorRef.current?.setLive(false);
     stopReplayBuffer();
     closeAllPeers();
     recorderRef.current?.pause();
@@ -573,10 +616,12 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     replaySupported,
     replayAvailable,
     replaying,
+    replayProgress,
     startReplay,
     stopReplay,
     playClip,
     matchOver,
     autoEndAt,
+    aspect,
   };
 }

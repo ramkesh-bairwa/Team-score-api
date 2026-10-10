@@ -11,7 +11,7 @@ import MatchResultCard, { useMatchResult } from './MatchResult';
 import RecordingsPanel from './RecordingsPanel';
 import ShareLink from './ShareLink';
 import VideoSurface from './VideoSurface';
-import { LiveBadge, Spinner, StatusPill, ViewerCount } from './ui';
+import { Spinner, StatusPill } from './ui';
 
 interface Props {
   roomId: string;
@@ -27,7 +27,7 @@ export default function BroadcasterView({ roomId, title, description, initialSta
   const b = useBroadcaster(roomId, initialStatus, { scoreOverlay: hasScoreOverlay, title });
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { isFullscreen, toggle } = useFullscreen(containerRef, videoRef);
+  const { isFullscreen, toggle } = useFullscreen(containerRef, videoRef, b.aspect);
   // Bumped when a recording saved on the device finishes uploading, to reload the server list
   const [recordingsKey, setRecordingsKey] = useState(0);
   const result = useMatchResult(roomId, hasScoreOverlay && b.phase === 'ended');
@@ -61,11 +61,50 @@ export default function BroadcasterView({ roomId, title, description, initialSta
 
   const live = b.phase === 'live';
   const canStart = !!b.localStream && b.socketStatus === 'connected' && !b.busy;
+  const portrait = b.aspect < 1;
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[1fr_320px]">
-      <section>
-        <div ref={containerRef} className="relative aspect-video overflow-hidden rounded-2xl bg-black ring-1 ring-white/10">
+    <div className="mx-auto grid max-w-7xl gap-5 px-3 py-4 sm:px-4 sm:py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <section className="min-w-0 space-y-4">
+        {/* Status bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {live ? (
+            <span className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-black tracking-widest text-white shadow-lg shadow-red-900/40">
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" /> LIVE
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-sm font-bold tracking-widest text-zinc-300">
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-400" /> PREVIEW
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/10">
+            <EyeIcon /> <span className="tabular-nums">{b.viewerCount}</span>
+            <span className="text-zinc-500">watching</span>
+          </span>
+          {b.recorder?.recording && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/10">
+              <span className={`h-2 w-2 rounded-full bg-red-500 ${b.recorder.paused ? '' : 'animate-pulse'}`} />
+              {b.recorder.paused ? 'REC paused' : 'REC'}
+            </span>
+          )}
+          {b.replaying && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400 px-3 py-1.5 text-sm font-black tracking-wide text-amber-950">
+              ⏪ {b.replaying.rate < 1 ? 'SLOW-MO REPLAY ON AIR' : 'REPLAY ON AIR'}
+            </span>
+          )}
+          <div className="ml-auto">
+            <SignalStatus status={b.socketStatus} />
+          </div>
+        </div>
+
+        {/* What viewers see */}
+        <div
+          ref={containerRef}
+          style={{ aspectRatio: String(b.aspect) }}
+          className={`relative mx-auto w-full overflow-hidden rounded-2xl bg-black [&:fullscreen]:rounded-none shadow-2xl shadow-black/60 ring-1 ring-white/10 ${
+            portrait ? 'max-h-[72vh] max-w-[calc(72vh*0.5625)]' : ''
+          } ${live ? 'ring-red-500/40' : ''}`}
+        >
           <VideoSurface ref={videoRef} stream={b.localStream} muted />
 
           {!b.localStream && !b.mediaError && (
@@ -80,64 +119,54 @@ export default function BroadcasterView({ roomId, title, description, initialSta
               <p className="max-w-sm text-sm text-red-300">{b.mediaError}</p>
             </div>
           )}
-          {b.localStream && !b.camOn && (
-            <div className="absolute inset-0 grid place-items-center bg-zinc-900 text-zinc-400">Camera is off</div>
+          {/* In fullscreen the camera operator still needs the replay buttons */}
+          {isFullscreen && hasScoreOverlay && live && b.replaySupported && <VideoReplayBar b={b} />}
+          {isFullscreen && (
+            <button
+              onClick={toggle}
+              className="absolute bottom-3 right-3 grid h-12 w-12 place-items-center rounded-full bg-black/60 text-white backdrop-blur hover:bg-black/80"
+              aria-label="Exit fullscreen"
+            >
+              <FullscreenIcon exit />
+            </button>
           )}
-
-          <div className="absolute left-3 top-3 flex items-center gap-2">
-            {live ? <LiveBadge /> : <StatusPill tone="gray">Preview</StatusPill>}
-            {live && <ViewerCount count={b.viewerCount} />}
-            {b.replaying && <StatusPill tone="red">{b.replaying.rate < 1 ? 'Slow-mo replay on air' : 'Replay on air'}</StatusPill>}
-            {b.recorder?.recording && (
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-black/60 px-2 py-0.5 text-xs font-semibold text-white backdrop-blur">
-                <span className={`h-2 w-2 rounded-full bg-red-500 ${b.recorder.paused ? '' : 'animate-pulse'}`} />
-                {b.recorder.paused ? 'REC paused' : 'REC'}
-              </span>
-            )}
-          </div>
-          {hasScoreOverlay && live && b.replaySupported && <VideoReplayBar b={b} />}
-          <button
-            onClick={toggle}
-            className="absolute bottom-3 right-3 rounded-lg bg-black/60 p-2 text-white backdrop-blur hover:bg-black/80"
-            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          >
-            <FullscreenIcon exit={isFullscreen} />
-          </button>
         </div>
 
-        {b.autoEndAt && <AutoEndBanner at={b.autoEndAt} onEndNow={b.endStream} />}
-
-        {hasScoreOverlay && <ReplayPanel b={b} live={live} roomId={roomId} />}
-
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <ControlButton active={b.micOn} onClick={b.toggleMic} disabled={!b.localStream} label={b.micOn ? 'Mute' : 'Unmute'}>
-            <MicIcon off={!b.micOn} />
-          </ControlButton>
-          <ControlButton active={b.camOn} onClick={b.toggleCam} disabled={!b.localStream} label={b.camOn ? 'Camera off' : 'Camera on'}>
-            <CamIcon off={!b.camOn} />
-          </ControlButton>
-          {b.canFlip && (
-            <ControlButton active onClick={b.flipCamera} disabled={!b.localStream} label={b.facing === 'user' ? 'Back camera' : 'Front camera'}>
-              <FlipIcon />
-            </ControlButton>
-          )}
-
-          <div className="ml-auto flex gap-2">
+        {/* Control dock */}
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-zinc-900/80 p-3">
+          <div className="flex gap-2">
+            <RoundButton active={b.micOn} onClick={b.toggleMic} disabled={!b.localStream} label={b.micOn ? 'Mute' : 'Unmute'}>
+              <MicIcon off={!b.micOn} />
+            </RoundButton>
+            <RoundButton active={b.camOn} onClick={b.toggleCam} disabled={!b.localStream} label={b.camOn ? 'Camera off' : 'Camera on'}>
+              <CamIcon off={!b.camOn} />
+            </RoundButton>
+            {b.canFlip && (
+              <RoundButton active onClick={b.flipCamera} disabled={!b.localStream} label={b.facing === 'user' ? 'Use back camera' : 'Use front camera'}>
+                <FlipIcon />
+              </RoundButton>
+            )}
+            <RoundButton active onClick={toggle} label="Fullscreen">
+              <FullscreenIcon exit={false} />
+            </RoundButton>
+          </div>
+          <div className="flex min-w-[240px] flex-1 gap-2">
             {live ? (
               <button
                 onClick={b.stopLive}
                 disabled={b.busy}
-                className="rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
+                className="h-14 flex-1 rounded-xl bg-white/10 px-5 text-base font-bold transition hover:bg-white/20 disabled:opacity-50"
               >
-                Pause stream
+                ❚❚ Pause stream
               </button>
             ) : (
               <button
                 onClick={b.startLive}
                 disabled={!canStart}
-                className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold hover:bg-red-500 disabled:opacity-50"
+                className="flex h-14 flex-1 items-center justify-center gap-2.5 rounded-xl bg-gradient-to-b from-red-500 to-red-700 px-6 text-lg font-black tracking-wide text-white shadow-lg shadow-red-900/50 transition hover:from-red-400 hover:to-red-600 disabled:opacity-50 disabled:shadow-none"
               >
-                {b.busy ? 'Starting…' : 'Go live'}
+                <span className="h-3 w-3 rounded-full bg-white" />
+                {b.busy ? 'Starting…' : 'GO LIVE'}
               </button>
             )}
             <button
@@ -145,48 +174,52 @@ export default function BroadcasterView({ roomId, title, description, initialSta
                 if (confirm('End this stream for everyone? This cannot be undone.')) b.endStream();
               }}
               disabled={b.busy || b.socketStatus !== 'connected'}
-              className="rounded-lg border border-red-500/40 px-4 py-2.5 text-sm font-semibold text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+              className="h-14 rounded-xl border border-red-500/40 px-4 text-sm font-bold text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
             >
-              End stream
+              End
             </button>
           </div>
         </div>
+
         {!live && b.recordSupported && !b.recorder?.recording && (
-          <label className="mt-3 flex items-center gap-2 text-sm text-zinc-300">
+          <label className="flex items-start gap-3 rounded-xl bg-white/5 px-4 py-3 text-sm text-zinc-300 ring-1 ring-white/10">
             <input
               type="checkbox"
               checked={b.recordEnabled}
               onChange={(e) => b.setRecordEnabled(e.target.checked)}
-              className="h-4 w-4 accent-red-600"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-red-600"
             />
-            Record this stream (saved on this device and uploaded while there’s internet; the full match video goes
-            to the server, and to YouTube if connected)
+            <span>
+              <span className="font-semibold text-zinc-100">Record this stream.</span> Saved on this device and uploaded while
+              there’s internet; the full match video goes to the server, and to YouTube if connected.
+            </span>
           </label>
         )}
+        {b.autoEndAt && <AutoEndBanner at={b.autoEndAt} onEndNow={b.endStream} />}
         {b.recorder?.error && (
-          <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-200 ring-1 ring-amber-500/30">
-            Recording: {b.recorder.error}
-          </p>
+          <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200 ring-1 ring-amber-500/30">Recording: {b.recorder.error}</p>
         )}
-        {b.error && <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300 ring-1 ring-red-500/30">{b.error}</p>}
+        {b.error && <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-red-500/30">{b.error}</p>}
+
+        {hasScoreOverlay && <ReplayPanel b={b} live={live} roomId={roomId} />}
       </section>
 
       <aside className="space-y-4">
-        <div className="rounded-xl border border-white/10 bg-zinc-900 p-4">
-          <h1 className="text-lg font-bold leading-snug">{title}</h1>
+        <div className="rounded-2xl border border-white/10 bg-zinc-900/80 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500">Camera studio</p>
+          <h1 className="mt-1 text-lg font-bold leading-snug">{title}</h1>
           {description && <p className="mt-1 text-sm text-zinc-400">{description}</p>}
           <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <Stat label="Viewers" value={b.viewerCount} />
             <Stat label="Receiving video" value={b.connectedPeers} />
           </dl>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <SignalStatus status={b.socketStatus} />
-            {hasScoreOverlay && (
+          {hasScoreOverlay && (
+            <div className="mt-3">
               <StatusPill tone={b.score && b.score.phase !== 'waiting' ? 'green' : 'yellow'}>
                 {b.score && b.score.phase !== 'waiting' ? 'Scoreboard on video' : 'Waiting for score'}
               </StatusPill>
-            )}
-          </div>
+            </div>
+          )}
           {b.recorder?.recording &&
             (b.recorder.online ? (
               <p className="mt-3 text-xs text-zinc-400">
@@ -211,41 +244,33 @@ export default function BroadcasterView({ roomId, title, description, initialSta
   );
 }
 
-const REPLAYS: [string, number, number][] = [
-  ['30 s', 30, 1],
-  ['1 min', 60, 1],
-  ['2 min', 120, 1],
-  ['3 min', 180, 1],
-  ['🐢 Slow-mo 10 s', 10, 0.5],
+const REPLAYS: { label: string; short: string; secs: number; rate: number }[] = [
+  { label: '30 s', short: '30s', secs: 30, rate: 1 },
+  { label: '1 min', short: '1m', secs: 60, rate: 1 },
+  { label: '2 min', short: '2m', secs: 120, rate: 1 },
+  { label: '3 min', short: '3m', secs: 180, rate: 1 },
+  { label: 'Slow-mo 10 s', short: '🐢 Slow-mo', secs: 10, rate: 0.5 },
 ];
 
-// Replay buttons over the camera picture, so the camera operator can fire a replay while filming
-// (also in fullscreen). Kept at the top: the scoreboard is drawn along the bottom.
+// Replay buttons over the picture in fullscreen, so the camera operator can fire a replay while filming
 function VideoReplayBar({ b }: { b: ReturnType<typeof useBroadcaster> }) {
-  const can = b.replayAvailable >= 3;
   return (
-    <div className="absolute right-2 top-11 flex max-w-[calc(100%-1rem)] flex-wrap items-center justify-end gap-1.5 sm:right-3 sm:top-3">
+    <div className="absolute inset-x-0 top-3 flex flex-wrap items-center justify-center gap-2 px-3">
       {b.replaying ? (
-        <button
-          onClick={b.stopReplay}
-          className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-lg hover:bg-red-500 sm:text-sm"
-        >
+        <button onClick={b.stopReplay} className="h-12 rounded-full bg-red-600 px-5 text-base font-black text-white shadow-lg hover:bg-red-500">
           ■ Back to live
         </button>
       ) : (
-        <>
-          <span className="rounded-full bg-black/60 px-2 py-1 text-xs font-bold text-white backdrop-blur sm:text-sm">⏪ Replay</span>
-          {REPLAYS.map(([label, secs, rate]) => (
-            <button
-              key={label}
-              onClick={() => b.startReplay(secs, rate)}
-              disabled={!can}
-              className="rounded-full bg-black/60 px-2.5 py-1 text-xs font-bold text-white backdrop-blur hover:bg-red-600 disabled:opacity-40 sm:text-sm"
-            >
-              {rate < 1 ? '🐢' : label.replace(' min', 'm').replace(' s', 's')}
-            </button>
-          ))}
-        </>
+        REPLAYS.map((r) => (
+          <button
+            key={r.label}
+            onClick={() => b.startReplay(r.secs, r.rate)}
+            disabled={b.replayAvailable < 3}
+            className="h-12 min-w-12 rounded-full bg-black/60 px-4 text-base font-bold text-white backdrop-blur hover:bg-red-600 disabled:opacity-40"
+          >
+            ⏪ {r.short}
+          </button>
+        ))
       )}
     </div>
   );
@@ -255,37 +280,69 @@ function VideoReplayBar({ b }: { b: ReturnType<typeof useBroadcaster> }) {
 // again; the buffer and the ball list survive a page refresh.
 function ReplayPanel({ b, live, roomId }: { b: ReturnType<typeof useBroadcaster>; live: boolean; roomId: string }) {
   const { data } = useHighlights(roomId);
-  const ready = live && b.replaySupported;
+  const ready = live && b.replaySupported && b.replayAvailable >= 3;
   return (
-    <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-zinc-900 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-sm font-semibold text-zinc-300">⏪ Replay last</span>
-        {b.replaying ? (
-          <button onClick={b.stopReplay} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold hover:bg-red-500">
-            ■ Back to live
-          </button>
-        ) : (
-          REPLAYS.map(([label, secs, rate]) => (
-            <button
-              key={label}
-              onClick={() => b.startReplay(secs, rate)}
-              disabled={!ready || b.replayAvailable < 3}
-              className="rounded-lg bg-white/10 px-3.5 py-2 text-sm font-semibold hover:bg-white/20 disabled:opacity-40"
-            >
-              {label}
-            </button>
-          ))
+    <div className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/80 p-4">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-base font-bold">Instant replay</h2>
+          <p className="text-xs text-zinc-500">
+            {!b.replaySupported
+              ? 'This browser can’t record replays.'
+              : b.replaying
+                ? 'Viewers see the replay now. It returns to live by itself.'
+                : live
+                  ? 'Puts the last moments on air with the live scoreboard on top.'
+                  : 'Go live to put replays on air.'}
+          </p>
+        </div>
+        {live && b.replaySupported && (
+          <div className="w-40">
+            <div className="flex justify-between text-[11px] font-semibold text-zinc-400">
+              <span>Buffer</span>
+              <span className="tabular-nums">{b.replayAvailable} s / 3 min</span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-amber-400 transition-all" style={{ width: `${(b.replayAvailable / 180) * 100}%` }} />
+            </div>
+          </div>
         )}
       </div>
-      <p className="text-xs text-zinc-500">
-        {!b.replaySupported
-          ? 'This browser can’t record replays.'
-          : b.replaying
-            ? 'Viewers see the replay now. It returns to live by itself.'
-            : live
-              ? `${b.replayAvailable} s of video saved for replays (up to 3 min).`
-              : 'Go live to put replays on air.'}
-      </p>
+
+      {b.replaying ? (
+        <div className="space-y-3 rounded-xl bg-amber-400/10 p-3 ring-1 ring-amber-400/30">
+          <div className="flex items-center gap-3">
+            <span className="rounded-md bg-red-600 px-2 py-1 text-xs font-black italic tracking-widest text-white">⏪ REPLAY</span>
+            {b.replaying.rate < 1 && (
+              <span className="rounded-md bg-amber-400 px-2 py-1 text-xs font-black tracking-wider text-amber-950">SLOW-MO {b.replaying.rate}×</span>
+            )}
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/40">
+              <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.round(b.replayProgress * 100)}%` }} />
+            </div>
+          </div>
+          <button onClick={b.stopReplay} className="h-14 w-full rounded-xl bg-red-600 text-base font-black text-white hover:bg-red-500">
+            ■ Back to live
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {REPLAYS.map((r) => (
+            <button
+              key={r.label}
+              onClick={() => b.startReplay(r.secs, r.rate)}
+              disabled={!ready}
+              className={`h-14 rounded-xl px-3 text-base font-bold transition disabled:opacity-40 ${
+                r.rate < 1
+                  ? 'col-span-2 bg-amber-400/15 text-amber-200 ring-1 ring-amber-400/30 hover:bg-amber-400/25 sm:col-span-1'
+                  : 'bg-white/10 hover:bg-white/20'
+              }`}
+            >
+              {r.rate < 1 ? '🐢 Slow-mo 10 s' : `⏪ ${r.label}`}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div>
         <p className="mb-2 text-sm font-semibold text-zinc-300">Ball by ball</p>
         <BallList
@@ -337,7 +394,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function ControlButton({
+function RoundButton({
   active,
   label,
   children,
@@ -348,19 +405,26 @@ function ControlButton({
       {...props}
       aria-label={label}
       title={label}
-      className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold disabled:opacity-50 ${
-        active ? 'bg-white/10 hover:bg-white/20' : 'bg-red-600/90 hover:bg-red-500'
+      className={`grid h-14 w-14 place-items-center rounded-full transition disabled:opacity-50 ${
+        active ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-red-600 text-white hover:bg-red-500'
       }`}
     >
       {children}
-      <span className="hidden sm:inline">{label}</span>
     </button>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z" />
+    </svg>
   );
 }
 
 export function FullscreenIcon({ exit }: { exit: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
       {exit ? (
         <path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6" />
       ) : (
@@ -372,7 +436,7 @@ export function FullscreenIcon({ exit }: { exit: boolean }) {
 
 function FlipIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
       <path d="M4 7h11a5 5 0 0 1 0 10H9M4 7l3-3M4 7l3 3" />
     </svg>
   );
@@ -380,7 +444,7 @@ function FlipIcon() {
 
 function MicIcon({ off }: { off: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
       <rect x="9" y="2" width="6" height="12" rx="3" />
       <path d="M5 10a7 7 0 0 0 14 0M12 17v5" />
       {off && <path d="M3 3l18 18" />}
@@ -390,7 +454,7 @@ function MicIcon({ off }: { off: boolean }) {
 
 function CamIcon({ off }: { off: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
       <rect x="2" y="6" width="14" height="12" rx="2" />
       <path d="M16 10l6-3v10l-6-3" />
       {off && <path d="M3 3l18 18" />}

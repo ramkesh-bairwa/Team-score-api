@@ -8,11 +8,13 @@ interface Props {
   mirrored?: boolean;
   className?: string;
   onAutoplayBlocked?: () => void;
+  // Width / height of the incoming picture; fires again when the broadcaster rotates the phone
+  onAspect?: (aspect: number) => void;
 }
 
 // <video> bound to a MediaStream via srcObject (can't be set as a prop)
 const VideoSurface = forwardRef<HTMLVideoElement, Props>(function VideoSurface(
-  { stream, muted = false, mirrored = false, className = '', onAutoplayBlocked },
+  { stream, muted = false, mirrored = false, className = '', onAutoplayBlocked, onAspect },
   ref,
 ) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -32,6 +34,21 @@ const VideoSurface = forwardRef<HTMLVideoElement, Props>(function VideoSurface(
       }
     });
   }, [stream, onAutoplayBlocked]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !onAspect) return;
+    const report = () => {
+      if (video.videoWidth && video.videoHeight) onAspect(video.videoWidth / video.videoHeight);
+    };
+    report();
+    video.addEventListener('loadedmetadata', report);
+    video.addEventListener('resize', report);
+    return () => {
+      video.removeEventListener('loadedmetadata', report);
+      video.removeEventListener('resize', report);
+    };
+  }, [onAspect]);
 
   return (
     <video

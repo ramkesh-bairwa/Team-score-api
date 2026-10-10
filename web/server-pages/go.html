@@ -30,6 +30,22 @@
   .center { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 30px; text-align: center;
     background: #0B1730; font-size: 16px; line-height: 1.5; }
   .center.show { display: flex; }
+  /* Instant replay (shown while live) */
+  .replay { display: none; flex-direction: column; gap: 8px; align-items: center; width: 100%; max-width: 640px; }
+  .replay.show { display: flex; }
+  .rbtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .rb { height: 42px; padding: 0 16px; border-radius: 21px; border: none; background: #000a; color: #fff; font-size: 15px; font-weight: 800;
+    box-shadow: inset 0 0 0 1px #ffffff40; }
+  .rb:disabled { opacity: .4; }
+  .rb.slow { background: #FFC531; color: #1A1300; box-shadow: none; }
+  .rb.back { background: #E63946; box-shadow: none; padding: 0 22px; }
+  .balls { display: flex; gap: 6px; overflow-x: auto; max-width: 100%; padding: 2px; scrollbar-width: none; }
+  .balls::-webkit-scrollbar { display: none; }
+  .ball { flex: none; height: 34px; padding: 0 10px; border-radius: 17px; border: none; color: #fff; font-size: 13px; font-weight: 800;
+    background: #000a; box-shadow: inset 0 0 0 1px #ffffff40; white-space: nowrap; }
+  .ball.k6 { background: #8B2CF5; box-shadow: none; } .ball.k4 { background: #1E6BFF; box-shadow: none; } .ball.kW { background: #E11D2E; box-shadow: none; }
+  .ball:disabled { opacity: .4; }
+  .hint { font-size: 12px; color: #cbd5e1; text-shadow: 0 1px 3px #000; }
   .shape { font-size: 12px; font-weight: 800; background: #0006; padding: 5px 9px; border-radius: 8px; letter-spacing: .5px; }
 </style>
 </head>
@@ -45,6 +61,16 @@
 
 <div class="bottom">
   <div class="status" id="status">Allow camera access, then tap Go Live</div>
+  <div class="replay" id="replay">
+    <div class="rbtns" id="rbtns">
+      <button class="rb" data-secs="10">⏪ 10s</button>
+      <button class="rb" data-secs="30">⏪ 30s</button>
+      <button class="rb slow" data-secs="10" data-rate="0.5">🐢 Slow-mo</button>
+    </div>
+    <button class="rb back" id="backLive" style="display:none">■ Back to live</button>
+    <div class="balls" id="balls"></div>
+    <div class="hint" id="rhint">Each ball the scorer records shows up here. Tap it to replay it for viewers.</div>
+  </div>
   <div class="row">
     <button class="round" id="flip" title="Switch camera">🔄</button>
     <button class="go" id="go" disabled>GO LIVE</button>
@@ -98,6 +124,7 @@
       $('preview').style.transform = facing === 'user' ? 'scaleX(-1)' : '';
       src.srcObject = new MediaStream(stream.getVideoTracks());
       src.play().catch(function () {});
+      if (live) cutClip(); // record the new camera from now on (keeps the clips so far)
       $('go').disabled = false;
       if (!live) status('Ready. Tap Go Live');
       // The canvas track stays the same; only the camera microphone track is new
@@ -170,8 +197,14 @@
     return flipped ? -t : t;
   }
   function draw() {
-    var vw = src.videoWidth, vh = src.videoHeight;
+    // During a replay the replay video is drawn instead of the camera; until its next frame is
+    // ready the last picture stays on screen (never a black flash)
+    var rv = replay ? replay.vids[replay.active] : null;
+    if (replay && !(rv.readyState >= 2 && rv.videoWidth)) return;
+    var source = rv || src;
+    var vw = source.videoWidth, vh = source.videoHeight;
     if (!vw) return;
+    if (replay) return paint(source, vw, vh, true);
     var turn = wantedTurn(vw, vh);
     var landscape = turn !== 0 || vw >= vh;
     var want = { w: landscape ? 1280 : 720, h: landscape ? 720 : 1280, turn: turn };
@@ -184,6 +217,9 @@
     if (canvas.width !== layout.w) { canvas.width = layout.w; canvas.height = layout.h; }
     $('shape').textContent = layout.w > layout.h ? '▭ 16:9' : '▯ 9:16';
     $('flipPic').style.display = layout.turn ? 'block' : 'none';
+    paint(source, vw, vh, false);
+  }
+  function paint(source, vw, vh, isReplay) {
     var W = canvas.width, H = canvas.height;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
@@ -193,11 +229,214 @@
     // Size of the picture once turned, fitted inside the canvas without cropping
     var pw = layout.turn ? vh : vw, ph = layout.turn ? vw : vh;
     var k = Math.min(W / pw, H / ph);
-    ctx.drawImage(src, -vw * k / 2, -vh * k / 2, vw * k, vh * k);
+    // A replay recorded in the other orientation keeps its own shape inside the frame
+    if (isReplay && (vw >= vh) === !!layout.turn) { pw = vw; ph = vh; k = Math.min(W / pw, H / ph); ctx.rotate(-layout.turn * Math.PI / 2); }
+    ctx.drawImage(source, -vw * k / 2, -vh * k / 2, vw * k, vh * k);
     ctx.restore();
+    if (isReplay) replayTag(W);
+  }
+  function replayTag(W) {
+    var h = 46, x = W - 230, y = 22, slow = replay.rate < 1;
+    ctx.fillStyle = '#E11D2E';
+    ctx.fillRect(x, y, 208, h);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'italic 900 30px "Arial Narrow", Arial, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⏪ REPLAY', x + 16, y + h / 2 + 1);
+    if (slow) {
+      ctx.fillStyle = '#FFC531';
+      ctx.fillRect(x, y + h, 208, 28);
+      ctx.fillStyle = '#1A1300';
+      ctx.font = '900 18px Arial, sans-serif';
+      ctx.fillText('SLOW-MO', x + 16, y + h + 15);
+    }
+    // progress
+    var p = replayProgress();
+    ctx.fillStyle = '#0008';
+    ctx.fillRect(x, y + h + (slow ? 28 : 0), 208, 6);
+    ctx.fillStyle = '#FFC531';
+    ctx.fillRect(x, y + h + (slow ? 28 : 0), 208 * p, 6);
   }
   // setInterval keeps drawing when the screen dims; requestAnimationFrame would stop
   setInterval(draw, 1000 / 30);
+
+  // ── Instant replay ──
+  // The last few minutes of camera video are kept as short clips (each from its own recorder, so
+  // each plays on its own). A replay is drawn onto the outgoing canvas, so viewers see it.
+  var CLIP_MS = 4000, KEEP_MS = 200000;
+  var TYPES = ['video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+  var canReplay = !!window.MediaRecorder && TYPES.some(function (t) { return MediaRecorder.isTypeSupported(t); });
+  var clips = [], rec = null, recStart = 0, recTimer = null, flushed = Promise.resolve();
+  var replay = null, recentBalls = [], lastDeliveries = null;
+
+  function cutClip() {
+    clearTimeout(recTimer);
+    var prev = rec, prevStart = recStart;
+    rec = null;
+    var vt = stream && stream.getVideoTracks()[0];
+    if (live && canReplay && vt && vt.readyState === 'live') {
+      try {
+        var mt = TYPES.find(function (t) { return MediaRecorder.isTypeSupported(t); });
+        rec = new MediaRecorder(new MediaStream([vt]), { mimeType: mt, videoBitsPerSecond: 1000000 });
+        rec.start();
+        recStart = Date.now();
+      } catch (e) { rec = null; }
+      recTimer = setTimeout(cutClip, CLIP_MS);
+    }
+    if (prev && prev.state !== 'inactive') {
+      var parts = [], end = Date.now();
+      flushed = flushed.then(function () {
+        return new Promise(function (resolve) {
+          prev.ondataavailable = function (e) { if (e.data.size) parts.push(e.data); };
+          prev.onstop = function () {
+            if (parts.length) clips.push({ url: URL.createObjectURL(new Blob(parts, { type: prev.mimeType || 'video/webm' })), start: prevStart, end: end });
+            prune();
+            resolve();
+          };
+          prev.stop();
+        });
+      });
+    }
+    return flushed;
+  }
+  function inUse(c) { return replay && replay.items.indexOf(c) >= 0; }
+  function prune() {
+    var cut = Date.now() - KEEP_MS;
+    while (clips.length && clips[0].end < cut && !inUse(clips[0])) URL.revokeObjectURL(clips.shift().url);
+  }
+  function stopBuffer() {
+    clearTimeout(recTimer);
+    if (rec && rec.state !== 'inactive') rec.stop();
+    rec = null;
+  }
+
+  function hiddenVideo() {
+    var v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.preload = 'auto';
+    v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+    document.body.appendChild(v);
+    return v;
+  }
+  function replayProgress() {
+    if (!replay) return 0;
+    var v = replay.vids[replay.active], c = replay.items[replay.i];
+    var at = c ? c.start + (v.currentTime || 0) * 1000 : replay.to;
+    return Math.max(0, Math.min(1, (at - replay.from) / (replay.to - replay.from)));
+  }
+  // Plays the footage between `from` and `to` (ms timestamps) at `rate`, then returns to live
+  function replayWindow(from, to, rate) {
+    if (!live || !canReplay) return;
+    stopReplay();
+    var wait = rec && to > recStart ? cutClip() : flushed;
+    status('Preparing replay…');
+    wait.then(function () {
+      var items = clips.filter(function (c) { return c.end > from && c.start < to; });
+      if (!items.length) { status('Nothing to replay yet. Give it a few seconds.'); return; }
+      replay = { items: items, i: 0, from: Math.max(from, items[0].start), to: to, rate: rate, vids: [hiddenVideo(), hiddenVideo()], active: 0,
+        lastT: -1, lastMove: Date.now(), until: Date.now() + (to - from) / rate + 8000 };
+      load(0, 0);
+      load(1, 1);
+      playActive();
+      showReplayUi();
+      status(rate < 1 ? '🐢 Slow-mo replay on air' : '⏪ Replay on air');
+    });
+  }
+  function load(slot, i) {
+    var v = replay.vids[slot];
+    if (i < replay.items.length) { v.src = replay.items[i].url; v.load(); } else v.removeAttribute('src');
+  }
+  function playActive() {
+    var v = replay.vids[replay.active];
+    v.onended = advance;
+    v.playbackRate = replay.rate;
+    v.defaultPlaybackRate = replay.rate;
+    v.play().catch(advance);
+    replay.lastT = -1; replay.lastMove = Date.now();
+  }
+  function advance() {
+    if (!replay) return;
+    var r = replay;
+    r.i++;
+    if (r.i >= r.items.length || r.items[r.i].start >= r.to) return stopReplay();
+    var old = r.active;
+    r.vids[old].pause();
+    r.active = 1 - old;
+    playActive();
+    load(old, r.i + 1);
+  }
+  // Ends at the end of the window, and moves on if a clip stalls (some phones never fire `ended`)
+  setInterval(function () {
+    if (!replay) return;
+    var v = replay.vids[replay.active], c = replay.items[replay.i];
+    if (Date.now() > replay.until || (c && c.start + v.currentTime * 1000 >= replay.to)) return stopReplay();
+    if (v.currentTime !== replay.lastT) { replay.lastT = v.currentTime; replay.lastMove = Date.now(); }
+    else if (Date.now() - replay.lastMove > 3000 / replay.rate) advance();
+  }, 250);
+  function stopReplay() {
+    if (!replay) return;
+    replay.vids.forEach(function (v) { v.pause(); v.removeAttribute('src'); v.load(); v.remove(); });
+    replay = null;
+    prune();
+    showReplayUi();
+    if (live) status('🔴 Back to live');
+  }
+
+  function showReplayUi() {
+    $('replay').className = live && canReplay ? 'replay show' : 'replay';
+    $('rbtns').style.display = replay ? 'none' : 'flex';
+    $('backLive').style.display = replay ? 'block' : 'none';
+    // A ball is replayable while its footage is still in the buffer
+    var oldest = clips.length ? clips[0].start : rec ? recStart : Date.now();
+    [].forEach.call($('rbtns').children, function (b) { b.disabled = !clips.length; });
+    [].forEach.call($('balls').children, function (b) { b.disabled = !!replay || +b.dataset.at - 1500 < oldest; });
+  }
+  setInterval(showReplayUi, 1000);
+
+  // Balls recorded by the scorer (from the live score feed), newest first, each replayable
+  function renderBalls() {
+    var box = $('balls');
+    box.innerHTML = '';
+    recentBalls.forEach(function (b) {
+      var el = document.createElement('button');
+      el.className = 'ball k' + b.kind;
+      el.dataset.at = b.at;
+      el.textContent = b.over + ' · ' + b.label + ' ▶';
+      el.onclick = function () { replayWindow(b.at - 15000, b.at - 1500, 1); };
+      box.appendChild(el);
+    });
+    $('rhint').style.display = recentBalls.length ? 'none' : 'block';
+    showReplayUi();
+  }
+  function pollScore() {
+    fetch('/api/live/' + code + '/overlay', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || d.deliveries == null || d.phase === 'waiting') return;
+        if (d.phase === 'innings_end') { lastDeliveries = null; return; }
+        if (lastDeliveries !== null && d.deliveries > lastDeliveries && d.lastBall && live) {
+          var b = d.lastBall;
+          var kind = b.wicket ? 'W' : !b.extra && b.runs === 6 ? '6' : !b.extra && b.runs === 4 ? '4' : 'x';
+          var label = b.wicket ? 'WICKET' : kind === '6' ? 'SIX' : kind === '4' ? 'FOUR'
+            : b.extra ? ({ wd: 'Wide', nb: 'No ball', lb: 'Leg bye', b: 'Bye', db: 'Dead ball' }[b.extra] || 'Extra') : b.runs ? b.runs + ' run' + (b.runs > 1 ? 's' : '') : 'Dot';
+          var over = d.ball === 0 && d.over > 0 ? (d.over - 1) + '.6' : d.over + '.' + d.ball;
+          recentBalls.unshift({ over: over, kind: kind, label: label, at: Date.now() });
+          recentBalls = recentBalls.slice(0, 12);
+          renderBalls();
+        }
+        lastDeliveries = d.deliveries;
+      })
+      .catch(function () {})
+      .then(function () { setTimeout(pollScore, 1500); });
+  }
+  pollScore();
+
+  [].forEach.call($('rbtns').children, function (b) {
+    b.onclick = function () {
+      var secs = +b.dataset.secs, rate = +(b.dataset.rate || 1), now = Date.now();
+      replayWindow(now - secs * 1000, now, rate);
+    };
+  });
+  $('backLive').onclick = stopReplay;
 
   function goLive() {
     askMotion();
@@ -207,6 +446,8 @@
     $('badge').textContent = 'LIVE';
     $('badge').className = 'badge live';
     status('Connecting…');
+    cutClip();
+    showReplayUi();
     socket = io({ path: '/rtc', transports: ['websocket', 'polling'] });
     socket.on('connect', function () { socket.emit('join', { code: code, role: 'broadcaster', key: key }); status('🔴 You are live. Share the watch link!'); });
     socket.on('denied', function (m) { stopLive(); block(m); });
@@ -226,6 +467,9 @@
 
   function stopLive() {
     live = false;
+    stopReplay();
+    stopBuffer();
+    showReplayUi();
     Object.keys(peers).forEach(closePeer);
     if (socket) { socket.disconnect(); socket = null; }
     if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }

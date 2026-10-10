@@ -1,41 +1,51 @@
-button.roleBtn, button.tab, button.shareBtn, button.doneBtn { font-family: inherit; cursor: pointer; }
-button.roleBtn:active, button.tab:active, button.shareBtn:active, button.doneBtn:active { opacity: 0.7; }
-.title { font-size: 19px; font-weight: 900; color: var(--text); text-align: center; }
-.sub { font-size: 13px; color: var(--text-sub); text-align: center; margin-top: 4px; margin-bottom: 14px; line-height: 18px; }
-.roleRow { display: flex; flex-direction: row; gap: 8px; align-self: stretch; margin-bottom: 12px; }
+button.roleBtn, button.tab, button.shareBtn, button.doneBtn {
+  font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background .15s, border-color .15s, transform .1s, filter .15s;
+}
+button.roleBtn:active, button.tab:active, button.shareBtn:active, button.doneBtn:active { transform: scale(.97); }
+.title { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--ink); text-align: center; text-transform: uppercase; letter-spacing: .4px; }
+.sub { font-size: 13px; color: var(--ink-2); text-align: center; margin-top: 4px; margin-bottom: 16px; line-height: 1.45; }
+.roleRow { display: flex; gap: 8px; align-self: stretch; margin-bottom: 12px; }
 .roleBtn {
-  flex: 1 1 0%; padding: 9px 4px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
-  border: 1.5px solid var(--card-border); background: transparent;
+  flex: 1 1 0%; min-height: 46px; padding: 8px 6px; border-radius: var(--r-md); display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--line); background: var(--surface);
 }
-.roleBtnOn { border-color: var(--primary); background-color: var(--primary-light); }
-.roleText { font-size: 12px; font-weight: 800; color: var(--text-sub); text-align: center; }
-.roleTextOn { color: var(--primary); }
-.tabs {
-  display: flex; flex-direction: row; align-self: stretch; background-color: var(--divider);
-  border-radius: 12px; padding: 4px; margin-bottom: 16px;
-}
+.roleBtn:hover { border-color: #CBD5E1; }
+.roleBtnOn, .roleBtnOn:hover { border-color: var(--brand); background-color: var(--brand-soft); }
+.roleText { font-size: 13px; font-weight: 800; color: var(--ink-2); text-align: center; }
+.roleTextOn { color: var(--brand); }
+.tabs { display: flex; align-self: stretch; background-color: var(--surface-3); border-radius: var(--r-pill); padding: 4px; margin-bottom: 18px; }
 .tab {
-  flex: 1 1 0%; padding: 9px 0; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  flex: 1 1 0%; min-height: 40px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center;
   border: 0; background: transparent;
 }
-.tabOn { background-color: var(--white); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); }
-.tabText { font-size: 13px; font-weight: 700; color: var(--text-sub); white-space: pre; }
-.tabTextOn { color: var(--text); font-weight: 900; }
+.tabOn { background-color: var(--surface); box-shadow: var(--shadow-1); }
+.tabText { font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: pre; }
+.tabTextOn { color: var(--ink); font-weight: 800; }
 .qrWrap { display: flex; flex-direction: column; align-items: center; }
-.qrPlaceholder { width: 210px; height: 210px; border-radius: 12px; background-color: var(--divider); }
+.qrWrap > div:first-child { box-shadow: var(--shadow-2); border: 1px solid var(--line); }
+.qrPlaceholder { width: 210px; height: 210px; border-radius: 12px; background-color: var(--surface-3); }
 .codeWrap { display: flex; flex-direction: column; align-items: center; align-self: stretch; }
 .codeBox {
-  align-self: stretch; display: flex; flex-direction: column; align-items: center; padding: 22px 0; border-radius: 16px;
-  border: 1.5px dashed #2563EB60; background-color: var(--accent-light);
+  align-self: stretch; display: flex; flex-direction: column; align-items: center; padding: 20px 0; border-radius: var(--r-lg);
+  background: var(--grad-hero); box-shadow: var(--shadow-2);
 }
-.code { font-size: 38px; font-weight: 900; letter-spacing: 10px; color: var(--accent); margin-right: -10px; }
-.hint { font-size: 12px; color: var(--text-muted); margin-top: 10px; text-align: center; }
-.shareBtn { margin-top: 12px; background-color: var(--accent); border-radius: 12px; padding: 11px 26px; border: 0; }
-.shareBtnText { color: var(--white); font-size: 14px; font-weight: 800; }
-.note { align-self: stretch; margin-top: 16px; background-color: var(--orange-light); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; }
-.noteText { font-size: 12px; color: #9A3412; font-weight: 600; line-height: 17px; text-align: center; }
+.code { font-family: var(--font-display); font-size: 48px; font-weight: 800; letter-spacing: 12px; color: var(--gold); margin-right: -12px; line-height: 1.1; }
+.hint { font-size: 12px; color: var(--ink-3); margin-top: 12px; text-align: center; line-height: 1.45; }
+.shareBtn {
+  margin-top: 14px; background: var(--sky); border-radius: var(--r-pill); min-height: 46px; padding: 0 28px; border: 0;
+  display: flex; align-items: center; box-shadow: 0 6px 16px rgba(37, 99, 235, .28);
+}
+.shareBtn:hover { filter: brightness(1.07); }
+.shareBtnText { color: #fff; font-size: 14px; font-weight: 800; }
+.note {
+  align-self: stretch; margin-top: 16px; background-color: #FFF7ED; border-radius: var(--r-md); padding: 10px 12px;
+  display: flex; flex-direction: column; border: 1px solid rgba(234, 88, 12, .18);
+}
+.noteText { font-size: 12px; color: #9A3412; font-weight: 600; line-height: 1.45; text-align: center; }
 .doneBtn {
   margin-top: 12px; align-self: stretch; display: flex; align-items: center; justify-content: center;
-  padding: 12px 0; border-radius: 12px; background-color: var(--divider); border: 0;
+  min-height: 48px; border-radius: var(--r-pill); background-color: var(--surface-3); border: 0;
 }
-.doneText { color: var(--text-sub); font-size: 15px; font-weight: 700; }
+.doneBtn:hover { background-color: var(--line); }
+.doneText { color: var(--ink); font-size: 15px; font-weight: 700; }

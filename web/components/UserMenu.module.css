@@ -1,0 +1,67 @@
+.root { position: relative; display: inline-flex; font-family: var(--font-sans), system-ui, sans-serif; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 10px 0 4px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  transition: background .15s, border-color .15s;
+  max-width: 180px;
+}
+.chip:hover { background: var(--surface-3); }
+
+.avatar {
+  flex: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--grad-brand); color: #fff;
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-size: 14px; font-weight: 700; letter-spacing: .5px;
+}
+.avatarLg { width: 42px; height: 42px; font-size: 18px; }
+.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caret { flex: none; opacity: .7; transition: transform .15s; }
+.caretOpen { transform: rotate(180deg); }
+
+/* On a navy header */
+.dark .chip {
+  background: rgba(255, 255, 255, .08);
+  border-color: rgba(255, 255, 255, .18);
+  color: var(--on-dark);
+  box-shadow: none;
+}
+.dark .chip:hover { background: rgba(255, 255, 255, .16); }
+
+.menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+  min-width: 240px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-3);
+  padding: 6px;
+  animation: pop .14s ease-out;
+}
+.head { display: flex; align-items: center; gap: 12px; padding: 10px 10px 12px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.who { min-width: 0; }
+.fullName { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mobile { color: var(--ink-2); font-size: 13px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+.logout {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; border: 0; border-radius: var(--r-sm);
+  background: transparent; color: var(--brand-strong);
+  font-size: 14px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.logout:hover { background: var(--brand-soft); }
+.logout:disabled { opacity: .6; cursor: default; }
+
+@media (max-width: 420px) {
+  .chip { max-width: 130px; gap: 6px; padding-right: 8px; }
+}
+@keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }

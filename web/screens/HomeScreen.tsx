@@ -11,6 +11,7 @@ import { requestJoin, getJoinStatus, takeOverScoring, LivePayload, LiveSession, 
 import { isServerConfigured, setApiUrl } from '@/lib/services/server';
 import { scanQrFromImage } from '@/lib/utils/qrScan';
 import ServerSettings from '@/components/ServerSettings';
+import UserMenu from '@/components/UserMenu';
 import { pendingTeamCount, isServerReachable, syncPendingTeams } from '@/lib/services/teams';
 import s from './HomeScreen.module.css';
 
@@ -18,6 +19,21 @@ const SCORER_NAME_KEY = 'cricscore_scorer_name';
 const WELCOME_KEY = 'cricscore_welcome_seen';
 // Wait for a closing popup card to finish animating before opening the next one
 const afterClose = (fn: () => void) => setTimeout(fn, 220);
+
+// Watch codes: 6 characters, A–Z and 2–9
+const WATCH_CODE_RE = /^[A-Z2-9]{6}$/;
+// Accepts a typed code or a pasted watch link (…/stream/match/CODE, /watch/CODE, /go/CODE, ?code=CODE)
+const extractWatchCode = (raw: string) => {
+  const t = raw.trim();
+  const known = t.match(/\/(?:stream\/match|watch|go|live)\/([A-Za-z0-9]{6})(?=$|[/?#])/i)
+    || t.match(/[?&](?:code|match|join)=([A-Za-z0-9]{6})(?=$|[&#])/i);
+  if (known) return known[1].toUpperCase();
+  if (/[/.]/.test(t)) {
+    const seg = t.split(/[/?#&=]/).reverse().find(x => /^[A-Za-z0-9]{6}$/.test(x));
+    if (seg) return seg.toUpperCase();
+  }
+  return t.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6);
+};
 
 const Spinner = ({ color = C.white, large }: { color?: string; large?: boolean }) => (
   <span className={`${s.spinner} ${large ? s.spinnerLarge : ''}`} style={{ borderColor: color, borderTopColor: 'transparent' }} />
@@ -45,6 +61,30 @@ export default function HomeScreen({ navigation }: any) {
   const [scanning, setScanning] = useState(false);
   const [joinRole, setJoinRole] = useState<JoinRole>('streamer');
   const joinPoll = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Watch a live match (opens the public stream page in a new tab)
+  const [watchCode, setWatchCode] = useState('');
+  const [watchTried, setWatchTried] = useState(false);
+  const watchInput = useRef<HTMLInputElement | null>(null);
+  const watchBadChars = /[^A-Z2-9]/.test(watchCode);
+  const watchError = watchBadChars
+    ? 'Codes use letters A–Z and digits 2–9 only (no 0 or 1).'
+    : watchTried && watchCode.length < 6
+      ? `Enter all 6 characters of the match code (${watchCode.length}/6).`
+      : '';
+
+  const playWatch = () => {
+    if (!WATCH_CODE_RE.test(watchCode)) {
+      setWatchTried(true);
+      watchInput.current?.focus();
+      return;
+    }
+    window.open(`${window.location.origin}/stream/match/${watchCode}`, '_blank', 'noopener');
+  };
+
+  const focusWatch = () => {
+    watchInput.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    watchInput.current?.focus({ preventScroll: true });
+  };
 
   const stopJoinPoll = () => {
     if (joinPoll.current) clearInterval(joinPoll.current);
@@ -339,37 +379,97 @@ export default function HomeScreen({ navigation }: any) {
 
   if (!ready) return <div className={s.container} />;
 
+  const completedCount = history.filter((m: any) => m.status === 'completed').length;
+
   return (
     <div className={s.container}>
-      <div className={s.header}>
-        <div className={s.headerInner}>
-          <div>
-            <div className={s.headerGreet}>Welcome back 👋</div>
-            <div className={s.headerTitle}>Cric<span className={s.headerAccent}>Score</span></div>
+      {/* ─── Hero header ─── */}
+      <header className={s.hero}>
+        <div className={s.topBar}>
+          <div className={s.brand}>
+            <span className={s.brandMark} aria-hidden>🏏</span>
+            <span className={s.brandName}>Cric<span className={s.brandAccent}>Score</span></span>
           </div>
-          <div className={s.headerBtns}>
-            {history.length > 0 && (
-              <button className={s.clearBtn} onClick={clearHistory}>Clear History</button>
-            )}
-            <button className={s.gearBtn} onClick={() => setServerModal(true)} aria-label="Server settings">
-              <span className={s.gearText}>⚙️</span>
+          <div className={s.topActions}>
+            <button className={s.iconBtn} onClick={() => setServerModal(true)} aria-label="Server settings" title="Server settings">
+              <span className={s.iconBtnGlyph}>⚙️</span>
             </button>
+            <UserMenu dark />
           </div>
         </div>
-      </div>
 
-      <div className={s.content}>
-        {/* Start Match Banner */}
-        <button className={s.startBanner} onClick={() => navigation.navigate('SetupTeam')}>
-          <div className={s.startBannerLeft}>
-            <div className={s.startBannerTitle}>Start a New Match</div>
-            <div className={s.startBannerSub}>Create teams · Pick captain · Score live</div>
+        <div className={s.heroGrid}>
+          <div className={s.heroCopy}>
+            <div className={s.heroGreet}>Welcome back 👋</div>
+            <h1 className={s.heroTitle}>Ready for the <span className={s.heroTitleAccent}>next match?</span></h1>
+            <p className={s.heroSub}>Create teams · Pick captain · Score live</p>
+            <div className={s.heroCtas}>
+              <button className={s.ctaPrimary} onClick={() => navigation.navigate('SetupTeam')}>
+                <span className={s.ctaPlay} aria-hidden>▶</span>
+                Start a New Match
+              </button>
+              <button className={s.ctaGhost} onClick={() => openJoin()}>🔗 Join with Code</button>
+            </div>
+            {history.length > 0 && (
+              <div className={s.heroStats}>
+                <div className={s.heroStat}>
+                  <span className={s.heroStatVal}>{history.length}</span>
+                  <span className={s.heroStatLabel}>Matches</span>
+                </div>
+                <div className={s.heroStat}>
+                  <span className={s.heroStatVal}>{completedCount}</span>
+                  <span className={s.heroStatLabel}>Completed</span>
+                </div>
+                {inProgress && (
+                  <div className={s.heroStat}>
+                    <span className={`${s.heroStatVal} ${s.heroStatLive}`}>1</span>
+                    <span className={s.heroStatLabel}>In progress</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className={s.startBannerBtn}>
-            <span className={s.startBannerBtnText}>▶</span>
-          </div>
-        </button>
 
+          {/* Watch a live match */}
+          <form
+            className={s.watchCard}
+            onSubmit={e => { e.preventDefault(); playWatch(); }}
+            noValidate>
+            <div className={s.watchHead}>
+              <span className={s.watchIcon} aria-hidden>📺</span>
+              <div className={s.flex1}>
+                <div className={s.watchTitle}>Watch a live match</div>
+                <div className={s.watchSub}>Enter the 6-character match code or paste a watch link</div>
+              </div>
+              <span className={s.livePill}><span className={s.livePillDot} />LIVE</span>
+            </div>
+            <label className="sr-only" htmlFor="watch-code">Match code</label>
+            <div className={s.watchRow}>
+              <input
+                id="watch-code"
+                ref={watchInput}
+                className={`${s.watchInput} ${watchError ? s.watchInputError : ''} ${WATCH_CODE_RE.test(watchCode) ? s.watchInputOk : ''}`}
+                placeholder="ABC234"
+                value={watchCode}
+                onChange={e => { setWatchCode(extractWatchCode(e.target.value)); setWatchTried(false); }}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                enterKeyHint="go"
+                aria-invalid={!!watchError}
+                aria-describedby="watch-hint"
+              />
+              <button type="submit" className={s.playBtn}>▶ Play Now</button>
+            </div>
+            <div id="watch-hint" className={`${s.watchHint} ${watchError ? s.watchHintError : ''}`} aria-live="polite">
+              {watchError || (WATCH_CODE_RE.test(watchCode) ? `✓ Match ${watchCode} · opens in a new tab` : 'The live stream opens in a new tab')}
+            </div>
+          </form>
+        </div>
+      </header>
+
+      <main className={s.main}>
         {/* Offline team changes waiting to sync */}
         {pendingTeams + pendingMatches > 0 && (
           <div className={`${s.syncBanner} ${!teamsOnline ? s.syncBannerOff : ''}`}>
@@ -390,52 +490,77 @@ export default function HomeScreen({ navigation }: any) {
           </div>
         )}
 
-        <div className={s.bannerGrid}>
-          {/* Shared teams */}
-          <button className={`${s.joinBanner} ${s.teamsBanner}`} onClick={() => navigation.navigate('Teams')}>
-            <span className={s.joinIcon}>👥</span>
-            <div className={s.flex1}>
-              <div className={`${s.joinTitle} ${s.teamsTitle}`}>Teams</div>
-              <div className={s.joinSub}>Create a team once, everyone can play with it</div>
-            </div>
-            <span className={`${s.joinArrow} ${s.teamsTitle}`}>›</span>
-          </button>
-
-          {/* Join someone else's match */}
-          <button className={s.joinBanner} onClick={() => openJoin()}>
-            <span className={s.joinIcon}>🔗</span>
-            <div className={s.flex1}>
-              <div className={s.joinTitle}>Join a Match with Code</div>
-              <div className={s.joinSub}>Score together with another scorer's phone</div>
-            </div>
-            <span className={s.joinArrow}>›</span>
-          </button>
-        </div>
-
-        <div className={s.scroll}>
-          {/* In-Progress Match */}
-          {inProgress && (
-            <div className={s.inProgressCard}>
+        {/* In-Progress Match */}
+        {inProgress && (
+          <section className={s.inProgressCard} aria-label="Match in progress">
+            <div className={s.inProgressInfo}>
               <div className={s.inProgressHeader}>
-                <div className={s.liveDot} />
+                <span className={s.liveDot} />
                 <span className={s.inProgressLabel}>MATCH IN PROGRESS</span>
               </div>
               <div className={s.inProgressTeams}>
-                {inProgress.battingTeam?.name} vs {inProgress.fieldingTeam?.name}
+                {inProgress.battingTeam?.name} <span className={s.vs}>vs</span> {inProgress.fieldingTeam?.name}
               </div>
-              <div className={s.inProgressScore}>
-                {inProgress.savedState?.totalRuns ?? 0}/{inProgress.savedState?.wickets ?? 0}
-                {'  '}({inProgress.savedState?.currentOver ?? 0}.{inProgress.savedState?.currentBall ?? 0} ov)
-                {inProgress.target ? `  •  Target: ${inProgress.target}` : ''}
-              </div>
-              <div className={s.inProgressBtns}>
-                <button className={s.resumeBtn} onClick={resumeMatch}>▶ Resume Match</button>
-                <button className={s.discardBtn} onClick={discardInProgress} aria-label="Discard match">✕</button>
+              <div className={s.inProgressScoreRow}>
+                <span className={s.inProgressScore}>
+                  {inProgress.savedState?.totalRuns ?? 0}/{inProgress.savedState?.wickets ?? 0}
+                </span>
+                <span className={s.inProgressOvers}>
+                  ({inProgress.savedState?.currentOver ?? 0}.{inProgress.savedState?.currentBall ?? 0} ov)
+                </span>
+                {inProgress.target ? <span className={s.targetChip}>Target: {inProgress.target}</span> : null}
               </div>
             </div>
-          )}
+            <div className={s.inProgressBtns}>
+              <button className={s.resumeBtn} onClick={resumeMatch}>▶ Resume Match</button>
+              <button className={s.discardBtn} onClick={discardInProgress} aria-label="Discard match" title="Discard match">✕</button>
+            </div>
+          </section>
+        )}
 
-          <div className={s.sectionTitle}>📋 Match History ({history.length})</div>
+        {/* Quick actions */}
+        <section className={s.section}>
+          <div className={s.sectionHead}>
+            <h2 className={s.sectionTitle}>Quick actions</h2>
+          </div>
+          <div className={s.quickGrid}>
+            <button className={`${s.quickTile} ${s.qBrand}`} onClick={() => navigation.navigate('SetupTeam')}>
+              <span className={s.quickIcon} aria-hidden>🏏</span>
+              <span className={s.quickTitle}>Start Match</span>
+              <span className={s.quickSub}>Create teams · Pick captain · Score live</span>
+              <span className={s.quickArrow} aria-hidden>→</span>
+            </button>
+            <button className={`${s.quickTile} ${s.qPitch}`} onClick={() => navigation.navigate('Teams')}>
+              <span className={s.quickIcon} aria-hidden>👥</span>
+              <span className={s.quickTitle}>Teams</span>
+              <span className={s.quickSub}>Create a team once, everyone can play with it</span>
+              <span className={s.quickArrow} aria-hidden>→</span>
+            </button>
+            <button className={`${s.quickTile} ${s.qSky}`} onClick={() => openJoin()}>
+              <span className={s.quickIcon} aria-hidden>🔗</span>
+              <span className={s.quickTitle}>Join a Match with Code</span>
+              <span className={s.quickSub}>Score together with another scorer&apos;s phone</span>
+              <span className={s.quickArrow} aria-hidden>→</span>
+            </button>
+            <button className={`${s.quickTile} ${s.qGold}`} onClick={focusWatch}>
+              <span className={s.quickIcon} aria-hidden>📺</span>
+              <span className={s.quickTitle}>Watch Live</span>
+              <span className={s.quickSub}>Open any match&apos;s live stream with its code</span>
+              <span className={s.quickArrow} aria-hidden>→</span>
+            </button>
+          </div>
+        </section>
+
+        {/* Match history */}
+        <section className={s.section}>
+          <div className={s.sectionHead}>
+            <h2 className={s.sectionTitle}>
+              Match History <span className={s.countPill}>{history.length}</span>
+            </h2>
+            {history.length > 0 && (
+              <button className={s.clearBtn} onClick={clearHistory}>Clear History</button>
+            )}
+          </div>
           {historyOffline && <div className={s.offlineNote}>📴 Offline · showing matches saved on this phone</div>}
 
           {history.length === 0 ? (
@@ -443,37 +568,49 @@ export default function HomeScreen({ navigation }: any) {
               <div className={s.emptyIcon}>🏏</div>
               <div className={s.emptyText}>No matches played yet</div>
               <div className={s.emptySubText}>Start a match to see history here</div>
+              <button className={s.emptyCta} onClick={() => navigation.navigate('SetupTeam')}>▶ Start a New Match</button>
             </div>
           ) : (
             <div className={s.matchGrid}>
-              {history.map((m: any) => (
-                <button key={m.id} className={s.matchCard} onClick={() => openMatch(m)}>
-                  <div className={s.matchCardTop}>
-                    <div className={s.chipRow}>
-                      <span className={`${s.statusChip} ${m.status === 'completed' ? s.completedChip : s.firstInningsChip}`}>
-                        {m.status === 'completed' ? 'COMPLETED' : m.status === 'innings_break' ? 'INNINGS BREAK' : 'LIVE'}
+              {history.map((m: any) => {
+                const status = m.status === 'completed' ? 'COMPLETED' : m.status === 'innings_break' ? 'INNINGS BREAK' : 'LIVE';
+                return (
+                  <button
+                    key={m.id}
+                    className={`${s.matchCard} ${openingId === m.id ? s.matchCardBusy : ''}`}
+                    onClick={() => openMatch(m)}>
+                    <div className={s.matchCardTop}>
+                      <div className={s.chipRow}>
+                        <span className={`${s.statusChip} ${m.status === 'completed' ? s.completedChip : m.status === 'innings_break' ? s.breakChip : s.liveChip}`}>
+                          {status === 'LIVE' && <span className={s.chipDot} />}{status}
+                        </span>
+                        {m.pending && <span className={s.pendingChip}>NOT UPLOADED</span>}
+                      </div>
+                      <span className={s.matchDate}>{m.date}</span>
+                    </div>
+                    <div className={s.matchTeams}>
+                      {m.team1} <span className={s.vs}>vs</span> {m.team2}
+                    </div>
+                    {!!m.score && (
+                      <div className={s.matchScoreRow}>
+                        <span className={s.matchScore}>{m.score}</span>
+                        <span className={s.matchOvers}>({m.oversPlayed} ov){m.score2 ? `  ·  ${m.team2} ${m.score2} (${m.oversPlayed2})` : ''}</span>
+                      </div>
+                    )}
+                    {m.result ? <div className={s.matchResult}>🏆 {m.result}</div> : null}
+                    <div className={s.matchFoot}>
+                      <span className={s.matchMeta}>{m.overs} ov{m.ballType ? ` · ${m.ballType} ball` : ''}</span>
+                      <span className={s.viewDetail}>
+                        {openingId === m.id ? <><Spinner color={C.accent} /> Opening…</> : 'Tap to view scorecard →'}
                       </span>
-                      {m.pending && <span className={s.pendingChip}>NOT UPLOADED</span>}
                     </div>
-                    <span className={s.matchDate}>{m.date}</span>
-                  </div>
-                  <div className={s.matchTeams}>{m.team1} vs {m.team2}</div>
-                  {!!m.score && (
-                    <div className={s.matchScoreRow}>
-                      <span className={s.matchScore}>{m.score}</span>
-                      <span className={s.matchOvers}>({m.oversPlayed} ov){m.score2 ? `  ·  ${m.team2} ${m.score2} (${m.oversPlayed2})` : ''}</span>
-                    </div>
-                  )}
-                  {m.result ? <div className={s.matchResult}>🏆 {m.result}</div> : null}
-                  <div className={s.viewDetail}>
-                    {openingId === m.id ? 'Opening…' : `${m.overs} ov${m.ballType ? ` · ${m.ballType} ball` : ''} · Tap to view scorecard →`}
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
 
       {/* Password Popup */}
       <PopupCard visible={pwdModal} onRequestClose={() => setPwdModal(false)}>
@@ -514,7 +651,7 @@ export default function HomeScreen({ navigation }: any) {
           <>
             <PopupIcon type="info" icon="🔗" />
             <div className={s.modalTitle}>Join a Match</div>
-            <div className={s.modalSub}>Scan the scorer's QR code or type their code. They will need to allow you.</div>
+            <div className={s.modalSub}>Scan the scorer&apos;s QR code or type their code. They will need to allow you.</div>
             <div className={s.scanRow}>
               <button className={s.scanBtn} onClick={() => scanJoin('camera')} disabled={scanning}>
                 {scanning ? <Spinner /> : '📷  Scan QR'}
@@ -551,7 +688,7 @@ export default function HomeScreen({ navigation }: any) {
                   { key: 'streamer', title: '📺 Live Stream', sub: 'Camera + YouTube' },
                   { key: 'scorer', title: '🏏 Take Over Scoring', sub: 'Other phone stops' },
                 ] as const).map(r => (
-                  <button type="button" key={r.key} className={`${s.roleBtn} ${joinRole === r.key ? s.roleBtnOn : ''}`} onClick={() => setJoinRole(r.key)}>
+                  <button type="button" key={r.key} className={`${s.roleBtn} ${joinRole === r.key ? s.roleBtnOn : ''}`} onClick={() => setJoinRole(r.key)} aria-pressed={joinRole === r.key}>
                     <span className={`${s.roleTitle} ${joinRole === r.key ? s.roleTitleOn : ''}`}>{r.title}</span>
                     <span className={s.roleSub}>{r.sub}</span>
                   </button>
@@ -559,7 +696,7 @@ export default function HomeScreen({ navigation }: any) {
               </div>
               <div className={s.modalBtnRow}>
                 <button type="button" className={s.modalCancelBtn} onClick={closeJoin}>Cancel</button>
-                <button type="submit" className={s.modalConfirmBtn} style={{ backgroundColor: C.accent }} disabled={joinState === 'sending'}>
+                <button type="submit" className={`${s.modalConfirmBtn} ${s.modalConfirmSky}`} disabled={joinState === 'sending'}>
                   {joinState === 'sending' ? <Spinner /> : 'Request Access'}
                 </button>
               </div>

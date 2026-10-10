@@ -1,4 +1,58 @@
-/* App theme (same colours as the mobile app's src/theme/colors.ts) */
+/* ─── CricScore web design system (v2) ─────────────────────────────────────
+   Sporty, clean, high-contrast. Use these tokens in every CSS module.
+   Fonts: var(--font-sans) (Inter) for UI, var(--font-display) (Barlow Condensed) for scores,
+   big numbers, headings in uppercase. */
+:root {
+  /* brand */
+  --brand: #E63946;          /* CricScore red: primary actions, live */
+  --brand-strong: #C1121F;
+  --brand-soft: #FDECEA;
+  --navy: #0B1730;           /* broadcast navy: headers, scoreboards */
+  --navy-2: #13254A;
+  --navy-3: #1E3A6E;
+  --gold: #FACC15;           /* highlights, boundaries, "LIVE" accents on navy */
+  --pitch: #16A34A;          /* success, wickets taken, online */
+  --sky: #2563EB;            /* links, secondary actions */
+  /* surfaces */
+  --surface: #FFFFFF;
+  --surface-2: #F6F8FB;      /* page background */
+  --surface-3: #EEF2F7;      /* inputs, chips */
+  --line: #E3E8EF;
+  /* text */
+  --ink: #0F172A;
+  --ink-2: #475569;
+  --ink-3: #94A3B8;
+  --on-dark: #F8FAFC;
+  --on-dark-2: #9FB3D1;
+  /* shape */
+  --r-sm: 10px; --r-md: 14px; --r-lg: 20px; --r-xl: 28px; --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(15,23,42,.06), 0 1px 1px rgba(15,23,42,.04);
+  --shadow-2: 0 6px 20px rgba(15,23,42,.08);
+  --shadow-3: 0 18px 50px rgba(11,23,48,.18);
+  --grad-hero: linear-gradient(135deg, #0B1730 0%, #13254A 55%, #1E3A6E 100%);
+  --grad-brand: linear-gradient(135deg, #E63946 0%, #C1121F 100%);
+  /* layout */
+  --page-max: 1120px;
+  --gutter: 16px;
+}
+@media (min-width: 768px) { :root { --gutter: 24px; } }
+
+/* Shared extras (v2): motion, hero pattern, focus ring */
+:root {
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --ring: 0 0 0 3px rgba(37, 99, 235, .28);
+  --ring-brand: 0 0 0 3px rgba(230, 57, 70, .25);
+  --shadow-brand: 0 10px 24px rgba(230, 57, 70, .32);
+  /* Mowed-pitch stripes + stadium glow; layer over --grad-hero:
+     background: var(--pattern-hero), var(--grad-hero); */
+  --pattern-hero:
+    radial-gradient(900px 340px at 88% -30%, rgba(230, 57, 70, .30), transparent 62%),
+    radial-gradient(700px 300px at -10% 130%, rgba(22, 163, 74, .20), transparent 60%),
+    repeating-linear-gradient(100deg, rgba(255, 255, 255, .035) 0 64px, transparent 64px 128px);
+}
+
+/* Legacy names (v1 screens) */
 :root {
   --bg: #F5F7FA; --card: #FFFFFF; --card-border: #E8ECF0;
   --primary: #E63946; --primary-light: #FDECEA;
@@ -12,9 +66,18 @@
 html, body { margin: 0; padding: 0; min-height: 100%; }
 body {
   background: var(--bg); color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
   font-size: 14px; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
 }
 button { font-family: inherit; }
 input, textarea, select { font-family: inherit; font-size: 16px; }
 a { color: inherit; text-decoration: none; }
+
+:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+::selection { background: rgba(230, 57, 70, .18); }
+
+/* Shared utility: hide visually, keep for screen readers */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}

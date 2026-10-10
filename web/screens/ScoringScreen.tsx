@@ -15,11 +15,11 @@ import CommentaryList, { LogEntry } from '@/components/CommentaryList';
 import { commentaryFor } from '@/lib/utils/commentary';
 import ServerSettings from '@/components/ServerSettings';
 import ShareMatchModal from '@/components/ShareMatchModal';
+import WatchLiveCard from '@/components/WatchLiveCard';
 import CameraLiveSheet from '@/components/CameraLiveSheet';
 import { createCameraStream, CameraStream } from '@/lib/services/stream';
 import { isServerConfigured } from '@/lib/services/server';
 import { useBackHandler } from '@/lib/nav';
-import { C } from '@/lib/theme';
 import s from './ScoringScreen.module.css';
 
 // extra: 'wd' | 'nb' | 'lb' | 'b' | 'db' (dead ball: shown in the over, never counted)
@@ -75,8 +75,8 @@ const SLICES = [
 ];
 
 // ─── Web stand-in for the app's transparent <Modal> (slide-up sheet or full-screen fade) ───
-function Overlay({ visible, variant = 'slide', children }: {
-  visible: boolean; variant?: 'slide' | 'fade'; children: React.ReactNode;
+function Overlay({ visible, variant = 'slide', onDismiss, children }: {
+  visible: boolean; variant?: 'slide' | 'fade'; onDismiss?: () => void; children: React.ReactNode;
 }) {
   const [mounted, setMounted] = useState(visible);
   const [shown, setShown] = useState(false);
@@ -91,9 +91,17 @@ function Overlay({ visible, variant = 'slide', children }: {
     const t = setTimeout(() => setMounted(false), 260);
     return () => clearTimeout(t);
   }, [visible]);
+  // Optional tap-outside / Escape to close (only sheets that pass onDismiss)
+  useEffect(() => {
+    if (!visible || !onDismiss) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDismiss(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [visible, onDismiss]);
   if (!mounted || typeof document === 'undefined') return null;
   return createPortal(
     <div className={`${variant === 'fade' ? s.dirOverlay : s.modalOverlay} ${shown ? s.overlayShown : ''}`} role="dialog" aria-modal="true">
+      {onDismiss && <div className={s.backdrop} onClick={onDismiss} />}
       {children}
     </div>,
     document.body,
@@ -193,6 +201,7 @@ function Scoring({ navigation, route }: any) {
   const [youtubeSheet, setYoutubeSheet] = useState(false);
   const [serverModal, setServerModal] = useState(false);
   const [shareModal, setShareModal] = useState(false);
+  const [watchModal, setWatchModal] = useState(false);
   // Free WebRTC camera stream (QR for the camera phone + watch link)
   const [cameraSheet, setCameraSheet] = useState(false);
   const [cameraLinks, setCameraLinks] = useState<CameraStream | null>(null);
@@ -249,7 +258,7 @@ function Scoring({ navigation, route }: any) {
 
   // Browser Back (= hardware back) asks for confirmation instead of leaving.
   // While a picker/sheet is open the app's Modal swallows the back press, so do the same here.
-  const anyModalOpen = selectBatterModal || selectBowlerModal || wicketModal || wideModal || directionModal;
+  const anyModalOpen = selectBatterModal || selectBowlerModal || wicketModal || wideModal || directionModal || watchModal;
   useBackHandler(() => {
     if (!anyModalOpen) confirmLeave();
     return true;
@@ -782,14 +791,14 @@ function Scoring({ navigation, route }: any) {
     navigation.navigate('Scorecard', { ...scorecardParams, live: liveRef.current, matchId, matchKey });
   };
 
-  const ballColor = (ball: Ball) => {
-    if (ball.wicket) return { bg: C.primary, text: C.white };
-    if (ball.extra === 'db') return { bg: '#E2E8F0', text: '#64748B' };
-    if (ball.extra === 'wd') return { bg: C.orangeLight, text: C.orange };
-    if (ball.extra === 'nb') return { bg: C.orangeLight, text: C.orange };
-    if (ball.runs === 6) return { bg: '#7C3AED', text: C.white };
-    if (ball.runs === 4) return { bg: C.accentLight, text: C.accent };
-    return { bg: C.divider, text: C.text };
+  // Ball chip colour: W red, 6 purple, 4 blue, extras orange, dead ball grey
+  const ballTone = (ball: Ball) => {
+    if (ball.wicket) return s.ballW;
+    if (ball.extra === 'db') return s.ballDead;
+    if (ball.extra) return s.ballExtra;
+    if (ball.runs === 6) return s.ball6;
+    if (ball.runs === 4) return s.ball4;
+    return ball.runs === 0 ? s.ballDot : s.ballRun;
   };
 
   const ballLabel = (ball: Ball) => {
@@ -831,139 +840,159 @@ function Scoring({ navigation, route }: any) {
 
   return (
     <div className={s.container}>
-      {/* ── Scoreboard header ── */}
-      <div className={s.header}>
-        <div className={s.headerGlow} />
-        <div className={s.headerInner}>
-          <div className={s.topRow}>
-            <button className={s.iconBtn} onClick={confirmLeave} aria-label="Leave match">
-              <span className={s.iconBtnText}>←</span>
-            </button>
-            <div className={s.topActions}>
-              <button className={s.ytBtn} onClick={openCameraLive}>
-                <span className={s.ytPlay}><span className={s.ytPlayText}>●</span></span>
-                <span className={s.pillText}>Live</span>
+      <div className={s.shell}>
+        <main className={s.main}>
+        {/* ── Broadcast scoreboard ── */}
+        <header className={s.board}>
+          <div className={s.boardGlow} />
+          <div className={s.boardStripes} />
+          <div className={s.boardInner}>
+            <div className={s.topRow}>
+              <button className={s.iconBtn} onClick={confirmLeave} aria-label="Leave match">
+                <span aria-hidden>←</span>
               </button>
-              <button className={`${s.pill} ${live ? s.pillLive : ''}`} onClick={() => shareMatch()}>
-                {live && <span className={s.liveDot} />}
-                <span className={s.pillText}>
-                  {connecting ? 'Connecting…' : live ? `${streamerName ? '📺' : '🔗'} ${live.code}` : '🔗 Share'}
+              <div className={s.topActions}>
+                {live && (
+                  <button className={s.watchBtn} onClick={() => setWatchModal(true)} aria-label="Watch or share the live match">
+                    <span aria-hidden>📺</span>
+                    <span>Watch<span className={s.hideXs}> / Share</span></span>
+                  </button>
+                )}
+                <button className={s.camBtn} onClick={openCameraLive} aria-label="Live stream">
+                  <span className={s.camDot} />
+                  <span>Live</span>
+                </button>
+                <button
+                  className={`${s.codePill} ${live ? s.codePillLive : ''}`}
+                  onClick={() => shareMatch()}
+                  aria-label={live ? `Connect a phone to match ${live.code}` : 'Share match'}>
+                  {live && <span className={s.liveDot} />}
+                  <span>{connecting ? 'Connecting…' : live ? `${streamerName ? '📺' : '🔗'} ${live.code}` : '🔗 Share'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className={s.matchLine}>
+              <span className={s.inningsTag}>{isSecondInnings ? '2nd innings' : '1st innings'}</span>
+              <span className={s.matchTeams}>
+                {battingTeam.name} <span className={s.vs}>v</span> {fieldingTeam.name}
+                {bet?.ballType ? ` · ${String(bet.ballType).toUpperCase()} BALL` : ''}
+              </span>
+            </div>
+
+            <div className={s.scoreLine}>
+              <div className={s.scoreBlock}>
+                <span className={s.battingName}>{battingTeam.name}</span>
+                <span className={s.score} aria-label={`${totalRuns} for ${wickets}`}>
+                  {totalRuns}<span className={s.scoreSep}>/</span><span className={s.scoreWkts}>{wickets}</span>
                 </span>
+              </div>
+              <div className={s.oversBox}>
+                <span className={s.oversLabel}>Overs</span>
+                <span className={s.oversVal}>{oversDisplay}</span>
+                <span className={s.oversOf}>of {overs}</span>
+              </div>
+            </div>
+
+            <div className={s.progressTrack} aria-hidden>
+              <div className={s.progressFill} style={{ width: `${progress * 100}%` }} />
+            </div>
+
+            <div className={s.statRow}>
+              <div className={s.statChip}><span className={s.statLabel}>CRR</span><span className={s.statVal}>{crr}</span></div>
+              {isSecondInnings ? (
+                <>
+                  <div className={s.statChip}><span className={s.statLabel}>RRR</span><span className={s.statVal}>{rrr ?? '-'}</span></div>
+                  <div className={s.statChip}><span className={s.statLabel}>Target</span><span className={`${s.statVal} ${s.statGold}`}>{target}</span></div>
+                </>
+              ) : (
+                <div className={s.statChip}><span className={s.statLabel}>Projected</span><span className={s.statVal}>{projected || '-'}</span></div>
+              )}
+              <button className={`${s.statChip} ${s.statChipBtn}`} onClick={openFullCard}>
+                <span className={s.statLabel}>Full</span><span className={s.statVal}>Card ›</span>
               </button>
             </div>
-          </div>
 
-          <div className={s.matchLine}>
-            {isSecondInnings ? '2ND INNINGS' : '1ST INNINGS'} · {battingTeam.name} v {fieldingTeam.name}
-            {bet?.ballType ? ` · ${String(bet.ballType).toUpperCase()} BALL` : ''}
-          </div>
-          <div className={s.scoreLine}>
-            <span className={s.score}>{totalRuns}<span className={s.scoreWkts}>/{wickets}</span></span>
-            <div className={s.oversBox}>
-              <span className={s.oversVal}>{oversDisplay}</span>
-              <span className={s.oversOf}>of {overs} ov</span>
+            <div className={`${s.statusBanner} ${hotBanner ? s.statusBannerHot : ''}`}>
+              <span className={s.statusIcon} aria-hidden>{isSecondInnings ? '🎯' : '📈'}</span>
+              <span className={s.statusText}>{statusText}</span>
             </div>
           </div>
+        </header>
 
-          <div className={s.progressTrack}>
-            <div className={s.progressFill} style={{ width: `${progress * 100}%` }} />
-          </div>
-
-          <div className={s.statRow}>
-            <div className={s.statChip}><span className={s.statLabel}>CRR</span><span className={s.statVal}>{crr}</span></div>
-            {isSecondInnings ? (
-              <>
-                <div className={s.statChip}><span className={s.statLabel}>RRR</span><span className={s.statVal}>{rrr ?? '-'}</span></div>
-                <div className={s.statChip}><span className={s.statLabel}>TARGET</span><span className={s.statVal}>{target}</span></div>
-              </>
-            ) : (
-              <div className={s.statChip}><span className={s.statLabel}>PROJECTED</span><span className={s.statVal}>{projected || '-'}</span></div>
-            )}
-            <button className={`${s.statChip} ${s.statChipBtn}`} onClick={openFullCard}>
-              <span className={s.statLabel}>FULL</span><span className={s.statVal}>Card ›</span>
-            </button>
-          </div>
-
-          <div className={`${s.statusBanner} ${hotBanner ? s.statusBannerHot : ''}`}>
-            <span className={s.statusIcon}>{isSecondInnings ? '🎯' : '📈'}</span>
-            <span className={s.statusText}>{statusText}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── This over ── */}
-      <div className={s.column}>
-        <div className={s.overCard}>
+        {/* ── This over ── */}
+        <section className={s.overCard} aria-label="This over">
           <div className={s.overHead}>
-            <span className={s.overTitle}>THIS OVER</span>
+            <span className={s.overTitle}>This over</span>
             <span className={s.overRuns}>{plural(thisOverRuns, 'run')}</span>
           </div>
           <div className={s.overBalls}>
-            {balls.map((b, i) => {
-              const col = ballColor(b);
-              return (
-                <div key={i} className={s.ballChip} style={{ backgroundColor: col.bg }}>
-                  <span className={s.ballChipText} style={{ color: col.text }}>{ballLabel(b)}</span>
-                </div>
-              );
-            })}
+            {balls.map((b, i) => (
+              <div key={i} className={`${s.ballChip} ${ballTone(b)}`}>{ballLabel(b)}</div>
+            ))}
             {Array.from({ length: emptySlots }, (_, i) => <div key={`e${i}`} className={s.ballSlot} />)}
           </div>
-        </div>
+        </section>
 
         {/* ── Tabs ── */}
-        <div className={s.tabs}>
+        <nav className={s.tabs} role="tablist">
           {(['score', 'log', 'graph'] as const).map(k => (
-            <button key={k} className={`${s.tab} ${tab === k ? s.tabActive : ''}`} onClick={() => setTab(k)}>
-              <span className={`${s.tabText} ${tab === k ? s.tabTextActive : ''}`}>
-                {k === 'score' ? '🏏  Scoring' : k === 'log' ? '🎙️  Commentary' : '📊  Graph'}
+            <button
+              key={k}
+              role="tab"
+              aria-selected={tab === k}
+              className={`${s.tab} ${tab === k ? s.tabActive : ''}`}
+              onClick={() => setTab(k)}>
+              <span aria-hidden>{k === 'score' ? '🏏' : k === 'log' ? '🎙️' : '📊'}</span>
+              <span>
+                {k === 'score' ? (<><span className={s.onlyMobile}>Scoring</span><span className={s.onlyDesktop}>Crease</span></>)
+                  : k === 'log' ? 'Commentary' : 'Graph'}
               </span>
             </button>
           ))}
-        </div>
-      </div>
+        </nav>
 
-      <div className={s.scrollArea}>
-        <div className={s.scroll}>
+        <div className={s.scrollArea}>
           {tab === 'score' ? (
             /* At the crease: both batters + current bowler (tap bowler to change) */
             <div className={s.card}>
               <div className={s.cardHead}>
-                <span className={s.cardTitle}>AT THE CREASE</span>
-                <button className={s.swapChip} onClick={swapStrike}>
-                  <span className={s.swapChipText}>⇄  Swap</span>
-                </button>
+                <span className={s.cardTitle}>At the crease</span>
+                <button className={s.swapChip} onClick={swapStrike}>⇄ Swap strike</button>
               </div>
               {[striker, nonStriker].map((b, i) => (
                 <div key={b.name} className={`${s.batterRow} ${i === 0 ? s.batterRowOn : ''}`}>
-                  <div className={`${s.strikeDot} ${i === 0 ? s.strikeDotOn : ''}`} />
+                  <span className={s.strikeMark} aria-hidden>{i === 0 ? '🏏' : ''}</span>
                   <div className={s.batterInfo}>
-                    <span className={`${s.batterName} ${i === 0 ? s.batterNameOn : ''}`}>
-                      {b.name}{b.name === battingTeam.captain ? ' (c)' : ''}
+                    <span className={s.batterName}>
+                      {b.name}{b.name === battingTeam.captain ? ' (c)' : ''}{i === 0 ? ' *' : ''}
                     </span>
                     <span className={s.batterMeta}>4s {b.fours} · 6s {b.sixes} · SR {sr(b)}</span>
                   </div>
-                  <span className={s.batterRuns}>{b.runs}<span className={s.batterBalls}> ({b.balls})</span></span>
+                  <span className={s.batterRuns}>{b.runs}<span className={s.batterBalls}>({b.balls})</span></span>
                 </div>
               ))}
               <button className={s.bowlerLine} onClick={changeBowler}>
-                <span className={s.bowlerIcon}>🎳</span>
-                <span className={s.bowlerName}>{currentBowler.name}</span>
-                <span className={s.bowlerFig}>
-                  {currentBowler.wickets}-{currentBowler.runs}
-                  <span className={s.batterBalls}>{'  '}({currentBowler.overs}.{currentBowler.balls}) · Eco {economy}</span>
+                <span className={s.bowlerIcon} aria-hidden>🎳</span>
+                <span className={s.bowlerInfo}>
+                  <span className={s.bowlerName}>{currentBowler.name}</span>
+                  <span className={s.batterMeta}>{currentBowler.overs}.{currentBowler.balls} ov · Eco {economy} · tap to change</span>
                 </span>
+                <span className={s.bowlerFig}>{currentBowler.wickets}-{currentBowler.runs}</span>
               </button>
             </div>
           ) : tab === 'log' ? (
             <div className={s.card}>
-              <span className={`${s.cardTitle} ${s.cardTitleGap}`}>BALL BY BALL · {ballLog.length} DELIVERIES</span>
+              <div className={s.cardHead}>
+                <span className={s.cardTitle}>Ball by ball</span>
+                <span className={s.cardCount}>{ballLog.length} {ballLog.length === 1 ? 'delivery' : 'deliveries'}</span>
+              </div>
               <CommentaryList log={ballLog} />
             </div>
           ) : (
             <>
               <div className={s.card}>
-                <span className={`${s.cardTitle} ${s.cardTitleGap}`}>RUNS PER OVER</span>
+                <div className={s.cardHead}><span className={s.cardTitle}>Runs per over</span></div>
                 {chartData.length === 0 && !compareData ? (
                   <span className={s.emptyChart}>The graph appears after the first ball 📊</span>
                 ) : (
@@ -978,15 +1007,15 @@ function Scoring({ navigation, route }: any) {
               </div>
               <div className={s.tiles}>
                 {[
-                  { label: 'Fours', val: fours, color: C.accent },
-                  { label: 'Sixes', val: sixes, color: '#7C3AED' },
-                  { label: 'Dot balls', val: dots, color: C.textSub },
-                  { label: 'Extras', val: extras, color: C.orange },
-                  { label: 'Best over', val: bestOver.runs >= 0 ? `${bestOver.runs} (#${bestOver.over})` : '-', color: C.green },
-                  { label: isSecondInnings ? 'Req. rate' : 'Projected', val: isSecondInnings ? (rrr ?? '-') : (projected || '-'), color: C.primary },
+                  { label: 'Fours', val: fours, tone: s.toneSky },
+                  { label: 'Sixes', val: sixes, tone: s.tonePurple },
+                  { label: 'Dot balls', val: dots, tone: s.toneInk },
+                  { label: 'Extras', val: extras, tone: s.toneOrange },
+                  { label: 'Best over', val: bestOver.runs >= 0 ? `${bestOver.runs} (#${bestOver.over})` : '-', tone: s.tonePitch },
+                  { label: isSecondInnings ? 'Req. rate' : 'Projected', val: isSecondInnings ? (rrr ?? '-') : (projected || '-'), tone: s.toneBrand },
                 ].map(tile => (
-                  <div key={tile.label} className={s.tile}>
-                    <span className={s.tileVal} style={{ color: tile.color }}>{tile.val}</span>
+                  <div key={tile.label} className={`${s.tile} ${tile.tone}`}>
+                    <span className={s.tileVal}>{tile.val}</span>
                     <span className={s.tileLabel}>{tile.label}</span>
                   </div>
                 ))}
@@ -994,66 +1023,68 @@ function Scoring({ navigation, route }: any) {
             </>
           )}
         </div>
-      </div>
+        </main>
 
-      {/* Scoring pad: pinned to the bottom of the screen on the Scoring tab */}
-      {tab === 'score' && (
-        <div className={s.padDock}>
-          <div className={s.padInner}>
-            <div className={`${s.card} ${s.padCard}`}>
-              <span className={s.padLabel}>RUNS</span>
-              <div className={s.runRow}>
-                {[0, 1, 2, 3, 4, 6].map(r => (
-                  <button
-                    key={r}
-                    className={`${s.runCircle} ${r === 4 ? s.run4 : ''} ${r === 6 ? s.run6 : ''}`}
-                    onClick={() => handleRunPress(r)}>
-                    <span className={`${s.runNum} ${r === 4 || r === 6 ? s.runNumLight : ''}`}>{r === 0 ? '•' : r}</span>
-                  </button>
-                ))}
-              </div>
-
-              <span className={s.padLabel}>EXTRAS</span>
-              <div className={s.extraRow}>
-                {[
-                  { label: 'WD', onPress: () => setWideModal(true) },
-                  { label: 'NB', onPress: () => handleRunPress(1, 'nb') },
-                  { label: 'LB', onPress: () => handleRunPress(1, 'lb') },
-                  { label: 'BYE', onPress: () => handleRunPress(1, 'b') },
-                  { label: 'DEAD', onPress: deadBall, dead: true },
-                ].map(e => (
-                  <button key={e.label} className={`${s.extraChip} ${e.dead ? s.deadChip : ''}`} onClick={e.onPress}>
-                    <span className={`${s.extraChipText} ${e.dead ? s.deadChipText : ''}`}>{e.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className={s.actionRow}>
-                <button
-                  className={`${s.undoBtn} ${!undoStack.length ? s.btnDisabled : ''}`}
-                  onClick={undoLastBall}>
-                  <span className={s.undoText}>↶  Undo</span>
-                </button>
-                <button className={s.wicketBtn} onClick={handleWicket}>
-                  <span className={s.wicketBtnText}>WICKET</span>
-                </button>
-              </div>
+        {/* Scoring pad: pinned to the bottom on phones (Scoring tab), sticky right column on laptops */}
+        <aside className={`${s.padDock} ${tab !== 'score' ? s.padDockIdle : ''}`} aria-label="Scoring pad">
+          <div className={s.padCard}>
+            <div className={s.padHead}>
+              <span className={s.padTitle}>Scoring pad</span>
+              <button className={s.endBtn} onClick={() =>
+                popup.show({
+                  type: 'warning', icon: '🏁', title: 'End Innings?',
+                  message: `${battingTeam.name} will finish on ${totalRuns}/${wickets} (${oversDisplay} ov).`,
+                  buttons: [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'End Innings', style: 'destructive', onPress: () => endInnings(batters, bowlers, totalRuns, wickets, currentOver, currentBall) },
+                  ],
+                })}>
+                🏁 End innings
+              </button>
             </div>
 
-            <button className={s.endBtn} onClick={() =>
-              popup.show({
-                type: 'warning', icon: '🏁', title: 'End Innings?',
-                message: `${battingTeam.name} will finish on ${totalRuns}/${wickets} (${oversDisplay} ov).`,
-                buttons: [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'End Innings', style: 'destructive', onPress: () => endInnings(batters, bowlers, totalRuns, wickets, currentOver, currentBall) },
-                ],
-              })}>
-              <span className={s.endBtnText}>🏁  End Innings</span>
-            </button>
+            <span className={s.padLabel}>Runs</span>
+            <div className={s.runGrid}>
+              {[0, 1, 2, 3, 4, 6].map(r => (
+                <button
+                  key={r}
+                  className={`${s.runBtn} ${r === 4 ? s.run4 : ''} ${r === 6 ? s.run6 : ''}`}
+                  onClick={() => handleRunPress(r)}
+                  aria-label={r === 0 ? 'Dot ball' : `${r} run${r === 1 ? '' : 's'}`}>
+                  <span className={s.runNum}>{r === 0 ? '•' : r}</span>
+                  {(r === 4 || r === 6) && <span className={s.runTag}>{r === 4 ? 'FOUR' : 'SIX'}</span>}
+                </button>
+              ))}
+            </div>
+
+            <span className={s.padLabel}>Extras</span>
+            <div className={s.extraRow}>
+              {[
+                { label: 'WD', onPress: () => setWideModal(true) },
+                { label: 'NB', onPress: () => handleRunPress(1, 'nb') },
+                { label: 'LB', onPress: () => handleRunPress(1, 'lb') },
+                { label: 'BYE', onPress: () => handleRunPress(1, 'b') },
+                { label: 'DEAD', onPress: deadBall, dead: true },
+              ].map(e => (
+                <button key={e.label} className={`${s.extraChip} ${e.dead ? s.deadChip : ''}`} onClick={e.onPress}>
+                  {e.label}
+                </button>
+              ))}
+            </div>
+
+            <div className={s.actionRow}>
+              <button
+                className={`${s.undoBtn} ${!undoStack.length ? s.btnDisabled : ''}`}
+                onClick={undoLastBall}>
+                ↶ Undo
+              </button>
+              <button className={s.wicketBtn} onClick={handleWicket}>
+                Wicket
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        </aside>
+      </div>
 
       <Celebration event={celebration} onDone={() => setCelebration(null)} />
       <ServerSettings visible={serverModal} onClose={() => setServerModal(false)} />
@@ -1078,9 +1109,20 @@ function Scoring({ navigation, route }: any) {
         />
       )}
 
+      {/* Watch / Share: for viewers of the live match */}
+      {live && (
+        <Overlay visible={watchModal} onDismiss={() => setWatchModal(false)}>
+          <div className={s.watchSheet}>
+            <WatchLiveCard code={live.code} title={`${firstBatting.name} vs ${firstFielding.name}`} />
+            <button className={s.modalCancel} onClick={() => setWatchModal(false)}>Close</button>
+          </div>
+        </Overlay>
+      )}
+
       {/* Wide Modal: runs taken off the wide */}
       <Overlay visible={wideModal}>
         <div className={s.modalBox}>
+          <span className={s.modalGrip} />
           <span className={s.modalTitle}>↔️ Wide</span>
           <span className={s.modalSub}>
             Runs taken off the wide{isLocal ? ' (local match: no extra run for the wide itself)' : ' (+1 wide run is added)'}
@@ -1091,44 +1133,42 @@ function Scoring({ navigation, route }: any) {
                 key={r}
                 className={`${s.wideBtn} ${r === 4 ? s.wideBtn4 : ''} ${r === 6 ? s.wideBtn6 : ''}`}
                 onClick={() => { setWideModal(false); addBall(1 + r, 'wd'); }}>
-                <span className={`${s.wideBtnText} ${r >= 4 && r !== 5 ? s.wideBtnText4 : ''}`}>{r === 0 ? 'Wd' : `Wd+${r}`}</span>
-                <span className={`${s.wideBtnSub} ${r >= 4 && r !== 5 ? s.wideBtnText4 : ''}`}>
-                  {plural((isLocal ? 0 : 1) + r, 'run')}
-                </span>
+                <span className={s.wideBtnText}>{r === 0 ? 'Wd' : `Wd+${r}`}</span>
+                <span className={s.wideBtnSub}>{plural((isLocal ? 0 : 1) + r, 'run')}</span>
               </button>
             ))}
           </div>
-          <button className={s.modalCancel} onClick={() => setWideModal(false)}>
-            <span className={s.modalCancelText}>Cancel</span>
-          </button>
+          <button className={s.modalCancel} onClick={() => setWideModal(false)}>Cancel</button>
         </div>
       </Overlay>
 
       {/* Wicket Modal: dismissal type, fielder, and (run outs) who is out + runs completed */}
       <Overlay visible={wicketModal}>
-        <div className={s.wkSheet}>
-          <span className={s.modalTitle}>🔴 Wicket</span>
+        <div className={s.modalBox}>
+          <span className={s.modalGrip} />
+          <span className={s.modalTitle}><span className={s.wkBall} aria-hidden />Wicket</span>
           <span className={s.modalSub}>{wkType === 'Run Out' ? 'Run out' : `${striker.name} out`} · bowler {currentBowler.name}</span>
 
-          <span className={s.wkLabel}>HOW OUT</span>
+          <span className={s.wkLabel}>How out</span>
           <div className={s.wkChips}>
             {DISMISSALS.map(d => (
               <button
                 key={d}
                 className={`${s.wkChip} ${wkType === d ? s.wkChipOn : ''}`}
+                aria-pressed={wkType === d}
                 onClick={() => { setWkType(d); setWkFielder(undefined); }}>
-                <span className={`${s.wkChipText} ${wkType === d ? s.wkChipTextOn : ''}`}>{d}</span>
+                {d}
               </button>
             ))}
           </div>
 
           {NEEDS_FIELDER.includes(wkType) && (
             <>
-              <span className={s.wkLabel}>{wkType === 'Stumped' ? 'KEEPER' : 'FIELDER'}</span>
+              <span className={s.wkLabel}>{wkType === 'Stumped' ? 'Keeper' : 'Fielder'}</span>
               <div className={s.wkChips}>
                 {fieldingTeam.players.map((p: string) => (
-                  <button key={p} className={`${s.wkChip} ${wkFielder === p ? s.wkChipOn : ''}`} onClick={() => setWkFielder(p)}>
-                    <span className={`${s.wkChipText} ${wkFielder === p ? s.wkChipTextOn : ''}`}>{p}</span>
+                  <button key={p} className={`${s.wkChip} ${wkFielder === p ? s.wkChipOn : ''}`} aria-pressed={wkFielder === p} onClick={() => setWkFielder(p)}>
+                    {p}
                   </button>
                 ))}
               </div>
@@ -1137,21 +1177,19 @@ function Scoring({ navigation, route }: any) {
 
           {wkType === 'Run Out' && (
             <>
-              <span className={s.wkLabel}>WHO IS OUT</span>
+              <span className={s.wkLabel}>Who is out</span>
               <div className={s.wkChips}>
                 {[false, true].map(ns => (
-                  <button key={String(ns)} className={`${s.wkChip} ${wkOutNonStriker === ns ? s.wkChipOn : ''}`} onClick={() => setWkOutNonStriker(ns)}>
-                    <span className={`${s.wkChipText} ${wkOutNonStriker === ns ? s.wkChipTextOn : ''}`}>
-                      {ns ? `${nonStriker.name} (non-striker)` : `${striker.name} (striker)`}
-                    </span>
+                  <button key={String(ns)} className={`${s.wkChip} ${wkOutNonStriker === ns ? s.wkChipOn : ''}`} aria-pressed={wkOutNonStriker === ns} onClick={() => setWkOutNonStriker(ns)}>
+                    {ns ? `${nonStriker.name} (non-striker)` : `${striker.name} (striker)`}
                   </button>
                 ))}
               </div>
-              <span className={s.wkLabel}>RUNS COMPLETED</span>
+              <span className={s.wkLabel}>Runs completed</span>
               <div className={s.wkChips}>
                 {[0, 1, 2, 3].map(r => (
-                  <button key={r} className={`${s.wkRun} ${wkRuns === r ? s.wkChipOn : ''}`} onClick={() => setWkRuns(r)}>
-                    <span className={`${s.wkChipText} ${wkRuns === r ? s.wkChipTextOn : ''}`}>{r}</span>
+                  <button key={r} className={`${s.wkChip} ${s.wkRun} ${wkRuns === r ? s.wkChipOn : ''}`} aria-pressed={wkRuns === r} onClick={() => setWkRuns(r)}>
+                    {r}
                   </button>
                 ))}
               </div>
@@ -1159,24 +1197,19 @@ function Scoring({ navigation, route }: any) {
           )}
 
           <div className={s.wkPreview}>
-            <span className={s.wkPreviewText}>
-              {(wkType === 'Run Out' && wkOutNonStriker ? nonStriker.name : striker.name)}{'  '}
-              <span className={s.wkPreviewHow}>{dismissalText(wkType, currentBowler.name, wkFielder)}</span>
-            </span>
+            <span className={s.wkPreviewName}>{(wkType === 'Run Out' && wkOutNonStriker ? nonStriker.name : striker.name)}</span>
+            <span className={s.wkPreviewHow}>{dismissalText(wkType, currentBowler.name, wkFielder)}</span>
           </div>
-          <button className={s.wkConfirm} onClick={confirmWicket}>
-            <span className={s.wkConfirmText}>Confirm Wicket</span>
-          </button>
-          <button className={s.modalCancel} onClick={() => setWicketModal(false)}>
-            <span className={s.modalCancelText}>Cancel</span>
-          </button>
+          <button className={s.wkConfirm} onClick={confirmWicket}>Confirm wicket</button>
+          <button className={s.modalCancel} onClick={() => setWicketModal(false)}>Cancel</button>
         </div>
       </Overlay>
 
       {/* Select New Batter Modal */}
       <Overlay visible={selectBatterModal}>
         <div className={s.modalBox}>
-          <span className={s.modalTitle}>🏏 Next Batter</span>
+          <span className={s.modalGrip} />
+          <span className={s.modalTitle}>🏏 Next batter</span>
           <span className={s.modalSub}>Select incoming batter · {yetToBat.length} yet to bat</span>
           <input
             className={s.pickerSearch}
@@ -1200,7 +1233,9 @@ function Scoring({ navigation, route }: any) {
                 setNextBatterIdx((i: number) => i + 1);
                 setSelectBatterModal(false);
               }}>
+                <span className={s.playerAvatar} aria-hidden>{p.trim().charAt(0).toUpperCase()}</span>
                 <span className={s.modalPlayerText}>{p}</span>
+                <span className={s.modalPlayerChevron} aria-hidden>›</span>
               </button>
             ))}
           </div>
@@ -1211,7 +1246,7 @@ function Scoring({ navigation, route }: any) {
       <Overlay visible={directionModal} variant="fade">
         {/* Header */}
         <div className={s.dirHeader}>
-          <span className={s.dirTitle}>📍 Shot Direction</span>
+          <span className={s.dirTitle}>📍 Shot direction</span>
           <span className={s.dirSub}>Tap where the ball went</span>
         </div>
 
@@ -1293,15 +1328,14 @@ function Scoring({ navigation, route }: any) {
         </div>
 
         {/* Skip */}
-        <button className={s.skipDirBtn} onClick={finishDirection}>
-          <span className={s.skipDirText}>Skip Direction</span>
-        </button>
+        <button className={s.skipDirBtn} onClick={finishDirection}>Skip direction</button>
       </Overlay>
 
       {/* Select New Bowler Modal */}
       <Overlay visible={selectBowlerModal}>
         <div className={s.modalBox}>
-          <span className={s.modalTitle}>🎳 {bowlerChangeManual ? 'Change Bowler' : 'New Bowler'}</span>
+          <span className={s.modalGrip} />
+          <span className={s.modalTitle}>🎳 {bowlerChangeManual ? 'Change bowler' : 'New bowler'}</span>
           <span className={s.modalSub}>{bowlerChangeManual ? 'Select who is bowling now' : 'Select bowler for next over'}</span>
           <input
             className={s.pickerSearch}
@@ -1327,6 +1361,7 @@ function Scoring({ navigation, route }: any) {
                   }
                   setSelectBowlerModal(false);
                 }}>
+                  <span className={s.playerAvatar} aria-hidden>{p.trim().charAt(0).toUpperCase()}</span>
                   <span className={s.modalPlayerText}>{p}</span>
                   {bw && (
                     <span className={s.modalPlayerSub}>
@@ -1338,9 +1373,7 @@ function Scoring({ navigation, route }: any) {
             })}
           </div>
           {bowlerChangeManual && (
-            <button className={s.modalCancel} onClick={() => setSelectBowlerModal(false)}>
-              <span className={s.modalCancelText}>Cancel</span>
-            </button>
+            <button className={s.modalCancel} onClick={() => setSelectBowlerModal(false)}>Cancel</button>
           )}
         </div>
       </Overlay>

@@ -1,6 +1,5 @@
 'use client';
 import React from 'react';
-import { C } from '@/lib/theme';
 import st from './OverChart.module.css';
 
 export type OverStat = { runs: number; wickets: number; live?: boolean };
@@ -21,7 +20,7 @@ export default function OverChart({ data, compare, totalOvers, teamName, compare
   return (
     <div className={st.root}>
       <div className={st.legendRow}>
-        <div className={st.legendItem}><div className={st.legendSwatch} style={{ backgroundColor: C.accent }} /><span className={st.legendText}>{teamName}</span></div>
+        <div className={st.legendItem}><div className={st.legendSwatch} style={{ backgroundColor: 'var(--sky)' }} /><span className={st.legendText}>{teamName}</span></div>
         {compare && compareName && (
           <div className={st.legendItem}><div className={st.legendSwatch} style={{ backgroundColor: '#CBD5E1' }} /><span className={st.legendText}>{compareName}</span></div>
         )}

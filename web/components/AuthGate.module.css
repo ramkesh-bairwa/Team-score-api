@@ -1,0 +1,28 @@
+.wrap {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: var(--surface-2);
+  z-index: 50;
+}
+/* A little cricket ball with a seam, spinning */
+.ball {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff6b74 0%, var(--brand) 45%, var(--brand-strong) 100%);
+  box-shadow: var(--shadow-2);
+  position: relative;
+  animation: spin 0.9s linear infinite;
+}
+.ball::before, .ball::after {
+  content: ''; position: absolute; top: 3px; bottom: 3px; width: 2px;
+  border-left: 2px dotted rgba(255, 255, 255, .85);
+}
+.ball::before { left: 12px; }
+.ball::after { left: 18px; }
+.msg { margin: 0; color: var(--ink-2); font-size: 15px; font-weight: 600; }
+.retry {
+  border: 0; border-radius: var(--r-pill); padding: 10px 22px; cursor: pointer;
+  background: var(--brand); color: #fff; font-weight: 700; font-size: 14px;
+}
+.retry:hover { background: var(--brand-strong); }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ball { animation-duration: 3s; } }

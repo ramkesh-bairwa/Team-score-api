@@ -25,7 +25,7 @@ export default function MatchVideoScreen({ navigation, route }: any) {
     <div className={s.container}>
       <div className={s.header}>
         <div className={s.headerInner}>
-          <button type="button" className={cx(s.btnReset, s.headerBtn)} onClick={() => navigation.goBack()}>
+          <button type="button" className={cx(s.btnReset, s.headerBtn)} onClick={() => navigation.goBack()} aria-label="Back">
             <span className={s.back}>‹</span>
           </button>
           <div className={s.headerMid}>
@@ -37,7 +37,7 @@ export default function MatchVideoScreen({ navigation, route }: any) {
             className={cx(s.btnReset, s.headerBtn)}
             disabled={!url}
             onClick={() => { if (url) shareText(`Watch the match: ${url}`, url).catch(() => {}); }}>
-            <span className={s.action}>Share</span>
+            <span className={s.action}>↗ Share</span>
           </button>
         </div>
       </div>

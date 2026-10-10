@@ -1,32 +1,35 @@
 .root { display: flex; flex-direction: column; }
-.legendRow { display: flex; flex-direction: row; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; }
+.legendRow { display: flex; flex-direction: row; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
 .legendItem { display: flex; flex-direction: row; align-items: center; gap: 6px; }
-.legendSwatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-.legendText { font-size: 11px; color: var(--text-sub); font-weight: 600; }
+.legendSwatch { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+.legendText { font-size: 12px; color: var(--ink-2); font-weight: 600; }
 .chartRow { display: flex; flex-direction: row; }
 .axis {
-  width: 22px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: space-between;
-  margin-right: 4px; margin-top: -6px;
+  width: 24px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: space-between;
+  margin-right: 6px; margin-top: -6px;
 }
-.axisText { font-size: 9px; color: var(--text-muted); text-align: right; line-height: 12px; }
-.scroll { flex: 1 1 0%; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-.scroll::-webkit-scrollbar { display: none; }
+.axisText { font-size: 10px; color: var(--ink-3); text-align: right; line-height: 12px; font-variant-numeric: tabular-nums; }
+.scroll { flex: 1 1 0%; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .barsScroll { display: inline-flex; flex-direction: column; padding-right: 8px; }
 .plot {
   position: relative; display: flex; flex-direction: row; align-items: flex-end; gap: 8px;
-  border-bottom: 1px solid var(--card-border);
+  border-bottom: 2px solid var(--line);
 }
-.gridLine { position: absolute; left: 0; right: 0; height: 1px; background-color: var(--divider); }
+.gridLine { position: absolute; left: 0; right: 0; height: 1px; background-color: var(--surface-3); }
 .group { position: relative; display: flex; flex-direction: row; align-items: flex-end; gap: 2px; }
 .barCol { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-.bar { width: 18px; border-top-left-radius: 5px; border-top-right-radius: 5px; background-color: var(--accent); flex-shrink: 0; }
-.bigBar { background-color: #7C3AED; }
-.liveBar { opacity: 0.55; }
-.compareBar { width: 8px; background-color: #CBD5E1; }
-.barValue { font-size: 9px; font-weight: 800; color: var(--text-sub); margin-bottom: 2px; line-height: 12px; }
+.bar {
+  width: 20px; border-top-left-radius: 6px; border-top-right-radius: 6px; flex-shrink: 0;
+  background: linear-gradient(180deg, #3B82F6, var(--sky));
+  transition: height .35s cubic-bezier(.2, .8, .2, 1);
+}
+.bigBar { background: linear-gradient(180deg, #8B5CF6, #6D28D9); }
+.liveBar { opacity: .55; background: repeating-linear-gradient(135deg, var(--sky) 0 4px, #60A5FA 4px 8px); }
+.compareBar { width: 8px; background: #CBD5E1; }
+.barValue { font-size: 10px; font-weight: 800; color: var(--ink-2); margin-bottom: 2px; line-height: 12px; }
 .wicketStack { display: flex; flex-direction: column; gap: 2px; margin-bottom: 3px; align-items: center; }
-.wicketDot { width: 7px; height: 7px; border-radius: 4px; background-color: var(--primary); flex-shrink: 0; }
-.labels { display: flex; flex-direction: row; gap: 8px; margin-top: 4px; }
-.label { width: 18px; flex-shrink: 0; text-align: center; font-size: 9px; color: var(--text-muted); font-weight: 600; line-height: 12px; }
-.labelWide { width: 28px; text-align: right; }
-.caption { font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 6px; }
+.wicketDot { width: 8px; height: 8px; border-radius: 50%; background-color: var(--brand); flex-shrink: 0; box-shadow: 0 0 0 2px rgba(230, 57, 70, .2); }
+.labels { display: flex; flex-direction: row; gap: 8px; margin-top: 5px; }
+.label { width: 20px; flex-shrink: 0; text-align: center; font-size: 10px; color: var(--ink-3); font-weight: 700; line-height: 12px; }
+.labelWide { width: 30px; text-align: right; }
+.caption { font-size: 11px; color: var(--ink-3); text-align: center; margin-top: 8px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; }

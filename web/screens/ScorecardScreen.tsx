@@ -5,6 +5,7 @@ import { pullLiveState } from '@/lib/services/live';
 import { popup } from '@/components/Popup';
 import InningsScorecard from '@/components/InningsScorecard';
 import CommentaryList from '@/components/CommentaryList';
+import WatchLiveCard from '@/components/WatchLiveCard';
 import { pickImage } from '@/lib/pickImage';
 import { C } from '@/lib/theme';
 import s from './ScorecardScreen.module.css';
@@ -280,7 +281,7 @@ export default function ScorecardScreen({ navigation, route }: any) {
           </button>
           <div className={s.headerMid}>
             <div className={cx(s.headerTitle, s.one)}>{battingTeam.name} vs {fieldingTeam.name}</div>
-            <div className={s.headerSub}>Scorecard</div>
+            <div className={s.headerSub}>{liveView ? 'Live scorecard' : 'Scorecard'}</div>
           </div>
           <div className={s.backBtn} />
         </div>
@@ -288,6 +289,7 @@ export default function ScorecardScreen({ navigation, route }: any) {
 
       <div className={s.scrollArea}>
         <div className={s.scroll}>
+          <aside className={s.side}>
           {/* Match summary */}
           <div className={s.summary}>
             <div className={s.summaryTop}>
@@ -328,6 +330,9 @@ export default function ScorecardScreen({ navigation, route }: any) {
             {!!tossLine && <div className={s.toss}>🪙 {tossLine}</div>}
           </div>
 
+          {/* Viewers: QR / code / link to the live watch page */}
+          {!!live?.code && <WatchLiveCard code={live.code} title={`${battingTeam.name} vs ${fieldingTeam.name}`} compact />}
+
           {/* Live-streamed match: innings video, ball-by-ball replays and the live stream, in the app */}
           {!!live?.code && (
             <button
@@ -360,6 +365,9 @@ export default function ScorecardScreen({ navigation, route }: any) {
             <LoserSettlement resultText={resultText} battingTeam={battingTeam} fieldingTeam={fieldingTeam} bet={bet} />
           )}
 
+          </aside>
+
+          <section className={s.main}>
           {/* Innings tabs */}
           <div className={s.tabs}>
             {teamRows.map(({ team, inn, n }) => (
@@ -436,6 +444,7 @@ export default function ScorecardScreen({ navigation, route }: any) {
               <span className={s.newMatchBtnText}>🏠 Back to Home</span>
             </button>
           )}
+          </section>
         </div>
       </div>
     </div>

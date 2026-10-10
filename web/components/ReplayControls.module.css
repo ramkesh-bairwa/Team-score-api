@@ -1,22 +1,29 @@
-.box { background-color: #13244A; border-radius: 16px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; }
-.boxLight { background-color: #0B1730; }
-.title { color: #fff; font-size: 14px; font-weight: 900; margin-bottom: 10px; }
+.box {
+  background: linear-gradient(135deg, #13254A 0%, #1E3A6E 100%); border-radius: var(--r-lg); padding: 16px;
+  margin-bottom: 12px; display: flex; flex-direction: column; box-shadow: var(--shadow-2);
+}
+.boxLight { background: var(--navy); }
+.title { color: #fff; font-size: 15px; font-weight: 800; margin-bottom: 12px; }
 .row { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; }
 .btn {
-  min-width: 58px; padding: 0 12px; height: 38px; border-radius: 19px; background-color: #ffffff22;
-  display: flex; align-items: center; justify-content: center; border: 1px solid #ffffff33;
+  min-width: 60px; padding: 0 14px; height: 42px; border-radius: var(--r-pill); background-color: rgba(255, 255, 255, .1);
+  display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, .18);
   cursor: pointer; font-family: inherit; color: #fff; box-sizing: border-box;
+  transition: background .15s, transform .1s, border-color .15s;
 }
-.btn:active:not(:disabled) { opacity: 0.7; }
-.btn:disabled { cursor: default; }
-.stop { background-color: #EF233C; border-color: #EF233C; }
+.btn:hover:not(:disabled) { background-color: rgba(255, 255, 255, .18); border-color: rgba(250, 204, 21, .5); }
+.btn:active:not(:disabled) { transform: scale(.96); }
+.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.btn:disabled { cursor: default; opacity: .7; }
+.stop { background: var(--brand); border-color: var(--brand); }
+.stop:hover:not(:disabled) { background: var(--brand-strong); border-color: var(--brand-strong); }
 .btnText { color: #fff; font-size: 13px; font-weight: 800; white-space: nowrap; }
-.msg { font-size: 12px; font-weight: 700; margin-top: 10px; line-height: 17px; }
+.msg { font-size: 13px; font-weight: 700; margin-top: 12px; line-height: 1.4; }
 .ok { color: #4ADE80; }
 .err { color: #FCA5A5; }
-.hint { color: #94A3B8; font-size: 11px; margin-top: 10px; line-height: 16px; }
+.hint { color: var(--on-dark-2); font-size: 12px; margin-top: 12px; line-height: 1.4; }
 .spinner {
-  width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff; animation: spin 0.8s linear infinite; box-sizing: border-box;
+  width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, .35);
+  border-top-color: #fff; animation: spin .8s linear infinite; box-sizing: border-box;
 }
 @keyframes spin { to { transform: rotate(360deg); } }

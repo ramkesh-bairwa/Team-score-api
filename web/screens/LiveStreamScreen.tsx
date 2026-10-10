@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { getOverlaySummary, getOverlayLink, getCameraLinks, isLocalAddress, leaveSession, LiveSession } from '@/lib/services/live';
 import { popup } from '@/components/Popup';
 import ReplayControls from '@/components/ReplayControls';
+import WatchLiveCard from '@/components/WatchLiveCard';
 import { useBackHandler } from '@/lib/nav';
 import { shareText, openUrl } from '@/lib/share';
 import s from './LiveStreamScreen.module.css';
@@ -166,6 +167,7 @@ export default function LiveStreamScreen({ navigation, route }: any) {
 
       <div className={s.scrollArea}>
         <div className={s.scroll}>
+          <div className={s.colMain}>
           {/* Real-time score */}
           <div className={s.scoreCard}>
             {status === 'ended' ? (
@@ -215,6 +217,12 @@ export default function LiveStreamScreen({ navigation, route }: any) {
 
           {/* Replays on the camera stream, right under the live score */}
           {status !== 'ended' && <ReplayControls session={session} />}
+
+          {/* Viewers: QR / code / link to the watch page */}
+          <WatchLiveCard code={code} title={d?.battingTeam && d?.bowlingTeam ? `${d.battingTeam} vs ${d.bowlingTeam}` : undefined} />
+          </div>
+
+          <div className={s.colSide}>
 
           {/* Built-in camera stream */}
           <div className={s.card}>
@@ -276,6 +284,8 @@ export default function LiveStreamScreen({ navigation, route }: any) {
             <button type="button" className={cx(s.btnReset, s.btn, s.btnRed)} onClick={() => openUrl('https://studio.youtube.com')}>
               <span className={s.btnText}>Open YouTube Studio</span>
             </button>
+          </div>
+
           </div>
 
           <div className={s.footnote}>

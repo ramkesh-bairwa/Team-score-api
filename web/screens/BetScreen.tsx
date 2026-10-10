@@ -98,22 +98,28 @@ export default function BetScreen({ navigation, route }: any) {
 
   return (
     <div className={s.container}>
-      <div className={s.header}>
+      <header className={s.hero}>
         <div className={s.headerInner}>
-          <button className={s.back} onClick={() => navigation.goBack()}>← Back</button>
-          <div className={s.headerTitle}>Match Bet</div>
-          <div style={{ width: 60 }} />
+          <button className={s.back} onClick={() => navigation.goBack()} aria-label="Back">
+            <span aria-hidden>←</span><span className={s.backText}>Back</span>
+          </button>
+          <h1 className={s.headerTitle}>Match Bet</h1>
+          <div className={s.headerSpacer} />
         </div>
-      </div>
+        <div className={s.matchLabel}>
+          <span className={s.matchName}>{team1.name}</span>
+          <span className={s.vsDisk}>VS</span>
+          <span className={s.matchName}>{team2.name}</span>
+        </div>
+      </header>
 
-      <div className={s.scroll}>
-        <div className={s.matchLabel}>{team1.name} vs {team2.name}</div>
-
+      <main className={s.scroll}>
         {/* Free / Paid */}
         <div className={s.sectionTitle}>Bet Type</div>
         <div className={s.row}>
           <button
             className={`${s.typeBtn} ${betType === 'free' ? s.typeBtnActive : ''}`}
+            aria-pressed={betType === 'free'}
             onClick={() => { setBetType('free'); setAmount(''); setCustomAmount(''); }}>
             <span className={s.typeIcon}>🆓</span>
             <span className={`${s.typeText} ${betType === 'free' ? s.typeTextActive : ''}`}>Free Match</span>
@@ -122,6 +128,7 @@ export default function BetScreen({ navigation, route }: any) {
           </button>
           <button
             className={`${s.typeBtn} ${betType === 'paid' ? s.typeBtnActive : ''}`}
+            aria-pressed={betType === 'paid'}
             onClick={() => setBetType('paid')}>
             <span className={s.typeIcon}>💰</span>
             <span className={`${s.typeText} ${betType === 'paid' ? s.typeTextActive : ''}`}>Paid Match</span>
@@ -130,6 +137,7 @@ export default function BetScreen({ navigation, route }: any) {
           </button>
           <button
             className={`${s.typeBtn} ${betType === 'loser' ? s.typeBtnActive : ''}`}
+            aria-pressed={betType === 'loser'}
             onClick={() => setBetType('loser')}>
             <span className={s.typeIcon}>🧾</span>
             <span className={`${s.typeText} ${betType === 'loser' ? s.typeTextActive : ''}`}>Loser to Pay</span>
@@ -141,7 +149,7 @@ export default function BetScreen({ navigation, route }: any) {
         {betType === 'loser' && (
           <>
             <div className={s.sectionTitle}>Match Expenses (₹)</div>
-            <div className={s.card}>
+            <div className={`${s.card} ${s.cardIn}`}>
               {expenses.map((e, i) => (
                 <div key={i} className={s.expenseRow}>
                   <input
@@ -157,7 +165,7 @@ export default function BetScreen({ navigation, route }: any) {
                     placeholder="₹ 0"
                     inputMode="numeric"
                   />
-                  <button className={s.expenseRemove} onClick={() => setExpenses(expenses.filter((_, idx) => idx !== i))}>✕</button>
+                  <button className={s.expenseRemove} aria-label="Remove expense" onClick={() => setExpenses(expenses.filter((_, idx) => idx !== i))}>✕</button>
                 </div>
               ))}
               <div className={s.expenseChips}>
@@ -184,7 +192,7 @@ export default function BetScreen({ navigation, route }: any) {
           <>
             {/* Amount */}
             <div className={s.sectionTitle}>Bet Amount (₹)</div>
-            <div className={s.card}>
+            <div className={`${s.card} ${s.cardIn}`}>
               <div className={s.amountRow}>
                 {PRESETS.map(a => (
                   <button
@@ -253,20 +261,22 @@ export default function BetScreen({ navigation, route }: any) {
         <div className={s.sectionTitle}>Ball Type</div>
         <div className={s.ballRow}>
           {BALL_TYPES.map(b => (
-            <button key={b.key} className={`${s.ballBtn} ${ballType === b.key ? s.ballBtnOn : ''}`} onClick={() => setBallType(b.key)}>
+            <button key={b.key} className={`${s.ballBtn} ${ballType === b.key ? s.ballBtnOn : ''}`} aria-pressed={ballType === b.key} onClick={() => setBallType(b.key)}>
               <span className={s.ballIcon}>{b.icon}</span>
               <span className={`${s.ballText} ${ballType === b.key ? s.ballTextOn : ''}`}>{b.key}</span>
             </button>
           ))}
         </div>
 
-        <button
-          className={`${s.proceedBtn} ${!ok ? s.proceedBtnDisabled : ''}`}
-          onClick={proceed}
-          disabled={!ok}>
-          {betType === 'paid' ? '💰 Confirm & Proceed to Toss' : betType === 'loser' ? `🧾 Loser pays ₹${expenseTotal} · Proceed to Toss` : '🏏 Proceed to Toss'}
-        </button>
-      </div>
+        <div className={s.ctaBar}>
+          <button
+            className={`${s.proceedBtn} ${!ok ? s.proceedBtnDisabled : ''}`}
+            onClick={proceed}
+            disabled={!ok}>
+            {betType === 'paid' ? '💰 Confirm & Proceed to Toss' : betType === 'loser' ? `🧾 Loser pays ₹${expenseTotal} · Proceed to Toss` : '🏏 Proceed to Toss'}
+          </button>
+        </div>
+      </main>
     </div>
   );
 }

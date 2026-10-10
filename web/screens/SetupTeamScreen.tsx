@@ -254,15 +254,15 @@ export default function SetupTeamScreen({ navigation, route }: any) {
 
   return (
     <div className={s.container}>
-      <div className={s.top}>
-        <div className={s.header}>
-          <div className={s.headerInner}>
-            <button className={s.back} onClick={onBack}>← Back</button>
-            <div className={s.headerTitle}>
-              {step === 'teams' ? 'Create Match' : step === 'players' ? 'Add Players' : 'Match Settings'}
-            </div>
-            <div style={{ width: 60 }} />
-          </div>
+      <header className={s.top}>
+        <div className={s.headerInner}>
+          <button className={s.back} onClick={onBack} aria-label="Back">
+            <span aria-hidden>←</span><span className={s.backText}>Back</span>
+          </button>
+          <h1 className={s.headerTitle}>
+            {step === 'teams' ? 'Create Match' : step === 'players' ? 'Add Players' : 'Match Settings'}
+          </h1>
+          <div className={s.headerSpacer} />
         </div>
 
         <div className={s.stepRow}>
@@ -276,13 +276,13 @@ export default function SetupTeamScreen({ navigation, route }: any) {
               <span className={`${s.stepLabel} ${step === st ? s.stepLabelActive : ''}`}>
                 {st === 'teams' ? 'Teams' : st === 'players' ? 'Players' : 'Settings'}
               </span>
-              {i < 2 && <div className={s.stepLine} />}
+              {i < 2 && <div className={`${s.stepLine} ${isDone(i) ? s.stepLineDone : ''}`} />}
             </div>
           ))}
         </div>
-      </div>
+      </header>
 
-      <div className={s.scroll}>
+      <main className={s.scroll}>
 
         {/* STEP 1: Teams */}
         {step === 'teams' && (
@@ -303,14 +303,15 @@ export default function SetupTeamScreen({ navigation, route }: any) {
               </button>
             </div>
             <div className={s.sectionTitle}>Team Names</div>
-            <div className={s.card}>
+            <div className={s.teamsGrid}>
               {([1, 2] as const).map(n => {
                 const name = n === 1 ? team1Name : team2Name;
                 const count = (n === 1 ? team1Players : team2Players).length;
                 const savedId = n === 1 ? savedId1 : savedId2;
                 return (
-                  <div key={n} className={s.col}>
-                    {n === 2 && <div className={s.divider} />}
+                  <React.Fragment key={n}>
+                  {n === 2 && <div className={s.vsWrap}><span className={s.vsDisk}>VS</span></div>}
+                  <div className={`${s.card} ${s.teamCard} ${n === 1 ? s.teamCardHome : s.teamCardAway}`}>
                     <div className={s.teamLabelRow}>
                       <div className={s.inputLabel}>{n === 1 ? '🏏 Your Team' : '⚔️ Opponent Team'}</div>
                       <button className={s.pickBtn} onClick={() => setPickerFor(n)}>👥 Pick saved team</button>
@@ -326,13 +327,17 @@ export default function SetupTeamScreen({ navigation, route }: any) {
                     />
                     {!!savedId && <div className={s.loadedText}>✓ Saved team loaded · {count} players</div>}
                   </div>
+                  </React.Fragment>
                 );
               })}
-              <div className={s.divider} />
+            </div>
+            <div className={s.card}>
               <div className={s.inputLabel}>📍 Match Location</div>
               <input className={s.input} placeholder="e.g. Wankhede Stadium, Mumbai" value={location} onChange={e => setLocation(e.target.value)} />
             </div>
-            <button className={s.primaryBtn} onClick={goToPlayers}>Next: Add Players →</button>
+            <div className={s.ctaBar}>
+              <button className={s.primaryBtn} onClick={goToPlayers}>Next: Add Players →</button>
+            </div>
           </div>
         )}
 
@@ -380,8 +385,8 @@ export default function SetupTeamScreen({ navigation, route }: any) {
                       {!!p.mobile && <div className={s.playerMobile}>📱 {p.mobile}</div>}
                       <div className={s.rolesWrap}>{p.roles.map(roleBadge)}</div>
                     </div>
-                    <button onClick={e => { e.stopPropagation(); editPlayer(i); }} className={s.editBtn}>✎</button>
-                    <button onClick={e => { e.stopPropagation(); removePlayer(p.name); }} className={s.removeBtn}>✕</button>
+                    <button onClick={e => { e.stopPropagation(); editPlayer(i); }} className={s.editBtn} aria-label={`Edit ${p.name}`}>✎</button>
+                    <button onClick={e => { e.stopPropagation(); removePlayer(p.name); }} className={s.removeBtn} aria-label={`Remove ${p.name}`}>✕</button>
                   </div>
                 ))}
               </div>
@@ -402,7 +407,9 @@ export default function SetupTeamScreen({ navigation, route }: any) {
               </button>
             )}
 
-            <button className={s.primaryBtn} onClick={goToSettings}>Next: Match Settings →</button>
+            <div className={s.ctaBar}>
+              <button className={s.primaryBtn} onClick={goToSettings}>Next: Match Settings →</button>
+            </div>
           </div>
         )}
 
@@ -427,10 +434,11 @@ export default function SetupTeamScreen({ navigation, route }: any) {
             </div>
 
             <div className={s.sectionTitle}>Captains</div>
+            <div className={s.captainsGrid}>
             {[{ team: team1Name, teamPlayers: team1Players, captain: team1Captain, setCaptain: setTeam1Captain, icon: '🏏' },
               { team: team2Name, teamPlayers: team2Players, captain: team2Captain, setCaptain: setTeam2Captain, icon: '⚔️' },
             ].map(({ team, teamPlayers, captain: cap, setCaptain: setCap, icon }, ti) => (
-              <div key={ti} className={s.card} style={ti > 0 ? { marginTop: 12 } : undefined}>
+              <div key={ti} className={s.card}>
                 <div className={s.captainTeamLabel}>{icon} {team} Captain</div>
                 {teamPlayers.map(p => (
                   <button key={p.name} className={`${s.captainRow} ${cap === p.name ? s.captainRowActive : ''}`} onClick={() => setCap(p.name)}>
@@ -444,13 +452,16 @@ export default function SetupTeamScreen({ navigation, route }: any) {
                 ))}
               </div>
             ))}
+            </div>
 
-            <button className={s.primaryBtn} style={{ backgroundColor: C.green, boxShadow: `0 4px 12px ${C.green}4D` }} onClick={startMatch}>
-              🏏 Proceed to Bet
-            </button>
+            <div className={s.ctaBar}>
+              <button className={s.primaryBtn} onClick={startMatch}>
+                🏏 Proceed to Bet
+              </button>
+            </div>
           </div>
         )}
-      </div>
+      </main>
 
       <TeamPicker
         visible={pickerFor !== null}

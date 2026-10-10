@@ -1,53 +1,55 @@
-.wrap { display: flex; flex-direction: column; }
+.wrap { display: flex; flex-direction: column; gap: 12px; }
 .table {
   display: flex; flex-direction: column;
-  background: var(--white); border-radius: 14px; margin-bottom: 12px; overflow: hidden;
-  border: 1px solid var(--card-border);
+  background: var(--surface); border-radius: var(--r-lg); overflow: hidden;
+  border: 1px solid var(--line); box-shadow: var(--shadow-1);
 }
-.row { display: flex; flex-direction: row; align-items: center; padding: 0 12px; }
-.headRow { background: #F1F5F9; padding-top: 8px; padding-bottom: 8px; }
-.bodyRow { padding-top: 9px; padding-bottom: 9px; border-top: 1px solid var(--divider); }
-.head { font-size: 11px; font-weight: 800; color: var(--text-sub); }
-.flex { flex: 1 1 0%; }
+.row { display: flex; flex-direction: row; align-items: center; padding: 0 14px; }
+.headRow { background: var(--navy); padding-top: 10px; padding-bottom: 10px; }
+.bodyRow { padding-top: 10px; padding-bottom: 10px; border-top: 1px solid var(--line); transition: background .12s; }
+.bodyRow:hover { background: var(--surface-2); }
+.head { font-size: 11px; font-weight: 800; color: var(--on-dark-2); letter-spacing: .8px; text-transform: uppercase; }
+.headRow .nameCol.head { color: #fff; }
+.flex { flex: 1 1 0%; color: #fff !important; }
 .nameCol { flex: 1 1 0%; min-width: 0; padding-right: 6px; display: flex; flex-direction: column; }
-.num, .numSm, .numWide { flex-shrink: 0; text-align: right; font-size: 12px; color: var(--text); }
+.num, .numSm, .numWide { flex-shrink: 0; text-align: right; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .num { width: 32px; }
 .numSm { width: 26px; }
-.numWide { width: 44px; }
-.head.num, .head.numSm, .head.numWide { font-size: 11px; color: var(--text-sub); }
+.numWide { width: 46px; }
+.head.num, .head.numSm, .head.numWide { font-size: 11px; color: var(--on-dark-2); }
 .one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.player { font-size: 13px; font-weight: 700; color: var(--accent); }
-.playerIn { color: var(--text); }
-.dismissal { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.notOut { color: var(--green); font-weight: 600; }
-.runs { font-weight: 900; }
-.wkts { color: var(--primary); }
-.label { font-size: 12px; font-weight: 700; color: var(--text); }
-.extrasVal { font-size: 12px; color: var(--text); }
+.player { font-size: 14px; font-weight: 700; color: var(--ink); }
+.playerIn { color: var(--ink); font-weight: 800; }
+.dismissal { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.notOut { color: var(--pitch); font-weight: 700; }
+.runs { font-family: var(--font-display); font-size: 18px; font-weight: 800; color: var(--ink); }
+.wkts { color: var(--brand); }
+.label { font-size: 13px; font-weight: 700; color: var(--ink); }
+.extrasVal { font-size: 13px; color: var(--ink); }
 .bold { font-weight: 800; }
-.muted { color: var(--text-muted); font-size: 11px; }
-.totalRow { padding-top: 11px; padding-bottom: 11px; border-top: 1px solid var(--card-border); background: #FAFAFA; }
-.totalLabel { font-size: 14px; font-weight: 900; color: var(--text); }
-.totalVal { font-size: 16px; font-weight: 900; color: var(--text); }
-.totalMeta { font-size: 11px; font-weight: 600; color: var(--text-sub); }
-.noteRow { display: flex; flex-direction: column; padding: 10px 12px; border-top: 1px solid var(--divider); }
-.noteLabel { font-size: 11px; font-weight: 800; color: var(--text-sub); margin-bottom: 2px; }
-.noteText { font-size: 12px; color: var(--accent); line-height: 18px; }
-.fowWrap { display: flex; flex-direction: row; flex-wrap: wrap; padding: 8px; gap: 8px; }
+.muted { color: var(--ink-3); font-size: 12px; }
+.totalRow { padding-top: 12px; padding-bottom: 12px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.totalLabel { font-family: var(--font-display); font-size: 18px; font-weight: 800; color: var(--ink); text-transform: uppercase; letter-spacing: .5px; }
+.totalVal { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink); line-height: 1; }
+.totalMeta { font-family: var(--font-sans); font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.noteRow { display: flex; flex-direction: column; padding: 12px 14px; border-top: 1px solid var(--line); }
+.noteLabel { font-size: 11px; font-weight: 800; color: var(--ink-3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .8px; }
+.noteText { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.fowWrap { display: flex; flex-direction: row; flex-wrap: wrap; padding: 10px; gap: 8px; }
 .fowItem {
   display: flex; flex-direction: column;
-  background: #F8FAFC; border-radius: 10px; padding: 6px 10px;
-  border: 1px solid var(--divider); max-width: 48%; min-width: 0;
+  background: var(--surface-2); border-radius: var(--r-sm); padding: 7px 11px;
+  border: 1px solid var(--line); border-left: 3px solid var(--brand); max-width: 48%; min-width: 0;
 }
-.fowScore { font-size: 13px; font-weight: 900; color: var(--text); }
-.fowMeta { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+.fowScore { font-family: var(--font-display); font-size: 18px; font-weight: 800; color: var(--ink); line-height: 1.1; }
+.fowMeta { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
 
 /* Wide screens: a little more room for the numbers */
 @media (min-width: 720px) {
-  .row { padding: 0 16px; }
-  .noteRow { padding: 10px 16px; }
-  .num { width: 44px; }
-  .numSm { width: 38px; }
-  .numWide { width: 60px; }
+  .row { padding: 0 18px; }
+  .noteRow { padding: 12px 18px; }
+  .num { width: 46px; }
+  .numSm { width: 40px; }
+  .numWide { width: 62px; }
   .fowItem { max-width: 32%; }
 }

@@ -33,73 +33,87 @@ export default function TossScreen({ navigation, route }: any) {
 
   return (
     <div className={s.container}>
-      <div className={s.header}>
+      <header className={s.hero}>
         <div className={s.headerInner}>
-          <button className={s.back} onClick={() => navigation.goBack()}>← Back</button>
-          <div className={s.headerTitle}>Toss Result</div>
-          <div style={{ width: 60 }} />
+          <button className={s.back} onClick={() => navigation.goBack()} aria-label="Back">
+            <span aria-hidden>←</span><span className={s.backText}>Back</span>
+          </button>
+          <h1 className={s.headerTitle}>Toss Result</h1>
+          <div className={s.headerSpacer} />
         </div>
-      </div>
-
-      <div className={s.scroll}>
-        <div className={s.matchLabel}>{team1.name} vs {team2.name}</div>
+        <div className={s.matchup}>
+          <div className={`${s.matchTeam} ${tossWinner === 'team1' ? s.matchTeamWon : ''}`}>{team1.name}</div>
+          <div className={s.vsDisk}>VS</div>
+          <div className={`${s.matchTeam} ${tossWinner === 'team2' ? s.matchTeamWon : ''}`}>{team2.name}</div>
+        </div>
         <div className={s.oversLabel}>{overs} Overs · {matchType === 'local' ? '🏘️ Local' : '🏟️ Domestic'}</div>
+      </header>
 
-        <div className={s.sectionTitle}>Who won the toss?</div>
-        <div className={s.row}>
-          {(['team1', 'team2'] as const).map(t => {
-            const team = t === 'team1' ? team1 : team2;
-            return (
-              <button
-                key={t}
-                className={`${s.teamBtn} ${tossWinner === t ? s.teamBtnActive : ''}`}
-                onClick={() => { setTossWinner(t); setChoice(null); }}>
-                <span className={s.teamBtnIcon}>🏏</span>
-                <span className={`${s.teamBtnText} ${tossWinner === t ? s.teamBtnTextActive : ''}`}>{team.name}</span>
-                {tossWinner === t && <span className={s.check}>✓</span>}
-              </button>
-            );
-          })}
-        </div>
+      <main className={s.scroll}>
+        <section className={s.panel}>
+          <div className={s.sectionTitle}><span className={s.stepNum}>1</span>Who won the toss?</div>
+          <div className={s.row}>
+            {(['team1', 'team2'] as const).map(t => {
+              const team = t === 'team1' ? team1 : team2;
+              return (
+                <button
+                  key={t}
+                  className={`${s.teamBtn} ${tossWinner === t ? s.teamBtnActive : ''}`}
+                  aria-pressed={tossWinner === t}
+                  onClick={() => { setTossWinner(t); setChoice(null); }}>
+                  <span className={s.teamBtnIcon} aria-hidden>🪙</span>
+                  <span className={`${s.teamBtnText} ${tossWinner === t ? s.teamBtnTextActive : ''}`}>{team.name}</span>
+                  {tossWinner === t && <span className={s.check}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         {tossWinner && (
-          <>
-            <div className={s.sectionTitle}>{winnerName} elected to...</div>
+          <section className={`${s.panel} ${s.panelIn}`}>
+            <div className={s.sectionTitle}><span className={s.stepNum}>2</span>{winnerName} elected to...</div>
             <div className={s.row}>
               <button
                 className={`${s.choiceBtn} ${choice === 'bat' ? s.choiceBtnActive : ''}`}
+                aria-pressed={choice === 'bat'}
                 onClick={() => setChoice('bat')}>
-                <span className={s.choiceIcon}>🏏</span>
+                <span className={s.choiceIcon} aria-hidden>🏏</span>
                 <span className={`${s.choiceText} ${choice === 'bat' ? s.choiceTextActive : ''}`}>Bat First</span>
               </button>
               <button
                 className={`${s.choiceBtn} ${choice === 'field' ? s.choiceBtnActive : ''}`}
+                aria-pressed={choice === 'field'}
                 onClick={() => setChoice('field')}>
-                <span className={s.choiceIcon}>🎳</span>
+                <span className={s.choiceIcon} aria-hidden>🎳</span>
                 <span className={`${s.choiceText} ${choice === 'field' ? s.choiceTextActive : ''}`}>Bowl First</span>
               </button>
             </div>
-          </>
+          </section>
         )}
 
         {tossWinner && choice && (
-          <div className={s.summaryBox}>
+          <div className={`${s.summaryBox} ${s.panelIn}`}>
             <div className={s.summaryRow}>
-              🏏 <b className={s.bold}>{choice === 'bat' ? winnerName : loserName}</b> will bat first
+              <span className={s.summaryIcon}>🏏</span>
+              <span><b className={s.bold}>{choice === 'bat' ? winnerName : loserName}</b> will bat first</span>
             </div>
             <div className={s.summaryRow}>
-              🎳 <b className={s.bold}>{choice === 'field' ? winnerName : loserName}</b> will bowl first
+              <span className={s.summaryIcon}>🎳</span>
+              <span><b className={s.bold}>{choice === 'field' ? winnerName : loserName}</b> will bowl first</span>
             </div>
           </div>
         )}
 
-        <button
-          className={`${s.startBtn} ${!tossWinner || !choice ? s.startBtnDisabled : ''}`}
-          onClick={startMatch}
-          disabled={!tossWinner || !choice}>
-          🏏 Start Match
-        </button>
-      </div>
+        <div className={s.ctaBar}>
+          <button
+            className={`${s.startBtn} ${!tossWinner || !choice ? s.startBtnDisabled : ''}`}
+            onClick={startMatch}
+            disabled={!tossWinner || !choice}>
+            🏏 Start Match
+          </button>
+        </div>
+      </main>
     </div>
   );
 }

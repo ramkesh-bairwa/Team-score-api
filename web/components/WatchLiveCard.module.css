@@ -1,0 +1,89 @@
+.card {
+  display: flex; flex-direction: column; width: 100%;
+  background: var(--surface); border-radius: var(--r-lg); overflow: hidden;
+  box-shadow: var(--shadow-2); border: 1px solid var(--line);
+}
+
+/* Navy broadcast header */
+.head {
+  position: relative; display: flex; align-items: center; gap: 12px;
+  background: var(--grad-hero); padding: 16px 18px; overflow: hidden;
+}
+.head::after {
+  content: ''; position: absolute; width: 180px; height: 180px; border-radius: 50%;
+  right: -60px; top: -90px; background: var(--brand); opacity: .22; pointer-events: none;
+}
+.headText { position: relative; z-index: 1; display: flex; flex-direction: column; min-width: 0; }
+.kicker {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  background: var(--brand); color: #fff; border-radius: var(--r-pill); padding: 3px 9px;
+  font-size: 10px; font-weight: 800; letter-spacing: 1.2px; margin-bottom: 6px;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+.title {
+  color: var(--on-dark); font-family: var(--font-display); font-size: 24px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .5px; line-height: 1.1;
+}
+.sub { color: var(--on-dark-2); font-size: 13px; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.body { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 18px; }
+.qrTile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 8px 10px;
+  box-shadow: var(--shadow-1);
+}
+.qrPlaceholder { width: 176px; height: 176px; border-radius: 12px; background: var(--surface-3); }
+.compact .qrPlaceholder { width: 116px; height: 116px; }
+.qrHint { font-size: 11px; font-weight: 700; color: var(--ink-3); letter-spacing: .4px; }
+
+.side { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
+
+.card button {
+  border: 0; margin: 0; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, background .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.card button:active:not(:disabled) { transform: scale(.97); }
+.card button:disabled { opacity: .5; cursor: default; }
+
+.card .codeBtn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%;
+  background: var(--surface-2); border: 1.5px dashed var(--line) !important; border-radius: var(--r-md);
+  padding: 10px 8px; color: var(--ink);
+}
+.card .codeBtn:hover { background: var(--surface-3); }
+.codeLabel { font-size: 11px; font-weight: 700; color: var(--ink-3); letter-spacing: .3px; }
+.code {
+  font-family: var(--font-display); font-size: 38px; font-weight: 800; letter-spacing: 10px;
+  margin-right: -10px; color: var(--navy); line-height: 1.1;
+}
+
+.row { display: flex; gap: 10px; }
+.card .btn {
+  flex: 1 1 0%; min-width: 0; min-height: 46px; padding: 0 14px; border-radius: var(--r-pill);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 14px; font-weight: 700; white-space: nowrap;
+}
+.card .btnGhost { background: var(--surface-3); color: var(--ink); }
+.card .btnGhost:hover:not(:disabled) { background: var(--line); }
+.card .play {
+  flex: none; width: 100%; min-height: 52px; background: var(--grad-brand); color: #fff;
+  font-size: 16px; font-weight: 800; letter-spacing: .4px; box-shadow: 0 8px 20px rgba(230, 57, 70, .32);
+}
+.card .play:hover:not(:disabled) { filter: brightness(1.06); box-shadow: 0 10px 26px rgba(230, 57, 70, .4); }
+
+/* Compact: QR beside the actions */
+.compact .head { padding: 12px 16px; }
+.compact .title { font-size: 20px; }
+.compact .body { flex-direction: row; align-items: stretch; gap: 14px; padding: 14px; }
+.compact .qrTile { align-self: center; padding: 6px 6px 8px; }
+.compact .code { font-size: 28px; letter-spacing: 7px; margin-right: -7px; }
+.compact .btn.btn { min-height: 40px; font-size: 13px; padding: 0 10px; }
+.compact .play.play { min-height: 44px; font-size: 15px; }
+
+@media (max-width: 380px) {
+  .compact .body { flex-direction: column; align-items: center; }
+}
+@media (min-width: 640px) {
+  .card:not(.compact) .body { flex-direction: row; align-items: center; gap: 22px; }
+}

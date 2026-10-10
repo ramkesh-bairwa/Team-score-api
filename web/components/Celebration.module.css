@@ -1,43 +1,53 @@
 .overlay {
-  position: fixed; inset: 0; z-index: 1200; background-color: #020617D9;
+  position: fixed; inset: 0; z-index: 1200;
+  background: radial-gradient(circle at 50% 45%, rgba(19, 37, 74, .92) 0%, rgba(2, 6, 23, .94) 70%);
   display: flex; flex-direction: column; justify-content: center; align-items: center;
   overflow: hidden; cursor: pointer; user-select: none;
-  animation: fadeIn 0.25s ease both;
+  animation: fadeIn .25s ease both;
 }
 .rays {
-  position: absolute; left: 50%; top: 50%; width: 280px; height: 280px; margin: -140px 0 0 -140px;
-  border-radius: 40px; border-width: 14px; border-style: dashed; box-sizing: border-box;
+  position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; margin: -150px 0 0 -150px;
+  border-radius: 44px; border-width: 14px; border-style: dashed; box-sizing: border-box;
   animation: spin 2.4s linear infinite;
 }
 .burst {
   position: absolute; left: 50%; top: 50%; font-size: 30px; line-height: 36px;
   width: 40px; margin: -18px 0 0 -20px; text-align: center;
-  animation: burst 0.9s cubic-bezier(0.33, 1, 0.68, 1) both;
+  animation: burst .9s cubic-bezier(.33, 1, .68, 1) both;
 }
 .badge {
-  position: relative; width: 190px; height: 190px; border-radius: 95px; box-sizing: border-box;
+  position: relative; width: 200px; height: 200px; border-radius: 50%; box-sizing: border-box;
   display: flex; flex-direction: column; justify-content: center; align-items: center;
-  border: 6px solid #FFFFFF40;
-  animation: pop 0.7s both;
+  border: 6px solid rgba(255, 255, 255, .3);
+  animation: pop .7s both;
 }
 .badgeEmoji { font-size: 40px; margin-bottom: 2px; line-height: 1.2; }
-.badgeTitle { font-size: 46px; font-weight: 900; color: #fff; letter-spacing: 2px; line-height: 1.15; }
-.texts { position: relative; display: flex; flex-direction: column; align-items: center; animation: fadeIn 0.35s ease both; }
-.congrats { margin-top: 34px; font-size: 20px; font-weight: 800; color: #fff; text-align: center; padding: 0 24px; }
-.sub { margin-top: 8px; font-size: 14px; color: #CBD5E1; font-weight: 600; text-align: center; padding: 0 28px; line-height: 20px; }
+.badgeTitle {
+  font-family: var(--font-display); font-size: 64px; font-weight: 800; color: #fff; letter-spacing: 3px; line-height: 1;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+}
+.texts { position: relative; display: flex; flex-direction: column; align-items: center; animation: fadeIn .35s ease both; }
+.congrats {
+  margin-top: 34px; font-family: var(--font-display); font-size: 28px; font-weight: 800; color: #fff; text-align: center;
+  padding: 0 24px; text-transform: uppercase; letter-spacing: .5px;
+}
+.sub { margin-top: 6px; font-size: 15px; color: var(--on-dark-2); font-weight: 600; text-align: center; padding: 0 28px; line-height: 1.45; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes burst {
   0% { opacity: 0; transform: translate(0, 0); }
   20% { opacity: 1; }
-  100% { opacity: 0.85; transform: translate(var(--bx), var(--by)); }
+  100% { opacity: .85; transform: translate(var(--bx), var(--by)); }
 }
 /* Spring (friction 4, tension 90): overshoot then settle */
 @keyframes pop {
-  0% { transform: scale(0.3); }
+  0% { transform: scale(.3); }
   35% { transform: scale(1.12); }
-  55% { transform: scale(0.95); }
+  55% { transform: scale(.95); }
   75% { transform: scale(1.03); }
   100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rays, .burst, .badge { animation: none; }
 }

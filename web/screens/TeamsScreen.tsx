@@ -212,29 +212,34 @@ export default function TeamsScreen({ navigation }: any) {
 
   return (
     <div className={s.container}>
-      <div className={s.header}>
+      <header className={s.hero}>
         <div className={s.headerInner}>
           <button className={s.headerBtn} onClick={() => navigation.goBack()} aria-label="Back">
-            <span className={s.back}>←</span>
+            <span className={s.back} aria-hidden>←</span><span className={s.backText}>Back</span>
           </button>
-          <div className={s.headerTitle}>Teams</div>
+          <h1 className={s.headerTitle}>Teams</h1>
           <button className={s.newBtn} onClick={() => openEditor()}>+ New</button>
         </div>
-      </div>
+        <div className={s.heroBody}>
+          <p className={s.heroSub}>Create a team once and everyone can pick it when starting a match.</p>
+          <div className={s.searchWrap}>
+            <span className={s.searchIcon} aria-hidden>🔍</span>
+            <input
+              className={s.search}
+              placeholder="Search team or player"
+              aria-label="Search team or player"
+              value={search}
+              onChange={e => { const v = e.target.value; setSearch(v); load(v); }}
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            {loading && teams.length > 0 && <span className={s.searchSpin}><Spinner color={C.primary} /></span>}
+          </div>
+        </div>
+      </header>
 
       <div className={s.content}>
-        <div className={s.searchWrap}>
-          <input
-            className={s.search}
-            placeholder="🔍  Search team or player"
-            value={search}
-            onChange={e => { const v = e.target.value; setSearch(v); load(v); }}
-            autoCorrect="off"
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
-
         <div className={s.scroll}>
           {pending > 0 && (
             <div className={`${s.syncBar} ${online ? s.syncBarOnline : s.syncBarOffline}`}>
@@ -260,28 +265,29 @@ export default function TeamsScreen({ navigation }: any) {
           ) : loading && !teams.length ? (
             <div className={s.center}><Spinner color={C.primary} /></div>
           ) : teams.length === 0 ? (
-            <div className={s.center}>
+            <div className={`${s.center} ${s.emptyBox}`}>
               <div className={s.emptyIcon}>👥</div>
               <div className={s.emptyTitle}>{search ? 'No teams found' : 'No teams yet'}</div>
               <div className={s.emptySub}>Create a team once and everyone can pick it when starting a match.</div>
+              <button className={s.emptyCta} onClick={() => openEditor()}>+ New</button>
             </div>
           ) : (
             <div className={s.grid}>
               {teams.map(team => {
                 const open = openId === team.id;
                 return (
-                  <div key={team.id} className={s.card}>
-                    <button className={s.cardHead} onClick={() => setOpenId(open ? null : team.id)}>
+                  <div key={team.id} className={`${s.card} ${s.teamCard} ${open ? s.cardOpen : ''}`}>
+                    <button className={s.cardHead} onClick={() => setOpenId(open ? null : team.id)} aria-expanded={open}>
                       <div className={s.badge}><span className={s.badgeText}>{team.name.slice(0, 2).toUpperCase()}</span></div>
                       <div className={s.info}>
                         <div className={`${s.teamName} ${s.ellipsis}`}>{team.name}</div>
                         <div className={s.meta}>{team.players.length} players · by {team.createdBy}</div>
                       </div>
                       {team.pending ? <span className={s.notSynced}>NOT SYNCED</span> : team.mine && <span className={s.mine}>YOURS</span>}
-                      <span className={s.chev}>{open ? '▴' : '▾'}</span>
+                      <span className={`${s.chev} ${open ? s.chevOpen : ''}`} aria-hidden>▾</span>
                     </button>
                     {open && (
-                      <>
+                      <div className={s.cardBody}>
                         {team.players.map((p, i) => (
                           <div key={p.name} className={s.playerRow}>
                             <span className={s.playerNum}>{i + 1}</span>
@@ -300,11 +306,11 @@ export default function TeamsScreen({ navigation }: any) {
                           {(team.mine || team.pending) && (
                             <>
                               <button className={s.actionBtn} onClick={() => openEditor(team)}>Edit</button>
-                              <button className={s.actionBtn} style={{ color: C.primary }} onClick={() => remove(team)}>Delete</button>
+                              <button className={`${s.actionBtn} ${s.actionDanger}`} onClick={() => remove(team)}>Delete</button>
                             </>
                           )}
                         </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 );
@@ -316,19 +322,20 @@ export default function TeamsScreen({ navigation }: any) {
 
       {/* Create / edit team */}
       <SlideModal visible={editor} onRequestClose={closeEditor}>
-        <div className={s.header}>
+        <div className={`${s.hero} ${s.sheetHeader}`}>
           <div className={s.headerInner}>
             <button className={s.headerBtn} onClick={closeEditor} aria-label="Close">
-              <span className={s.back}>✕</span>
+              <span className={s.back} aria-hidden>✕</span>
             </button>
-            <div className={s.headerTitle}>{editingId ? 'Edit Team' : 'Create Team'}</div>
+            <h2 className={s.headerTitle}>{editingId ? 'Edit Team' : 'Create Team'}</h2>
             <button className={s.newBtn} onClick={save} disabled={saving}>
               {saving ? <Spinner /> : 'Save'}
             </button>
           </div>
         </div>
         <div className={s.sheetBody}>
-          <div className={`${s.scroll} ${s.editorCol}`}>
+          <div className={`${s.scroll} ${s.editorGrid}`}>
+            <div className={s.editorMain}>
             <div className={s.label}>TEAM NAME</div>
             <input className={s.input} value={teamName} onChange={e => setTeamName(e.target.value)} placeholder="e.g. Mumbai Warriors" />
             {!editingId && (
@@ -344,14 +351,20 @@ export default function TeamsScreen({ navigation }: any) {
               <input className={s.input} value={pMobile} onChange={e => setPMobile(e.target.value)} placeholder="📱 Mobile (optional)" type="tel" inputMode="tel" maxLength={14} />
               <div className={s.roles}>
                 {ROLES.map(r => (
-                  <button type="button" key={r.key} className={`${s.role} ${pRoles.includes(r.key) ? s.roleOn : ''}`} onClick={() => toggleRole(r.key)}>
+                  <button type="button" key={r.key} className={`${s.role} ${pRoles.includes(r.key) ? s.roleOn : ''}`} onClick={() => toggleRole(r.key)} aria-pressed={pRoles.includes(r.key)}>
                     {r.icon} {r.key}
                   </button>
                 ))}
               </div>
               <button type="submit" className={s.addBtn}>+ Add Player</button>
             </form>
+            </div>
 
+            <div className={s.editorSide}>
+            <div className={s.label}>SQUAD ({players.length}/11)</div>
+            {players.length === 0 && (
+              <div className={s.squadEmpty}>👤 Added players appear here</div>
+            )}
             {players.length > 0 && (
               <div className={s.card}>
                 {players.map((p, i) => (
@@ -365,7 +378,9 @@ export default function TeamsScreen({ navigation }: any) {
                     </div>
                     <button
                       className={`${s.capBtn} ${p.roles.includes('Captain') ? s.capBtnOn : ''}`}
-                      onClick={() => makeCaptain(p.name)}>
+                      onClick={() => makeCaptain(p.name)}
+                      aria-label={`Make ${p.name} captain`}
+                      aria-pressed={p.roles.includes('Captain')}>
                       C
                     </button>
                     <button className={s.removeBtn} onClick={() => setPlayers(players.filter(x => x.name !== p.name))} aria-label="Remove player">✕</button>
@@ -374,6 +389,7 @@ export default function TeamsScreen({ navigation }: any) {
                 <div className={s.hint}>Tap C to make a player captain</div>
               </div>
             )}
+            </div>
           </div>
         </div>
       </SlideModal>

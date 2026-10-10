@@ -3,7 +3,9 @@
 // Replaces the old Express API (index.js) with the same URLs, responses, CORS and env settings.
 //   dev:  npm run dev            prod:  npm run build && npm start
 import { loadEnvConfig } from '@next/env';
+import fs from 'fs';
 import http from 'http';
+import path from 'path';
 import next from 'next';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
@@ -50,8 +52,20 @@ async function main() {
     return true;
   };
 
+  // Some live-stream builds ask for one of their own scripts without the /stream prefix
+  // (/_next/static/chunks/x.js). If this app has no such file, it is the live-stream app's:
+  // without it that app's pages never start (stuck on "Requesting camera…").
+  const STATIC_DIR = path.join(process.cwd(), '.next', 'static');
+  const otherAppsAsset = (url: string) => {
+    if (dev || !url.startsWith('/_next/static/')) return false;
+    let file;
+    try { file = path.join(STATIC_DIR, decodeURIComponent(url.split('?')[0].slice('/_next/static/'.length))); } catch { return false; }
+    return file.startsWith(STATIC_DIR + path.sep) && !fs.existsSync(file);
+  };
+
   const server = http.createServer((req, res) => {
     if (cors(req, res)) return;
+    if (otherAppsAsset(req.url || '')) req.url = `/stream${req.url}`;
     if ((req.url || '').startsWith('/stream')) return streamProxy(req as any, res as any, () => handle(req, res));
     handle(req, res);
   });

@@ -1,10 +1,12 @@
 // @ts-nocheck — copied from the Express API (src/stream.js, listen()): socket.io signaling at /rtc.
 import { Server } from 'socket.io';
 import { CODE_RE, MAX_VIEWERS, room, rooms } from './streamRooms';
+import { attachYouTubeLive } from './ytLive';
 
 // 2) Signaling over socket.io — attach to the HTTP server once it exists
 export function listen(server) {
-  const io = new Server(server, { path: '/rtc', cors: { origin: '*' }, destroyUpgrade: false });
+  // 8 MB messages: YouTube Live sends 1-second video pieces through this socket
+  const io = new Server(server, { path: '/rtc', cors: { origin: '*' }, destroyUpgrade: false, maxHttpBufferSize: 8e6 });
   const counts = (code, r) => {
     const payload = { viewers: r.viewers.size, live: !!r.broadcaster, maxViewers: MAX_VIEWERS };
     io.to(`room:${code}`).emit('status', payload);
@@ -12,6 +14,7 @@ export function listen(server) {
 
   io.on('connection', socket => {
     let joined = null; // { code, role }
+    attachYouTubeLive(socket, () => joined);
 
     socket.on('join', ({ code, role, key } = {}) => {
       code = String(code || '').toUpperCase();

@@ -6,7 +6,7 @@
 //   POST /api/stream-rec/:code/:id/finish      { k }
 //   POST /api/stream-rec/:code/:id/youtube     { k, acct, privacy }   upload a stored recording
 //   GET  /api/stream-rec/:code/:id/file?k=     download
-//   GET  /api/stream-rec/youtube?acct=         { configured, connected, channelTitle }
+//   GET  /api/stream-rec/youtube?acct=         { configured, connected, channelTitle, live }  (live: YouTube Live possible)
 //   POST /api/stream-rec/youtube/connect       -> { acct, userCode, verificationUrl, interval }
 //   GET  /api/stream-rec/youtube/poll?acct=    -> { status, channelTitle? }
 //   POST /api/stream-rec/youtube/disconnect    { acct }
@@ -16,6 +16,7 @@ import {
   listRecordings, pollConnect, publicView, startConnect, startYouTubeUpload, validAcct, youtubeConfigured,
   type Privacy,
 } from '@/lib/server/recordings';
+import { hasFfmpeg } from '@/lib/server/ytLive';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,11 +36,12 @@ function parts(req: Request) {
 }
 
 async function youtube(req: Request, action: string | undefined, url: URL) {
+  if (req.method === 'GET' && !action && !youtubeConfigured()) return json({ configured: false, connected: false, live: await hasFfmpeg() });
   if (!youtubeConfigured()) return json({ configured: false, connected: false });
   if (req.method === 'GET' && !action) {
     const acct = url.searchParams.get('acct');
     const a = validAcct(acct) ? getAccount(acct) : null;
-    return json({ configured: true, connected: !!a, channelTitle: a?.channelTitle || null });
+    return json({ configured: true, connected: !!a, channelTitle: a?.channelTitle || null, live: await hasFfmpeg() });
   }
   if (req.method === 'POST' && action === 'connect') {
     try {

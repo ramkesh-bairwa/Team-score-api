@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import BroadcasterView from '@/components/BroadcasterView';
+import StudioView from '@/components/StudioView';
 import ViewerView from '@/components/ViewerView';
+import { isCameraOnline } from '@/lib/remote';
 import { getRoom } from '@/lib/rooms';
 import { canControlRoom } from '@/lib/auth';
 import { getSession } from '@/lib/session';
@@ -28,7 +29,8 @@ export default async function LiveRoomPage({ params }: Params) {
   // The room owner gets the studio; everyone else (including anonymous visitors) watches
   if (canControlRoom(session, room)) {
     return (
-      <BroadcasterView
+      <StudioView
+        cameraOnline={isCameraOnline(room.room_id)}
         roomId={room.room_id}
         title={room.title}
         description={room.description}

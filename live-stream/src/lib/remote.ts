@@ -14,3 +14,16 @@ export function setReplaySender(fn: Sender) {
 export function sendReplayCommand(roomId: string, cmd: ReplayCommand): boolean {
   return slot[KEY]?.(roomId, cmd) ?? false;
 }
+
+// Whether a camera device is connected to the room right now (so a second device opens as a remote)
+type CameraCheck = (roomId: string) => boolean;
+const CAMERA_KEY = '__cricscoreCameraOnline';
+const cameraSlot = globalThis as unknown as Record<string, CameraCheck | undefined>;
+
+export function setCameraCheck(fn: CameraCheck) {
+  cameraSlot[CAMERA_KEY] = fn;
+}
+
+export function isCameraOnline(roomId: string): boolean {
+  return cameraSlot[CAMERA_KEY]?.(roomId) ?? false;
+}

@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Compositor } from '@/lib/compositor';
+import { getDevice, saveDeviceName } from '@/lib/device';
 import { countCameras, describeMediaError, getCameraStream, getVideoOnly, stopStream, type Facing } from '@/lib/media';
 import { withBase } from '@/lib/paths';
 import { ChunkedRecorder, isRecordingSupported, type RecorderStatus } from '@/lib/recorder';
 import { ReplayBuffer, ReplayPlayer, isReplaySupported, planReplay, type ReplayItem } from '@/lib/replay';
 import { createSocket, type ClientSocket } from '@/lib/socket-client';
 import type { LiveScore, ScoreBall } from '@/types/score';
-import type { IceCandidatePayload, RoomStatus } from '@/types/socket';
+import type { CameraState, IceCandidatePayload, RoomStatus, StudioState } from '@/types/socket';
 import { useIceServers } from './useIceServers';
 
 export type BroadcastPhase = 'preview' | 'live' | 'ended';
@@ -39,11 +40,13 @@ interface Options {
   scoreOverlay: boolean;
   // Names the recording kept on the device if it can't be uploaded during the match
   title: string;
+  // Another device of the owner is already the camera: this one should become a remote
+  onCameraBusy?: () => void;
 }
 
 // Media pipeline: camera + mic → canvas compositor (adds scoreboard) → outgoing stream.
 // The outgoing stream (canvas video + mic audio) feeds every peer connection and the recorder.
-export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scoreOverlay, title }: Options) {
+export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scoreOverlay, title, onCameraBusy }: Options) {
   const iceServers = useIceServers();
   const socketRef = useRef<ClientSocket | null>(null);
   const cameraRef = useRef<MediaStream | null>(null);
@@ -84,6 +87,16 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   // Width / height of the outgoing video (16:9, or 9:16 when the phone is held upright)
   const [aspect, setAspect] = useState(16 / 9);
   const [autoEndAt, setAutoEndAt] = useState<number | null>(null);
+  // Every device of the studio (this camera and the remotes), with numbers and names
+  const [studio, setStudio] = useState<StudioState | null>(null);
+  // "Replay by 2 · Laptop", shown for a few seconds after a remote fires one
+  const [lastCommand, setLastCommand] = useState<{ text: string; at: number } | null>(null);
+  // Bumped on every (re)join, so the camera state is sent again to the server
+  const [joins, setJoins] = useState(0);
+  const onCameraBusyRef = useRef(onCameraBusy);
+  onCameraBusyRef.current = onCameraBusy;
+  // Set below; called when the phone turns between portrait and landscape
+  const onLayoutRef = useRef<() => void>(() => {});
   const lastBallRef = useRef<{ innings: number; deliveries: number } | null>(null);
   const inningsPostedRef = useRef(new Set<number>());
 
@@ -160,7 +173,10 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
         if (cancelled) return stopStream(camera);
         const compositor = new Compositor();
         compositor.setSource(camera);
-        compositor.onLayoutChange((w, h) => setAspect(w / h));
+        compositor.onLayoutChange((w, h) => {
+          setAspect(w / h);
+          onLayoutRef.current();
+        });
         const out = new MediaStream([...compositor.stream.getVideoTracks(), ...camera.getAudioTracks()]);
         cameraRef.current = camera;
         compositorRef.current = compositor;
@@ -220,7 +236,10 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   const startRecorder = useCallback(async () => {
     if (!recordEnabledRef.current || !streamRef.current || !isRecordingSupported()) return;
     if (recorderRef.current?.active) return recorderRef.current.resume();
-    const rec = new ChunkedRecorder(roomId, title, streamRef.current, setRecorderStatus);
+    // A recorder replaced by a newer one (phone turned) finishes quietly in the background
+    const rec: ChunkedRecorder = new ChunkedRecorder(roomId, title, streamRef.current, (st) => {
+      if (recorderRef.current === rec || recorderRef.current === null) setRecorderStatus(st);
+    });
     recorderRef.current = rec;
     try {
       await rec.start();
@@ -237,6 +256,15 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       });
     }
   }, [roomId, title]);
+
+  // The phone turned while live: the picture changes size, so the recording starts a new part
+  // (one resolution per part; the server scales them all to one size for the full match video)
+  onLayoutRef.current = () => {
+    const old = recorderRef.current;
+    if (!liveRef.current || !old?.active || old.paused) return;
+    recorderRef.current = null;
+    void startRecorder().finally(() => void old.stop());
+  };
 
   // The replay buffer runs only while live: a second encoder costs battery on a phone
   const startReplayBuffer = useCallback(() => {
@@ -322,9 +350,10 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
   // A ball replay from the server (any ball of the match, also after a page refresh)
   const playClip = useCallback(
     async (url: string) => {
-      if (!compositorRef.current || replayBusyRef.current || replayPlayerRef.current) return;
+      if (!compositorRef.current || replayBusyRef.current) return;
       replayBusyRef.current = true;
       try {
+        replayPlayerRef.current?.stop();
         if (!(await putOnAir([{ url, ms: BALL_CLIP_S * 1000 }], 1))) setError('That ball clip could not be played.');
       } finally {
         replayBusyRef.current = false;
@@ -399,13 +428,15 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
 
     socket.on('connect', () => {
       setSocketStatus('connected');
-      socket.emit('join-room', { roomId, role: 'broadcaster' }, (res) => {
+      socket.emit('join-room', { roomId, role: 'broadcaster', device: getDevice() }, (res) => {
         if (!res.ok) {
+          if (res.code === 'BROADCASTER_EXISTS' && onCameraBusyRef.current) return onCameraBusyRef.current();
           setError(res.error);
           if (res.code === 'ENDED') setPhase('ended');
           return;
         }
         setError(null);
+        setJoins((n) => n + 1);
         setViewerCount(res.viewerCount);
         // Reconnected while live: resume, which re-offers to every viewer
         if (liveRef.current) {
@@ -450,11 +481,15 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       await pc.addIceCandidate(candidate).catch(() => {});
     });
 
-    // Replay asked for from the scorer's phone in the CricScore app
+    socket.on('studio-update', setStudio);
+
+    // Replay asked for from another device of the studio, or the scorer's phone in the CricScore app
     socket.on('replay-command', (cmd) => {
       if (!liveRef.current) return;
       if (cmd.action === 'stop') stopReplay();
+      else if (cmd.action === 'clip') void playClip(cmd.url);
       else void startReplay(cmd.seconds, cmd.rate);
+      if (cmd.by) setLastCommand({ text: `${cmd.action === 'stop' ? 'Back to live' : 'Replay'} from ${cmd.by}`, at: Date.now() });
     });
 
     // Server ended the room (e.g. reconnect grace period ran out)
@@ -476,7 +511,28 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
       closeAllPeers();
       void stopRecorder();
     };
-  }, [roomId, initialStatus, connectToViewer, closePeer, closeAllPeers, stopRecorder, stopReplayBuffer, startReplay, stopReplay]);
+  }, [roomId, initialStatus, connectToViewer, closePeer, closeAllPeers, stopRecorder, stopReplayBuffer, startReplay, stopReplay, playClip]);
+
+  // Tell the remotes what the camera is doing (they show the same replay controls and status)
+  const progressStep = replaying ? Math.round(replayProgress * 20) / 20 : 0;
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected || !joins || phase === 'ended') return;
+    const state: CameraState = {
+      phase: phase === 'live' ? 'live' : 'preview',
+      replaySupported,
+      replayAvailable,
+      replaying: replaying ? { rate: replaying.rate, progress: progressStep } : null,
+      aspect,
+    };
+    socket.emit('camera-state', state);
+  }, [joins, socketStatus, phase, replaySupported, replayAvailable, replaying, progressStep, aspect]);
+
+  useEffect(() => {
+    if (!lastCommand) return;
+    const t = setTimeout(() => setLastCommand(null), 4000);
+    return () => clearTimeout(t);
+  }, [lastCommand]);
 
   const startLive = useCallback(() => {
     const socket = socketRef.current;
@@ -584,6 +640,11 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     }
   }, [facing]);
 
+  const renameDevice = useCallback((name: string) => {
+    saveDeviceName(name);
+    socketRef.current?.emit('set-device-name', { name });
+  }, []);
+
   const setRecordEnabled = useCallback((on: boolean) => {
     recordEnabledRef.current = on;
     setRecordEnabledState(on);
@@ -623,5 +684,8 @@ export function useBroadcaster(roomId: string, initialStatus: RoomStatus, { scor
     matchOver,
     autoEndAt,
     aspect,
+    studio,
+    lastCommand,
+    renameDevice,
   };
 }

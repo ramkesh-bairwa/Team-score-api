@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { getDevice } from '@/lib/device';
 import { useBroadcaster } from '@/hooks/useBroadcaster';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import type { RoomStatus } from '@/types/socket';
@@ -10,6 +11,7 @@ import LocalRecordingsPanel from './LocalRecordingsPanel';
 import MatchResultCard, { useMatchResult } from './MatchResult';
 import RecordingsPanel from './RecordingsPanel';
 import ShareLink from './ShareLink';
+import { DeviceList, REPLAYS } from './StudioDevices';
 import VideoSurface from './VideoSurface';
 import { Spinner, StatusPill } from './ui';
 
@@ -19,12 +21,14 @@ interface Props {
   description: string | null;
   initialStatus: RoomStatus;
   hasScoreOverlay: boolean;
+  onCameraBusy?: () => void;
 }
 
 const formatMB = (n: number) => `${(n / 1e6).toFixed(1)} MB`;
 
-export default function BroadcasterView({ roomId, title, description, initialStatus, hasScoreOverlay }: Props) {
-  const b = useBroadcaster(roomId, initialStatus, { scoreOverlay: hasScoreOverlay, title });
+export default function BroadcasterView({ roomId, title, description, initialStatus, hasScoreOverlay, onCameraBusy }: Props) {
+  const b = useBroadcaster(roomId, initialStatus, { scoreOverlay: hasScoreOverlay, title, onCameraBusy });
+  const [deviceId] = useState(() => (typeof window === 'undefined' ? '' : getDevice().id));
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { isFullscreen, toggle } = useFullscreen(containerRef, videoRef, b.aspect);
@@ -92,6 +96,11 @@ export default function BroadcasterView({ roomId, title, description, initialSta
               ⏪ {b.replaying.rate < 1 ? 'SLOW-MO REPLAY ON AIR' : 'REPLAY ON AIR'}
             </span>
           )}
+          {b.lastCommand && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500/15 px-3 py-1.5 text-sm font-semibold text-sky-200 ring-1 ring-sky-500/30">
+              🎛 {b.lastCommand.text}
+            </span>
+          )}
           <div className="ml-auto">
             <SignalStatus status={b.socketStatus} />
           </div>
@@ -100,10 +109,10 @@ export default function BroadcasterView({ roomId, title, description, initialSta
         {/* What viewers see */}
         <div
           ref={containerRef}
-          style={{ aspectRatio: String(b.aspect) }}
+          style={{ aspectRatio: String(b.aspect), maxWidth: `calc((100dvh - ${portrait ? 12 : 8}rem) * ${b.aspect})` }}
           className={`relative mx-auto w-full overflow-hidden rounded-2xl bg-black [&:fullscreen]:rounded-none shadow-2xl shadow-black/60 ring-1 ring-white/10 ${
-            portrait ? 'max-h-[72vh] max-w-[calc(72vh*0.5625)]' : ''
-          } ${live ? 'ring-red-500/40' : ''}`}
+            live ? 'ring-red-500/40' : ''
+          }`}
         >
           <VideoSurface ref={videoRef} stream={b.localStream} muted />
 
@@ -234,6 +243,7 @@ export default function BroadcasterView({ roomId, title, description, initialSta
               </p>
             ))}
         </div>
+        {b.studio && <DeviceList devices={b.studio.devices} selfId={deviceId} onRename={b.renameDevice} />}
         <ShareLink roomId={roomId} title={title} />
         <p className="px-1 text-xs leading-relaxed text-zinc-500">
           Each viewer gets a direct WebRTC connection from this device, so upload bandwidth limits how many people can
@@ -243,14 +253,6 @@ export default function BroadcasterView({ roomId, title, description, initialSta
     </div>
   );
 }
-
-const REPLAYS: { label: string; short: string; secs: number; rate: number }[] = [
-  { label: '30 s', short: '30s', secs: 30, rate: 1 },
-  { label: '1 min', short: '1m', secs: 60, rate: 1 },
-  { label: '2 min', short: '2m', secs: 120, rate: 1 },
-  { label: '3 min', short: '3m', secs: 180, rate: 1 },
-  { label: 'Slow-mo 10 s', short: '🐢 Slow-mo', secs: 10, rate: 0.5 },
-];
 
 // Replay buttons over the picture in fullscreen, so the camera operator can fire a replay while filming
 function VideoReplayBar({ b }: { b: ReturnType<typeof useBroadcaster> }) {

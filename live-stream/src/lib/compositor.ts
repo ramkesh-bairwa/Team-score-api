@@ -5,12 +5,14 @@ import type { LiveScore, ScoreBall } from '@/types/score';
 // never changes when the camera is flipped or a replay is put on air.
 //
 // Two layouts: landscape (1280×720) with a one-row lower third, and portrait (720×1280, a phone
-// held upright) with a stacked lower third. The layout follows the camera until the stream goes
-// live, then stays fixed so the recording keeps one resolution.
+// held upright) with a stacked lower third. The layout follows the camera, also while live: turn
+// the phone and viewers get the other layout a moment later.
 
 const LANDSCAPE = { w: 1280, h: 720 };
 const PORTRAIT = { w: 720, h: 1280 };
 const FPS = 30;
+// The phone must stay in the new orientation this long before the layout switches (no flapping mid-turn)
+const SETTLE_MS = 700;
 const FONT = '"Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 const FONT_URL =
   'https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,800;1,900&display=swap';
@@ -119,7 +121,7 @@ export class Compositor {
   private timer: ReturnType<typeof setInterval>;
   private W = LANDSCAPE.w;
   private H = LANDSCAPE.h;
-  private locked = false;
+  private pendingLayout: { w: number; since: number } | null = null;
   private onResize: ((w: number, h: number) => void) | null = null;
   private cameraOn = true;
   private live = false;
@@ -166,13 +168,12 @@ export class Compositor {
     this.cameraOn = on;
   }
 
-  // Burned-in LIVE badge; going live also fixes the layout (the recording keeps one resolution)
+  // Burned-in LIVE badge
   setLive(live: boolean) {
     this.live = live;
-    if (live) this.locked = true;
   }
 
-  // Called when the canvas switches between landscape and portrait (before going live)
+  // Called when the canvas switches between landscape and portrait
   onLayoutChange(fn: ((w: number, h: number) => void) | null) {
     this.onResize = fn;
     fn?.(this.W, this.H);
@@ -236,11 +237,19 @@ export class Compositor {
     this.banners.push({ kind, title, sub, start: 0, sparks });
   }
 
-  // Follow the camera's orientation until the stream goes live
+  // Follow the camera's orientation once it has settled. Not during a replay: the replay keeps
+  // the picture it started with.
   private fitLayout() {
-    if (this.locked || !this.video.videoWidth) return;
+    if (this.replay || !this.video.videoWidth) return;
     const want = this.video.videoHeight > this.video.videoWidth * 1.1 ? PORTRAIT : LANDSCAPE;
-    if (want.w === this.W) return;
+    if (want.w === this.W) {
+      this.pendingLayout = null;
+      return;
+    }
+    const now = Date.now();
+    if (this.pendingLayout?.w !== want.w) this.pendingLayout = { w: want.w, since: now };
+    if (now - this.pendingLayout.since < SETTLE_MS) return;
+    this.pendingLayout = null;
     this.W = this.canvas.width = this.hold.width = want.w;
     this.H = this.canvas.height = this.hold.height = want.h;
     this.holdValid = false;

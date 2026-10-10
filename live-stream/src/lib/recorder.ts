@@ -60,6 +60,10 @@ export class ChunkedRecorder {
     private onStatus: (s: RecorderStatus) => void,
   ) {}
 
+  get paused() {
+    return this.recorder?.state === 'paused';
+  }
+
   get active() {
     return !!this.recorder && this.recorder.state !== 'inactive';
   }

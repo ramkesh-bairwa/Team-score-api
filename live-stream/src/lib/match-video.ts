@@ -12,6 +12,7 @@ import { getYouTubeAccount, isYouTubeConfigured, startUpload, type Privacy } fro
 // the parts are still kept and the watch page plays them back to back.
 
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
+const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
 export const FULL_SEGMENT = 0;
 const running = new Set<number>();
 
@@ -79,15 +80,41 @@ async function build(roomId: string) {
     [room.id, FULL_SEGMENT, fileName, 'video/mp4'],
   );
   const list = path.join(recordingsDir(), `${roomId}-concat.txt`);
+  const normalized: string[] = [];
   try {
-    writeFileSync(list, parts.map((p) => `file '${recordingPath(p).replace(/'/g, "'\\''")}'`).join('\n'));
-    // Re-encode: MediaRecorder WebM has no cues (not seekable) and parts can't be stream-copied
-    // together reliably. H.264/AAC plays everywhere and is what YouTube prefers.
+    // Parts can differ in size (the phone was turned during the match) and codec setup, so each
+    // one is first re-encoded to the same H.264/AAC format and size; those join without another
+    // encode. The match is landscape unless most parts were filmed upright.
+    const files = parts.map(recordingPath);
+    const info = await Promise.all(files.map(probe));
+    const upright = info.filter((i) => i && i.h > i.w).length;
+    const [w, h] = upright > info.filter((i) => i && i.w >= i.h).length ? [720, 1280] : [1280, 720];
+    for (const [i, file] of files.entries()) {
+      if (!info[i]?.w) continue; // nothing playable in this part
+      const part = path.join(recordingsDir(), `${roomId}-norm-${i}.mp4`);
+      try {
+        await run([
+          '-hide_banner', '-loglevel', 'error', '-y',
+          '-i', file,
+          '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo',
+          '-map', '0:v:0', '-map', info[i]!.audio ? '0:a:0' : '1:a:0',
+          '-vf', `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30`,
+          '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2',
+          ...(info[i]!.audio ? [] : ['-shortest']),
+          part,
+        ]);
+        normalized.push(part);
+      } catch (err) {
+        console.error(`[match-video] ${roomId}: skipping unreadable part ${parts[i].segment}`, err);
+      }
+    }
+    if (!normalized.length) throw new Error('No playable parts');
+    writeFileSync(list, normalized.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'));
     await run([
       '-hide_banner', '-loglevel', 'error', '-y',
-      '-f', 'concat', '-safe', '0', '-fflags', '+genpts', '-i', list,
-      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-r', '30',
-      '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart',
+      '-f', 'concat', '-safe', '0', '-i', list,
+      '-c', 'copy', '-movflags', '+faststart',
       out,
     ]);
     await execute("UPDATE recordings SET status = 'READY', size_bytes = ?, chunks_received = ? WHERE id = ?", [
@@ -105,13 +132,34 @@ async function build(roomId: string) {
     throw err;
   } finally {
     running.delete(room.id);
-    try {
-      unlinkSync(list);
-    } catch {}
+    for (const f of [list, ...normalized]) {
+      try {
+        unlinkSync(f);
+      } catch {}
+    }
   }
   await autoUpload(insertId, room.broadcaster_id, room.title).catch((err) =>
     console.error('[match-video] YouTube auto-upload could not start', err),
   );
+}
+
+// Picture size of the first video stream and whether there is sound; null if unreadable
+function probe(file: string): Promise<{ w: number; h: number; audio: boolean } | null> {
+  return new Promise((resolve) => {
+    const p = spawn(FFPROBE, ['-v', 'error', '-show_entries', 'stream=codec_type,width,height', '-of', 'json', file]);
+    let out = '';
+    p.stdout.on('data', (d) => (out += d));
+    p.on('error', () => resolve(null));
+    p.on('exit', () => {
+      try {
+        const streams = (JSON.parse(out).streams ?? []) as { codec_type: string; width?: number; height?: number }[];
+        const v = streams.find((x) => x.codec_type === 'video' && x.width);
+        resolve(v ? { w: v.width!, h: v.height!, audio: streams.some((x) => x.codec_type === 'audio') } : null);
+      } catch {
+        resolve(null);
+      }
+    });
+  });
 }
 
 function run(args: string[]): Promise<void> {

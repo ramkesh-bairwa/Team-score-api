@@ -73,6 +73,25 @@
   .flash .fe { font-size: clamp(36px, 6vw, 64px); line-height: 1; }
   .flash .ft { font-size: clamp(32px, 5.5vw, 64px); font-weight: 900; letter-spacing: 3px; }
   .flash .fs { font-size: clamp(13px, 1.6vw, 20px); font-weight: 700; opacity: .9; }
+  /* Scorecard, shown while the camera phone has it open */
+  .card { position: fixed; inset: 0; z-index: 3; display: none; align-items: center; justify-content: center;
+    padding: max(54px, env(safe-area-inset-top)) 12px calc(7em + 2vh); pointer-events: none; font-size: clamp(12px, 1.3vw, 16px); }
+  .card.show { display: flex; }
+  .cardIn { width: 100%; max-width: 680px; max-height: 100%; overflow-y: auto; background: #0B1730ee; border-radius: 16px;
+    padding: 10px 14px 6px; box-shadow: 0 10px 40px #000a; pointer-events: auto; }
+  .ch { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 2px 8px; font-weight: 900; }
+  .ch b { font-size: 1.3em; } .ch span { color: #FFC531; font-size: 1.2em; white-space: nowrap; }
+  .itabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .itabs span { flex: 1; text-align: center; background: #ffffff14; color: #cbd5e1; padding: 6px; border-radius: 9px; font-weight: 800; font-size: .9em; }
+  .itabs span.on { background: #E11D2E; color: #fff; }
+  .card table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  .card th { text-align: right; color: #94a3b8; font-weight: 700; font-size: .85em; padding: 5px 4px; border-bottom: 1px solid #ffffff1a; }
+  .card td { text-align: right; padding: 6px 4px; border-bottom: 1px solid #ffffff0d; white-space: nowrap; }
+  .card th:first-child, .card td:first-child { text-align: left; white-space: normal; }
+  .card td .ho { display: block; color: #94a3b8; font-size: .85em; }
+  .card tr.cur td:first-child { color: #FFC531; font-weight: 800; }
+  .card .empty { color: #94a3b8; padding: 16px 0; text-align: center; }
+  @media (max-width: 700px) { .card { padding-bottom: 12.5em; font-size: 13px; } }
   .flash.go { animation: pop 3s ease forwards; }
   @keyframes pop { 10% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 20% { transform: translate(-50%, -50%) scale(1); }
     85% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); } }
@@ -91,6 +110,8 @@
 <div class="msg" id="msg"><div class="spinner"></div><div id="msgText">Connecting…</div></div>
 <button class="unmute" id="unmute">🔊 Tap for sound</button>
 <div class="flash" id="flash"><div class="fe" id="fe"></div><div class="ft" id="ft"></div><div class="fs" id="fsub"></div></div>
+
+<div class="card" id="card"><div class="cardIn" id="cardIn"></div></div>
 
 <div class="board" id="board">
   <div class="tb"><span id="tBat"></span></div>
@@ -135,7 +156,8 @@
       $('viewers').textContent = '👁 ' + s.viewers;
       if (!s.live) message('Waiting for the camera to go live…', true);
     });
-    socket.on('ended', function () { closePc(); message('The live stream has paused. It will resume automatically.', true); });
+    socket.on('overlay', function (o) { cardOn = !!(o && o.card); cardTab = o && o.tab >= 0 ? o.tab : -1; showCard(); });
+    socket.on('ended', function () { cardOn = false; showCard(); closePc(); message('The live stream has paused. It will resume automatically.', true); });
     socket.on('signal', function (msg) {
       if (msg.data.sdp && msg.data.sdp.type === 'offer') {
         // A (new) offer from the camera phone: start a fresh connection
@@ -297,6 +319,45 @@
     fetch('/api/live/' + code + '/overlay', { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; }).then(renderScore).catch(function () {})
       .then(function () { setTimeout(pollScore, 1000); });
+  }
+
+  // ── Scorecard: shown while the camera phone has it open (same innings it shows) ──
+  var card = null, cardTab = -1, cardOn = false, cardTimer = null;
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function sr(r, b) { return b ? (r / b * 100).toFixed(1) : '-'; }
+  function econ(r, o, b) { var balls = o * 6 + b; return balls ? (r / balls * 6).toFixed(2) : '-'; }
+  function showCard() {
+    $('card').className = cardOn ? 'card show' : 'card';
+    clearInterval(cardTimer);
+    if (!cardOn) return;
+    renderCard();
+    loadCard();
+    cardTimer = setInterval(loadCard, 4000);
+  }
+  function loadCard() {
+    fetch('/api/live/' + code + '/scorecard', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d) { card = d; renderCard(); } })
+      .catch(function () {});
+  }
+  function renderCard() {
+    var box = $('cardIn');
+    if (!card || !card.innings || !card.innings.length) { box.innerHTML = '<div class="empty">Loading scorecard…</div>'; return; }
+    var t = cardTab >= 0 && cardTab < card.innings.length ? cardTab : card.innings.length - 1, inn = card.innings[t];
+    var h = '<div class="ch"><b>📋 ' + esc(inn.team || 'Innings ' + (t + 1)) + '</b><span>' + esc(inn.runs) + '/' + esc(inn.wickets) + ' (' + esc(inn.overs) + '.' + esc(inn.balls) + ' ov)</span></div>';
+    if (card.innings.length > 1) h += '<div class="itabs">' + card.innings.map(function (x, i) {
+      return '<span class="' + (i === t ? 'on' : '') + '">' + esc(x.team || 'Innings ' + (i + 1)) + ' ' + esc(x.runs) + '/' + esc(x.wickets) + '</span>';
+    }).join('') + '</div>';
+    h += '<table><tr><th>Batting</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>';
+    h += inn.batting.length ? inn.batting.map(function (b) {
+      var how = b.out ? b.howOut || 'out' : b.atCrease ? 'not out' : '';
+      return '<tr class="' + (b.atCrease ? 'cur' : '') + '"><td>' + (b.onStrike ? '🏏 ' : '') + esc(b.name) + (how ? '<span class="ho">' + esc(how) + '</span>' : '') + '</td><td><b>' + esc(b.runs) + '</b></td><td>' + esc(b.balls) + '</td><td>' + esc(b.fours) + '</td><td>' + esc(b.sixes) + '</td><td>' + sr(b.runs, b.balls) + '</td></tr>';
+    }).join('') : '<tr><td colspan="6">—</td></tr>';
+    h += '</table><table><tr><th>Bowling</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr>';
+    h += inn.bowling.length ? inn.bowling.map(function (b) {
+      return '<tr class="' + (b.bowling ? 'cur' : '') + '"><td>' + (b.bowling ? '⚾ ' : '') + esc(b.name) + '</td><td>' + esc(b.overs) + '.' + esc(b.balls) + '</td><td>' + esc(b.maidens) + '</td><td>' + esc(b.runs) + '</td><td><b>' + esc(b.wickets) + '</b></td><td>' + econ(b.runs, b.overs, b.balls) + '</td></tr>';
+    }).join('') : '<tr><td colspan="6">—</td></tr>';
+    box.innerHTML = h + '</table>';
   }
 
   if (!window.RTCPeerConnection) message('This browser can’t play live video. Please open the link in Chrome or Safari.', false);

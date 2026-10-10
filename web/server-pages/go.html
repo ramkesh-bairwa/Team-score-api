@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1730">
 <title>Go Live · CricScore</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&display=swap">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; background: #000; color: #fff; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
@@ -531,6 +532,7 @@
       .then(function (d) {
         renderMini(d);
         if (d && d.battingTeam) lastOverlay = d;
+        lastScore = d;
         if (!d || d.deliveries == null || d.phase === 'waiting') return;
         if (d.phase === 'innings_end') { lastDeliveries = null; return; }
         if (lastDeliveries !== null && d.deliveries > lastDeliveries && d.lastBall) ballMessage(d);
@@ -573,6 +575,7 @@
     el.style.background = m[2];
     el.className = 'flash'; void el.offsetWidth; el.className = 'flash pop';
     clearTimeout(flashTimer); flashTimer = setTimeout(function () { el.className = 'flash'; }, 3000);
+    recFlash = { k: k, sub: $('fsub').textContent, at: Date.now() };
   }
 
   // ── Mini live score: batting + bowling ──
@@ -612,7 +615,14 @@
   }
 
   // ── Full scorecard ──
-  var card = null, cardTab = -1, cardTimer = null;
+  // While it is open here, viewers see the same scorecard (and the recording shows it too)
+  var card = null, cardTab = -1, cardTimer = null, cardShown = false, overlaySent = '';
+  function sendOverlay(force) {
+    var o = { card: cardShown, tab: cardTab }, k = JSON.stringify(o);
+    if (!socket || !socket.connected || (k === overlaySent && !force)) return;
+    overlaySent = k;
+    socket.emit('overlay', o);
+  }
   function sr(r, b) { return b ? (r / b * 100).toFixed(1) : '-'; }
   function econ(r, o, b) { var balls = o * 6 + b; return balls ? (r / balls * 6).toFixed(2) : '-'; }
   function renderCard() {
@@ -623,6 +633,7 @@
       return '<button data-i="' + i + '" class="' + (i === cardTab ? 'on' : '') + '">' + esc(inn.team || 'Innings ' + (i + 1)) + ' ' + esc(inn.runs) + '/' + esc(inn.wickets) + '</button>';
     }).join('');
     [].forEach.call(tabs.children, function (b) { b.onclick = function () { cardTab = +b.dataset.i; renderCard(); }; });
+    sendOverlay();
     var inn = card.innings[cardTab];
     var h = '<div class="inn"><b>' + esc(inn.runs) + '/' + esc(inn.wickets) + '</b><span>' + esc(inn.overs) + '.' + esc(inn.balls) + ' overs · ' + esc(inn.team) + ' batting</span></div>';
     h += '<table><tr><th>Batting</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>';
@@ -644,10 +655,12 @@
   }
   $('cardBtn').onclick = function () {
     $('sheet').className = 'sheet show';
+    cardShown = true;
+    sendOverlay();
     loadCard();
     clearInterval(cardTimer); cardTimer = setInterval(loadCard, 4000);
   };
-  function closeCard() { $('sheet').className = 'sheet'; clearInterval(cardTimer); }
+  function closeCard() { $('sheet').className = 'sheet'; clearInterval(cardTimer); cardShown = false; sendOverlay(); }
   $('sheetClose').onclick = closeCard;
   $('sheet').onclick = function (e) { if (e.target === $('sheet')) closeCard(); };
 
@@ -669,6 +682,273 @@
     };
   });
   $('backLive').onclick = stopReplay;
+
+  // ── What the recording shows ──
+  // Viewers get the scoreboard, ball messages and scorecard from their own page, drawn over the
+  // video. The recording has no page around it, so they are drawn into its picture here: the
+  // outgoing picture + the TV scoreboard strip + SIX/FOUR/WICKET… + the scorecard while it is open.
+  var rcanvas = document.createElement('canvas'), rctx = rcanvas.getContext('2d'), rtrack = null;
+  var lastScore = null, recFlash = null;
+  var FONT = '"Barlow Condensed", "Arial Narrow", Arial, sans-serif';
+  if (document.fonts && document.fonts.load) document.fonts.load('900 20px "Barlow Condensed"').catch(function () {});
+  function recVideoTrack() {
+    if (!rtrack || rtrack.readyState !== 'live') rtrack = rcanvas.captureStream(30).getVideoTracks()[0];
+    return rtrack;
+  }
+  // Same palette and colour hash as the viewer page
+  var PALETTE = [['#1D4ED8', '#0F2A7A'], ['#DC2626', '#7F1D1D'], ['#7C3AED', '#3B0F7A'], ['#059669', '#064E3B'],
+    ['#EA580C', '#7C2D12'], ['#DB2777', '#701A43'], ['#0891B2', '#0C4A5E'], ['#CA8A04', '#713F12']];
+  function colorIdx(name) { var h = 0; name = name || ''; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return h % PALETTE.length; }
+  function abbr(name) {
+    var w = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (!w.length) return '—';
+    if (w.length > 1) return w.map(function (x) { return x[0]; }).join('').slice(0, 4).toUpperCase();
+    return w[0].slice(0, 3).toUpperCase();
+  }
+  function chipColors(b) {
+    if (b.wicket) return ['#E11D2E', '#fff'];
+    if (b.extra === 'db') return ['#475569', '#E2E8F0'];
+    if (b.extra) return ['#F97316', '#fff'];
+    if (b.runs === 6) return ['#8B2CF5', '#fff'];
+    if (b.runs === 4) return ['#1E6BFF', '#fff'];
+    if (b.runs === 0) return ['#ffffff24', '#93A3C6'];
+    return ['#F1F5FF', '#0B1530'];
+  }
+  // The viewer page's scoreboard content (watch.html renderScore), as plain values
+  function boardModel(d) {
+    var ia = colorIdx(d.battingTeam), ib = colorIdx(d.bowlingTeam);
+    if (ib === ia) ib = (ib + 1) % PALETTE.length;
+    var balls = d.over * 6 + d.ball, max = d.overs * 6, crr = balls ? (d.runs / balls * 6).toFixed(2) : '0.00';
+    var chips = (d.thisOver || []).slice(-6).map(function (b) { return { t: chipText(b, d.matchType || 'local'), c: chipColors(b) }; });
+    var m = {
+      cBat: PALETTE[ia], cBowl: PALETTE[ib], bat: abbr(d.battingTeam), bowl: abbr(d.bowlingTeam),
+      score: d.runs + '-' + d.wickets, ov: d.over + '.' + d.ball, opp: 'v ' + abbr(d.bowlingTeam), line: '', hl: false,
+      bats: [null, null], bowl2: [null, { n: 'Current rate', v: crr }],
+      chips: chips, empty: Math.min(Math.max(0, 6 - (d.ball || 0)), 6 - chips.length),
+    };
+    if (d.phase === 'innings_end') {
+      m.line = d.inningsNum === 2 ? (d.result || 'Match complete') : 'Innings break · ' + abbr(d.bowlingTeam) + ' need ' + (d.runs + 1);
+      m.hl = true;
+      m.bowl2[1] = { n: 'Run rate', v: crr };
+      return m;
+    }
+    m.bats = [d.striker && { n: d.striker.name, v: d.striker.runs, bl: d.striker.balls, on: true },
+      d.nonStriker && { n: d.nonStriker.name, v: d.nonStriker.runs, bl: d.nonStriker.balls }];
+    if (d.bowler) m.bowl2[0] = { n: '⚾ ' + d.bowler.name, v: d.bowler.wickets + '-' + d.bowler.runs, bl: d.bowler.overs + '.' + d.bowler.balls };
+    if (d.target) {
+      var need = Math.max(0, d.target - d.runs), left = Math.max(0, max - balls);
+      m.line = need === 0 ? 'Target reached' : 'Need ' + need + ' off ' + left + ' ball' + (left === 1 ? '' : 's');
+      m.hl = true;
+      if (need && left) m.bowl2[1] = { n: 'Required rate', v: (need / left * 6).toFixed(2) };
+    } else {
+      m.line = (d.inningsNum === 2 ? '2nd' : '1st') + ' innings' + (d.overs ? ' · ' + d.overs + ' overs' : '');
+    }
+    return m;
+  }
+
+  // Canvas helpers
+  function vgrad(c, y, h, a, b) { var g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
+  function rrect(c, x, y, w, h, r) {
+    c.beginPath();
+    if (c.roundRect) return c.roundRect(x, y, w, h, r);
+    c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+  // Draws text (cut with … to fit maxW) and returns its width
+  function text(c, s, x, y, size, color, align, maxW, weight, font) {
+    c.font = (weight || 800) + ' ' + size + 'px ' + (font || FONT);
+    c.fillStyle = color; c.textAlign = align || 'left'; c.textBaseline = 'middle';
+    s = String(s == null ? '' : s);
+    if (maxW > 0 && c.measureText(s).width > maxW) {
+      while (s.length > 1 && c.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+      s += '…';
+    }
+    c.fillText(s, x, y);
+    return c.measureText(s).width;
+  }
+
+  // ── TV scoreboard strip (same layout as the viewer page) ──
+  function cellTeam(c, x, y, w, h, u, name, col) {
+    c.fillStyle = vgrad(c, y, h, col[1], '#0b0b10'); c.fillRect(x, y, w, h);
+    var r = Math.min(1.6 * u, h * 0.42, w * 0.42), cx = x + w / 2, cy = y + h / 2;
+    c.beginPath(); c.arc(cx, cy, r, 0, 2 * Math.PI);
+    c.fillStyle = vgrad(c, cy - r, 2 * r, col[0], col[1]); c.fill();
+    c.lineWidth = 0.14 * u; c.strokeStyle = '#FFC531'; c.stroke();
+    text(c, name, cx, cy, 0.95 * u, '#fff', 'center', 1.8 * r, 900);
+  }
+  function cellInfo(c, x, y, w, h, u, m) {
+    c.fillStyle = vgrad(c, y, h, '#34343c', '#141418'); c.fillRect(x, y, w, h);
+    var px = x + 0.8 * u, y1 = y + h * 0.36, y2 = y + h * 0.76;
+    var tw = text(c, m.bat, px, y1, 1.55 * u, '#fff', 'left', 0, 900);
+    var sx = px + tw + 0.45 * u;
+    c.font = '900 ' + 1.7 * u + 'px ' + FONT;
+    var sw = c.measureText(m.score).width + 0.7 * u;
+    c.fillStyle = vgrad(c, y1 - 1.05 * u, 2.1 * u, '#f0303f', '#b5121f'); c.fillRect(sx, y1 - 1.05 * u, sw, 2.1 * u);
+    text(c, m.score, sx + 0.35 * u, y1, 1.7 * u, '#fff', 'left', 0, 900);
+    text(c, m.ov, sx + sw + 0.45 * u, y1, 1.3 * u, '#fff', 'left', 0, 700);
+    var ow = text(c, m.opp, px, y2, 0.95 * u, '#93a3c6');
+    var lx = px + ow + 0.6 * u;
+    text(c, m.line.toUpperCase(), lx, y2, 0.95 * u, m.hl ? '#FFC531' : '#fff', 'left', x + w - lx - 0.5 * u);
+  }
+  function cellPanel(c, x, y, w, h, u, col, rows) {
+    c.fillStyle = vgrad(c, y, h, col[0], col[1]); c.fillRect(x, y, w, h);
+    c.fillStyle = '#ffffff1f'; c.fillRect(x, y, w, h * 0.45);
+    rows.forEach(function (r, i) {
+      if (!r) return;
+      var cy = y + h * (i ? 0.73 : 0.27), right = x + w - 0.8 * u;
+      var blw = r.bl != null ? text(c, r.bl, right, cy, 0.95 * u, '#ffffffd9', 'right', 0, 700) + 0.5 * u : 0;
+      var vw = text(c, r.v, right - blw, cy, 1.4 * u, '#fff', 'right', 0, 900);
+      text(c, (r.on ? '🏏 ' : '') + String(r.n).toUpperCase(), x + 0.8 * u, cy, 1.15 * u, '#fff', 'left', w - 2.1 * u - blw - vw);
+    });
+  }
+  function cellOver(c, x, y, w, h, u, m, inRow) {
+    c.fillStyle = vgrad(c, y, h, '#5a5a64', '#2e2e36'); c.fillRect(x, y, w, h);
+    var size = 1.45 * u, gap = 0.2 * u;
+    c.font = '900 ' + 0.9 * u + 'px ' + FONT;
+    var widths = m.chips.map(function (ch) { return Math.max(size, c.measureText(ch.t).width + 0.5 * u); });
+    for (var i = 0; i < m.empty; i++) widths.push(size);
+    var total = widths.reduce(function (a, b) { return a + b + gap; }, -gap);
+    c.font = '800 ' + 0.7 * u + 'px ' + FONT;
+    var lw = c.measureText('THIS OVER').width;
+    var cx, cy;
+    if (inRow) {
+      var start = x + (w - lw - 0.8 * u - total) / 2;
+      text(c, 'THIS OVER', start, y + h / 2, 0.7 * u, '#e4e4ea');
+      cx = start + lw + 0.8 * u; cy = y + h / 2;
+    } else {
+      text(c, 'THIS OVER', x + w / 2, y + h * 0.3, 0.7 * u, '#e4e4ea', 'center');
+      cx = x + (w - total) / 2; cy = y + h * 0.66;
+    }
+    widths.forEach(function (cw, j) {
+      var ch = m.chips[j];
+      rrect(c, cx, cy - size / 2, cw, size, size / 2);
+      if (ch) {
+        c.fillStyle = ch.c[0]; c.fill();
+        text(c, ch.t, cx + cw / 2, cy, 0.9 * u, ch.c[1], 'center', 0, 900);
+      } else {
+        c.lineWidth = Math.max(1, 0.06 * u); c.strokeStyle = '#ffffff55'; c.stroke();
+      }
+      cx += cw + gap;
+    });
+  }
+  // Returns the top of the strip, so the scorecard can sit above it
+  function drawBoard(c, W, H, d) {
+    var m = boardModel(d), y, u;
+    c.save();
+    if (W >= H) {
+      u = W * 0.0145;
+      var h = 4.6 * u, cols = [0.075, 0.23, 0.24, 0.14, 0.24, 0.075], xs = [], x = 0;
+      y = H - h - H * 0.016;
+      cols.forEach(function (f) { xs.push(x); x += f * W; });
+      c.shadowColor = '#0009'; c.shadowBlur = u; c.fillStyle = '#060608'; c.fillRect(0, y, W, h); c.shadowBlur = 0;
+      cellTeam(c, xs[0], y, cols[0] * W, h, u, m.bat, m.cBat);
+      cellInfo(c, xs[1], y, cols[1] * W, h, u, m);
+      cellPanel(c, xs[2], y, cols[2] * W, h, u, m.cBat, m.bats);
+      cellOver(c, xs[3], y, cols[3] * W, h, u, m, false);
+      cellPanel(c, xs[4], y, cols[4] * W, h, u, m.cBowl, m.bowl2);
+      cellTeam(c, xs[5], y, cols[5] * W, h, u, m.bowl, m.cBowl);
+    } else {
+      // Upright picture: the strip in three rows, like the viewer page on a phone
+      u = W / 30;
+      var h1 = 4.2 * u, h2 = 4 * u, h3 = 2.6 * u, t = 4.4 * u;
+      y = H - (h1 + h2 + h3) - H * 0.016;
+      c.shadowColor = '#0009'; c.shadowBlur = u; c.fillStyle = '#060608'; c.fillRect(0, y, W, h1 + h2 + h3); c.shadowBlur = 0;
+      cellTeam(c, 0, y, t, h1, u, m.bat, m.cBat);
+      cellInfo(c, t, y, W - 2 * t, h1, u, m);
+      cellTeam(c, W - t, y, t, h1, u, m.bowl, m.cBowl);
+      cellPanel(c, 0, y + h1, W / 2, h2, u, m.cBat, m.bats);
+      cellPanel(c, W / 2, y + h1, W / 2, h2, u, m.cBowl, m.bowl2);
+      cellOver(c, 0, y + h1 + h2, W, h3, u, m, true);
+    }
+    c.restore();
+    return y;
+  }
+
+  // ── SIX / FOUR / WICKET… (same 3-second pop as the viewer page) ──
+  function drawFlash(c, W, H) {
+    var t = (Date.now() - recFlash.at) / 3000;
+    if (t >= 1) { recFlash = null; return; }
+    var msg = MSG[recFlash.k], cols = msg[2].match(/#[0-9a-f]{6}/gi);
+    var scale = t < 0.1 ? 0.3 + 8 * t : t < 0.2 ? 1.1 - (t - 0.1) : t > 0.85 ? 1 + (t - 0.85) : 1;
+    var alpha = t < 0.1 ? t / 0.1 : t > 0.85 ? (1 - t) / 0.15 : 1;
+    var u = Math.min(W, H) / 11, sub = recFlash.sub;
+    c.save();
+    c.globalAlpha = alpha;
+    c.translate(W / 2, H * 0.4);
+    c.scale(scale, scale);
+    c.font = '900 ' + 0.85 * u + 'px ' + FONT;
+    var tw = c.measureText(msg[1]).width;
+    c.font = '700 ' + 0.3 * u + 'px ' + FONT;
+    var bw = Math.max(tw, sub ? c.measureText(sub).width : 0) + 1.2 * u, bh = sub ? 2.5 * u : 2.15 * u;
+    var g = c.createLinearGradient(-bw / 2, -bh / 2, bw / 2, bh / 2);
+    g.addColorStop(0, cols[0]); g.addColorStop(1, cols[1]);
+    c.shadowColor = '#000a'; c.shadowBlur = 0.4 * u; c.shadowOffsetY = 0.1 * u;
+    rrect(c, -bw / 2, -bh / 2, bw, bh, 0.25 * u);
+    c.fillStyle = g; c.fill();
+    c.shadowColor = 'transparent';
+    text(c, msg[0], 0, -bh / 2 + 0.5 * u, 0.6 * u, '#fff', 'center', 0, 400, 'sans-serif');
+    text(c, msg[1], 0, -bh / 2 + 1.35 * u, 0.85 * u, '#fff', 'center', 0, 900);
+    if (sub) text(c, sub, 0, -bh / 2 + 2.05 * u, 0.3 * u, '#ffffffe6', 'center', 0, 700);
+    c.restore();
+  }
+
+  // ── Scorecard (while it is open on this phone) ──
+  function drawCard(c, W, H, bottom) {
+    var inn = card && card.innings && card.innings[cardTab];
+    if (!inn) return;
+    var mg = Math.min(W, H) * 0.04, pw = W >= H ? Math.min(W * 0.66, W - 2 * mg) : W - 2 * mg, px = (W - pw) / 2;
+    var top = W >= H ? mg : H * 0.08, avail = bottom - mg - top;
+    var bat = inn.batting.length ? inn.batting : [null], bowl = inn.bowling.length ? inn.bowling : [null];
+    var rows = 3 + bat.length + bowl.length, rh = Math.min(avail / (rows + 0.5), Math.min(W, H) * 0.06), fs = rh * 0.52;
+    var ph = rh * (rows + 0.5), py = top + Math.max(0, (avail - ph) / 2);
+    c.save();
+    c.shadowColor = '#000a'; c.shadowBlur = rh * 0.6;
+    rrect(c, px, py, pw, ph, rh * 0.4);
+    c.fillStyle = '#0B1730ee'; c.fill();
+    c.shadowColor = 'transparent';
+    var pad = rh * 0.5, nameW = pw * 0.46, colW = (pw - 2 * pad - nameW) / 5, y = py + rh * 0.25;
+    var col = function (i) { return px + pad + nameW + colW * (i + 1); };
+    // Title: team and total
+    text(c, '📋 ' + (inn.team || 'Innings ' + (cardTab + 1)), px + pad, y + rh / 2, fs * 1.15, '#fff', 'left', pw * 0.55, 900);
+    text(c, inn.runs + '/' + inn.wickets + '  (' + inn.overs + '.' + inn.balls + ' ov)', px + pw - pad, y + rh / 2, fs * 1.15, '#FFC531', 'right', 0, 900);
+    y += rh;
+    function header(cols) {
+      c.fillStyle = '#ffffff12'; c.fillRect(px + pad * 0.5, y, pw - pad, rh);
+      cols.forEach(function (h, i) { text(c, h, i ? col(i - 1) : px + pad, y + rh / 2, fs * 0.85, '#94a3b8', i ? 'right' : 'left', 0, 700); });
+      y += rh;
+    }
+    function line(cells, cur, bold) {
+      var cy = y + rh / 2;
+      var nw = text(c, cells[0], px + pad, cy, fs, cur ? '#FFC531' : '#fff', 'left', nameW - pad * 0.3, cur ? 900 : 700);
+      if (cells[6]) text(c, cells[6], px + pad + nw + fs * 0.4, cy, fs * 0.78, '#94a3b8', 'left', nameW - nw - fs * 0.6, 600);
+      for (var i = 1; i <= 5; i++) text(c, cells[i], col(i - 1), cy, fs, '#fff', 'right', 0, i === bold ? 900 : 600);
+      c.fillStyle = '#ffffff0d'; c.fillRect(px + pad * 0.5, y + rh - 1, pw - pad, 1);
+      y += rh;
+    }
+    header(['BATTING', 'R', 'B', '4s', '6s', 'SR']);
+    bat.forEach(function (b) {
+      if (!b) return line(['—', '', '', '', '', '']);
+      var how = b.out ? b.howOut || 'out' : b.atCrease ? 'not out' : '';
+      line([(b.onStrike ? '🏏 ' : '') + b.name, b.runs, b.balls, b.fours, b.sixes, sr(b.runs, b.balls), how], b.atCrease, 1);
+    });
+    header(['BOWLING', 'O', 'M', 'R', 'W', 'ECON']);
+    bowl.forEach(function (b) {
+      if (!b) return line(['—', '', '', '', '', '']);
+      line([(b.bowling ? '⚾ ' : '') + b.name, b.overs + '.' + b.balls, b.maidens, b.runs, b.wickets, econ(b.runs, b.overs, b.balls)], b.bowling, 4);
+    });
+    c.restore();
+  }
+
+  function drawRecFrame(force) {
+    if (!recording && !force) return;
+    var W = canvas.width, H = canvas.height;
+    if (rcanvas.width !== W || rcanvas.height !== H) { rcanvas.width = W; rcanvas.height = H; }
+    rctx.drawImage(canvas, 0, 0);
+    var d = lastScore, boardTop = H;
+    if (d && d.phase !== 'waiting' && d.runs != null) boardTop = drawBoard(rctx, W, H, d);
+    if (cardShown) drawCard(rctx, W, H, boardTop);
+    if (recFlash) drawFlash(rctx, W, H);
+  }
+  setInterval(drawRecFrame, 1000 / 30);
 
   // ── Full-match recording ──
   // While live, what viewers see (camera + replays) and the mic are recorded in 3-second pieces.
@@ -776,7 +1056,8 @@
       status('YouTube is not connected, so this recording is saved on the server. You can send it to YouTube later.');
     }
     var mime = REC_TYPES.find(function (t) { return MediaRecorder.isTypeSupported(t); });
-    var tracks = out.getVideoTracks().slice(), at = recAudioTrack();
+    drawRecFrame(true);
+    var tracks = [recVideoTrack()], at = recAudioTrack();
     if (at) tracks.push(at);
     var mr;
     try { mr = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: 2500000, audioBitsPerSecond: 128000 }); }
@@ -1144,7 +1425,11 @@
     if (recAuto) startRecording();
     renderRec();
     socket = io({ path: '/rtc', transports: ['websocket', 'polling'] });
-    socket.on('connect', function () { socket.emit('join', { code: code, role: 'broadcaster', key: key }); status('🔴 You are live. Share the watch link!'); });
+    socket.on('connect', function () {
+      socket.emit('join', { code: code, role: 'broadcaster', key: key });
+      sendOverlay(true);
+      status('🔴 You are live. Share the watch link!');
+    });
     socket.on('denied', function (m) { stopLive(); block(m); });
     socket.on('replaced', function () { stopLive(); block('Streaming moved to another device.'); });
     socket.on('viewer', newPeer);

@@ -34,6 +34,7 @@ export function listen(server) {
         joined = { code, role: 'viewer' };
         socket.join(`room:${code}`);
         if (r.broadcaster) io.to(r.broadcaster).emit('viewer', socket.id);
+        if (r.overlay) socket.emit('overlay', r.overlay);
       }
       counts(code, r);
     });
@@ -47,12 +48,22 @@ export function listen(server) {
       if (allowed) io.to(to).emit('signal', { from: socket.id, data });
     });
 
+    // What the camera phone shows on top of the video (the scorecard): mirrored on every viewer
+    socket.on('overlay', (data = {}) => {
+      if (!joined || joined.role !== 'broadcaster') return;
+      const r = rooms.get(joined.code);
+      if (!r || r.broadcaster !== socket.id) return;
+      r.overlay = { card: !!data.card, tab: Number.isInteger(data.tab) ? data.tab : -1 };
+      socket.to(`room:${joined.code}`).emit('overlay', r.overlay);
+    });
+
     socket.on('disconnect', () => {
       if (!joined) return;
       const r = rooms.get(joined.code);
       if (!r) return;
       if (joined.role === 'broadcaster' && r.broadcaster === socket.id) {
         r.broadcaster = null;
+        r.overlay = null;
         socket.to(`room:${joined.code}`).emit('ended');
       } else if (joined.role === 'viewer') {
         r.viewers.delete(socket.id);

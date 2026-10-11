@@ -595,10 +595,22 @@ function Scoring({ navigation, route }: any) {
     setCamState('off');
   };
   const goLiveLabel = camStopping ? 'Stopping…'
-    : !phoneCam ? 'Go Live'
+    : !phoneCam ? 'Live'
     : camState === 'live' ? 'Stop Live'
     : camState === 'starting' ? 'Starting…'
     : 'Close camera';
+
+  // Live: choose where the camera runs. Same screen = under the score on this phone;
+  // other screen = the usual Live Stream sheet (QR for a camera phone, watch link).
+  const chooseLive = () => popup.show({
+    type: 'confirm', icon: '📹', title: 'Go Live',
+    message: 'Where should the live camera run?',
+    buttons: [
+      { text: '📱 Same screen (score on top, video below)', onPress: () => { startPhoneCam(); } },
+      { text: '🖥️ Other screen / phone', onPress: () => { setTimeout(openCameraLive, 300); } },
+      { text: 'Cancel', style: 'cancel' },
+    ],
+  });
 
   const shareMatch = async (role: 'streamer' | 'scorer' = 'streamer') => {
     if (connecting) return;
@@ -1101,8 +1113,8 @@ function Scoring({ navigation, route }: any) {
                 )}
                 <button
                   className={`${s.camBtn} ${phoneCam && camState === 'live' ? s.camBtnOn : ''}`}
-                  onClick={phoneCam ? stopPhoneCam : startPhoneCam}
-                  aria-label={phoneCam ? 'Stop the live stream' : 'Go live with this phone camera'}>
+                  onClick={phoneCam ? stopPhoneCam : chooseLive}
+                  aria-label={phoneCam ? 'Stop the live stream' : 'Live stream'}>
                   {phoneCam && camState === 'live' ? <span className={s.camStop} aria-hidden /> : <span className={s.camDot} />}
                   <span>{goLiveLabel}</span>
                 </button>
@@ -1396,7 +1408,6 @@ function Scoring({ navigation, route }: any) {
           links={cameraLinks}
           onClose={() => setCameraSheet(false)}
           onYoutube={() => { setCameraSheet(false); setTimeout(openYoutube, 350); }}
-          onThisPhone={startPhoneCam}
         />
       )}
       {live && <ShareMatchModal visible={shareModal} session={live} initialRole={shareRole} onClose={() => setShareModal(false)} />}
@@ -1416,9 +1427,6 @@ function Scoring({ navigation, route }: any) {
         <Overlay visible={watchModal} onDismiss={() => setWatchModal(false)}>
           <div className={s.watchSheet}>
             <WatchLiveCard code={live.code} title={`${firstBatting.name} vs ${firstFielding.name}`} />
-            <button className={s.modalCancel} onClick={() => { setWatchModal(false); setTimeout(openCameraLive, 300); }}>
-              📹 Use another phone as the camera (QR)
-            </button>
             <button className={s.modalCancel} onClick={() => setWatchModal(false)}>Close</button>
           </div>
         </Overlay>

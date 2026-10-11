@@ -21,7 +21,7 @@
 .scroll > * { flex-shrink: 0; }
 .scroll::-webkit-scrollbar { display: none; }
 .flex1 { flex: 1 1 0%; min-width: 0; display: flex; flex-direction: column; }
-.titleRow { display: flex; flex-direction: row; align-items: center; gap: 12px; margin-bottom: 16px; }
+.titleRow { display: flex; flex-direction: row; align-items: center; gap: 12px; margin-bottom: 16px;  padding-right: 40px; } /* room for the ✕ */
 .ytLogo {
   width: 46px; height: 34px; border-radius: 10px; background-color: #FF0000; flex-shrink: 0;
   display: flex; justify-content: center; align-items: center;

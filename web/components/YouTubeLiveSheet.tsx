@@ -8,6 +8,7 @@ import QRCode from './QRCode';
 import ReplayControls from './ReplayControls';
 import { popup } from './Popup';
 import { shareText, openUrl } from '@/lib/share';
+import CloseX from './CloseX';
 import st from './YouTubeLiveSheet.module.css';
 
 const STEPS = [
@@ -102,6 +103,7 @@ export default function YouTubeLiveSheet({ visible, session, getPayload, onClose
         <div className={`${st.overlay} ${shown ? st.shown : ''}`} role="dialog" aria-modal="true">
           <div className={st.backdrop} onClick={onClose} />
           <div className={st.sheet}>
+            <CloseX onClick={onClose} />
             <div className={st.handle} />
             <div className={st.scroll}>
               <div className={st.titleRow}>

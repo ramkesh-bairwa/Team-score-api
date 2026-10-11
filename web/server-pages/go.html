@@ -136,6 +136,9 @@
   .ri .rt b { display: block; font-size: 14px; }
   .ri .rt span { color: #94a3b8; }
   .ri .rt span.err { color: #fca5a5; }
+  /* Stop live: continue / save (and where) */
+  .stopBtns { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .stopBtns .pbtn { align-self: center; background: transparent; color: #fca5a5; }
   /* YouTube Live */
   .round.ytl { font-size: 18px; color: #ff4e45; }
   .round.ytl.on { background: #FF0000; color: #fff; }
@@ -178,6 +181,12 @@
     <label class="chk"><input type="checkbox" id="ytLiveChk"> Stream to YouTube whenever I’m live</label>
     <div class="yt show" id="ytLiveState"></div>
     <a class="pbtn" target="_blank" rel="noopener" href="https://studio.youtube.com/channel/UC/livestreaming">Open YouTube Studio</a>
+  </div>
+</div>
+<div class="sheet" id="stopSheet">
+  <div class="sheetIn">
+    <div class="sh"><b id="stopTitle">■ Stop live?</b><button id="stopClose" aria-label="Close">✕</button></div>
+    <div id="stopBody"></div>
   </div>
 </div>
 <div class="sheet" id="recSheet">
@@ -256,8 +265,15 @@
     tellParent('error', $('blocker').textContent);
   }
   // Embedded in the scoring screen: tell it how the stream is doing (it shows Go Live / Stop Live)
+  var parentState = new URLSearchParams(location.search).get('autostart') === '1' ? 'starting' : 'off';
   function tellParent(state, error) {
-    if (EMBED && window.parent !== window) window.parent.postMessage({ type: 'cricscore-cam', state: state, error: error || null }, '*');
+    if (state !== 'stopped') parentState = state;
+    if (EMBED && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'cricscore-cam', state: state, error: error || null,
+        rec: !!recording, yt: !!(yt && yt.connected),
+      }, '*');
+    }
   }
 
   if (!key) block('This page needs the QR code from the CricScore app.<br><br>Open the app → ▶ YouTube / Live → <b>Go live from phone camera</b>.');
@@ -1078,6 +1094,88 @@
     if (ytLiveOn) startYtLive(); else stopYtLive();
   };
 
+  // ── Stop live: continue, or save the recording (and choose where) ──
+  // choice: 'device' | 'server' | 'youtube' | 'discard'. The recording carries on as it was going
+  // (server copy while live, or this phone); the choice is applied when it stops.
+  function applySaveChoice(r, choice) {
+    if (choice === 'discard') { r.discard = true; return; }
+    if (choice === 'device') { if (r.target !== 'device') r.then = 'download'; return; }
+    if (r.target === 'device') r.target = 'server';
+    if (choice === 'youtube') { r.then = 'youtube'; r.thenAcct = ytAcct; r.thenPrivacy = ytPrivacy; }
+  }
+  function afterSaved(r, then, sid) {
+    if (then === 'download') {
+      var a = document.createElement('a');
+      a.href = '/api/stream-rec/' + r.code + '/' + sid + '/file?k=' + encodeURIComponent(r.k);
+      a.download = fileName(r);
+      document.body.appendChild(a); a.click(); a.remove();
+      status('🎬 Recording saved. Downloading it to this phone…');
+    } else if (then === 'youtube') {
+      recApi('POST', r.code + '/' + sid + '/youtube', { k: r.k, acct: r.thenAcct, privacy: r.thenPrivacy }).then(function (d) {
+        status(d._ok ? '▶ Recording saved. Uploading it to YouTube…' : '⚠️ ' + (d.error || 'The YouTube upload could not start') + '. The recording is saved on the server.');
+      });
+    } else {
+      status('☁️ Recording saved on the server');
+    }
+  }
+  function discardRec(r) {
+    var sid = r.serverId;
+    delete mem[r.id]; delete ready[r.id];
+    return tx(['recs', 'chunks'], 'readwrite', function (t) { t.objectStore('recs').delete(r.id); t.objectStore('chunks').delete(chunkRange(r.id)); })
+      .then(function () {
+        if (sid) return fetch('/api/stream-rec/' + r.code + '/' + sid + '?k=' + encodeURIComponent(r.k), { method: 'DELETE' }).catch(function () {});
+      })
+      .then(function () { status('🗑 Recording deleted'); });
+  }
+  // Until the stopped recording has reached the server (or ms passed)
+  function waitSaved(ms) {
+    var end = Date.now() + ms;
+    return new Promise(function (resolve) {
+      (function check() {
+        var waiting = Object.keys(mem).some(function (id) { var r = mem[id]; return r.closed && r.target !== 'device' && !r.failed && !r.discard; });
+        if (!waiting || Date.now() > end) return resolve();
+        setTimeout(check, 500);
+      })();
+    });
+  }
+  function stopWith(choice) {
+    closeStopSheet();
+    if (recording && choice) applySaveChoice(recording.r, choice);
+    return stopLive();
+  }
+  function openStopSheet(step) {
+    var h;
+    if (step !== 'where') {
+      $('stopTitle').textContent = '■ Stop live?';
+      h = '<div class="onote" style="margin-top:0">' + (recording ? '⏺ This match is being recorded (' + clock(Date.now() - recording.startedAt) + ').' : 'This match is not being recorded.') + '</div>'
+        + '<div class="stopBtns"><button class="bigrec stop" id="stContinue">▶ Continue live</button>'
+        + (recording
+          ? '<button class="bigrec" id="stSave">💾 Save recording &amp; stop</button><button class="pbtn" id="stNoSave">Stop without saving</button>'
+          : '<button class="bigrec" id="stStop">■ Stop live</button>')
+        + '</div>';
+    } else {
+      $('stopTitle').textContent = '💾 Save the recording to';
+      h = '<div class="opts" id="stWhere">'
+        + '<button class="opt" data-c="device"><i>📱</i>This phone</button>'
+        + '<button class="opt" data-c="server"><i>☁️</i>Server</button>'
+        + '<button class="opt" data-c="youtube"' + (yt.connected ? '' : ' disabled') + '><i>▶️</i>YouTube</button></div>'
+        + '<div class="onote">' + (yt.connected ? 'YouTube: uploaded to ' + esc(yt.channel) + ' once it is saved.' : 'YouTube needs a connected channel (⏺ → YouTube).') + '</div>'
+        + '<div class="stopBtns"><button class="pbtn" id="stBack" style="color:#cbd5e1">← Back</button></div>';
+    }
+    $('stopBody').innerHTML = h;
+    $('stopSheet').className = 'sheet show';
+    var on = function (id, fn) { if ($(id)) $(id).onclick = fn; };
+    on('stContinue', closeStopSheet);
+    on('stSave', function () { openStopSheet('where'); });
+    on('stStop', function () { stopWith(null); });
+    on('stBack', function () { openStopSheet(); });
+    on('stNoSave', function () { if (confirm('Stop without saving? This recording will be deleted.')) stopWith('discard'); });
+    [].forEach.call(document.querySelectorAll('#stWhere .opt'), function (b) { b.onclick = function () { stopWith(b.dataset.c); }; });
+  }
+  function closeStopSheet() { $('stopSheet').className = 'sheet'; }
+  $('stopClose').onclick = closeStopSheet;
+  $('stopSheet').onclick = function (e) { if (e.target === $('stopSheet')) closeStopSheet(); };
+
   // ── Full-match recording ──
   // While live, what viewers see (camera + replays) and the mic are recorded in 3-second pieces.
   // Every piece is kept on this phone first (IndexedDB), so a dropped connection loses nothing. Then:
@@ -1128,7 +1226,10 @@
     });
   }
   function chunkRange(id) { return IDBKeyRange.bound([id, 0], [id, Infinity]); }
-  function putRec(r) { return tx('recs', 'readwrite', function (t) { t.objectStore('recs').put(r); }); }
+  function putRec(r) {
+    if (r.discard) return Promise.resolve(); // deleted: never write it back
+    return tx('recs', 'readwrite', function (t) { t.objectStore('recs').put(r); });
+  }
   function delRec(r) {
     delete mem[r.id]; delete ready[r.id];
     return tx(['recs', 'chunks'], 'readwrite', function (t) { t.objectStore('recs').delete(r.id); t.objectStore('chunks').delete(chunkRange(r.id)); });
@@ -1224,8 +1325,9 @@
       .then(function () { return cur.saving; })
       .then(function () { cur.r.closed = true; return putRec(cur.r); })
       .then(function () {
+        if (cur.r.discard) return discardRec(cur.r);
         if (cur.r.target === 'device') return finishOnPhone(cur.r);
-        status(cur.r.target === 'youtube' ? '⏹ Recording stopped. Sending it to YouTube…' : '⏹ Recording stopped. Saving it on the server…');
+        status(cur.r.target === 'youtube' || cur.r.then === 'youtube' ? '⏹ Recording stopped. Sending it to YouTube…' : '⏹ Recording stopped. Saving it on the server…');
         kickSync();
       })
       .catch(function (e) { status('⚠️ Recording: ' + e.message); })
@@ -1294,14 +1396,16 @@
       .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { d._status = res.status; d._ok = res.ok; return d; }); });
   }
   function syncOne(r) {
-    if (r.failed) return Promise.resolve();
+    if (r.failed || r.discard) return Promise.resolve();
     return ensureOnServer(r).then(function step() {
+      if (r.discard) throw SKIP;
       if (r.sentSeq >= r.seq) {
         if (!r.closed) return;
         // The YouTube visibility chosen now applies, even if it was changed while recording
         return recApi('POST', r.code + '/' + r.serverId + '/finish', { k: r.k, privacy: ytPrivacy }).then(function (d) {
           if (!d._ok) throw new Error(d.error || 'Could not finish the recording');
-          return delRec(r);
+          var then = r.then, sid = r.serverId;
+          return delRec(r).then(function () { afterSaved(r, then, sid); });
         });
       }
       return tx('chunks', 'readonly', function (t) { return t.objectStore('chunks').get([r.id, r.sentSeq]); })
@@ -1400,6 +1504,7 @@
   };
   function setTarget(t) { recTarget = t; pref('cs.recTarget', t); renderRec(); }
   function renderRec() {
+    if (EMBED) tellParent(parentState);
     var on = !!recording;
     $('recBadge').className = on ? 'recb show' : 'recb';
     $('recBadge').parentNode.className = on ? 'top rec' : 'top';
@@ -1609,11 +1714,17 @@
     return done;
   }
 
-  $('go').onclick = function () { live ? stopLive() : goLive(); };
+  $('go').onclick = function () { live ? openStopSheet() : goLive(); };
   // The scoring screen's "Stop Live": end the stream, let the recording save its last piece, then say so
   window.addEventListener('message', function (e) {
     if (!EMBED || e.source !== window.parent || !e.data || e.data.type !== 'cricscore-cam-stop') return;
-    Promise.resolve(live ? stopLive() : null).catch(function () {}).then(function () { tellParent('stopped'); });
+    if (recording && e.data.save) applySaveChoice(recording.r, e.data.save);
+    closeStopSheet();
+    // Wait until the recording has reached the server before the scoring screen closes this page
+    Promise.resolve(live ? stopLive() : null).catch(function () {})
+      .then(function () { return waitSaved(30000); })
+      .then(function () { return new Promise(function (r) { setTimeout(r, 1200); }); })
+      .then(function () { tellParent('stopped'); });
   });
   $('flip').onclick = function () { facing = facing === 'environment' ? 'user' : 'environment'; startCamera(); };
   $('flipPic').onclick = function () { flipped = !flipped; pendingLayout = null; layout.ready = false; };

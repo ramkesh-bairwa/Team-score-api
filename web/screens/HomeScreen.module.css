@@ -416,3 +416,15 @@
 }
 .spinnerLarge { width: 36px; height: 36px; border-width: 3.5px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Match history: My matches / All matches */
+.historyTabs { display: flex; gap: 6px; padding: 4px; margin-bottom: 10px; background: var(--surface-3); border-radius: var(--r-pill); max-width: 420px; }
+.historyTab {
+  flex: 1; border: none; background: transparent; color: var(--ink-3); font: inherit; font-size: 13px; font-weight: 800;
+  padding: 8px 10px; border-radius: var(--r-pill); cursor: pointer;
+}
+.historyTabOn { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
+.historySearch {
+  width: 100%; max-width: 420px; margin-bottom: 12px; padding: 11px 14px; border-radius: var(--r-md);
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 16px; box-sizing: border-box;
+}

@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { listTeams, SharedTeam } from '@/lib/services/teams';
+import CloseX from './CloseX';
 import s from './TeamPicker.module.css';
 
 // Slide-up bottom sheet shell (web version of <Modal transparent animationType="slide">).
@@ -50,6 +51,7 @@ export function BottomSheet({ visible, onRequestClose, onOverlayPress, overlayCo
       style={overlayColor ? { backgroundColor: overlayColor } : undefined}
       onClick={onOverlayPress}>
       <div className={`${s.sheetBox} ${className || ''}`} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        {onRequestClose && <CloseX onClick={onRequestClose} />}
         {children}
       </div>
     </div>,

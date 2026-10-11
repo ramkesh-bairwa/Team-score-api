@@ -152,6 +152,13 @@ export const listMatches = async (): Promise<{ matches: MatchSummary[]; offline:
   }
 };
 
+// Everyone's matches (any logged-in user can open any match's scorecard), newest first
+export const listAllMatches = async (search = ''): Promise<MatchSummary[]> => {
+  const q = `?deviceId=${encodeURIComponent(await getDeviceId())}&limit=200${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
+  const server: any[] = await apiCall('GET', q);
+  return server.map(m => ({ ...m, date: new Date(m.createdAt).toLocaleDateString('en-IN') }));
+};
+
 // Full match (innings, ball-by-ball log): local copy first, else the API
 export const getMatch = async (id: string) => {
   const all = await localMatches();

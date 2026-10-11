@@ -19,7 +19,8 @@ import WatchLiveCard from '@/components/WatchLiveCard';
 import CameraLiveSheet from '@/components/CameraLiveSheet';
 import InningsScorecard from '@/components/InningsScorecard';
 import MatchRecordings from '@/components/MatchRecordings';
-import PhoneCamera, { CamState } from '@/components/PhoneCamera';
+import PhoneCamera, { CamInfo, CamState, StopChoice } from '@/components/PhoneCamera';
+import CloseX from '@/components/CloseX';
 import { createCameraStream, CameraStream } from '@/lib/services/stream';
 import { isServerConfigured } from '@/lib/services/server';
 import { useBackHandler } from '@/lib/nav';
@@ -258,7 +259,8 @@ function Scoring({ navigation, route }: any) {
   const [phoneCam, setPhoneCam] = useState(false);
   // What the camera says (starting / live / off / error) and whether Stop Live is in progress
   const [camState, setCamState] = useState<CamState>('off');
-  const [camStopping, setCamStopping] = useState(false);
+  const [camStopping, setCamStopping] = useState<StopChoice | null>(null);
+  const [camInfo, setCamInfo] = useState<CamInfo>({ rec: false, yt: false });
   const [shareRole, setShareRole] = useState<'streamer' | 'scorer'>('streamer');
   const [streamerName, setStreamerName] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -575,23 +577,50 @@ function Scoring({ navigation, route }: any) {
       }
     }
     setCamState('starting');
-    setCamStopping(false);
+    setCamStopping(null);
     setPhoneCam(true);
     setTab('score');
   };
-  // Stop Live: ends the stream (the recording keeps everything so far), then closes the camera
+  // Stop Live: continue, or stop and save the recording (then: where to save it)
   const stopPhoneCam = () => {
     if (camStopping) return;
     if (camState !== 'live' && camState !== 'starting') { closePhoneCam(); return; }
     popup.show({
       type: 'warning', icon: '📹', title: 'Stop Live?',
-      message: 'The live stream ends and the camera closes. The recording so far is kept.',
-      buttons: [{ text: 'Keep streaming', style: 'cancel' }, { text: 'Stop Live', style: 'destructive', onPress: () => setCamStopping(true) }],
+      message: camInfo.rec
+        ? 'This match is being recorded. Save the recording and stop, or keep streaming.'
+        : 'The live stream ends and the camera closes.',
+      buttons: camInfo.rec ? [
+        { text: '💾 Save recording & stop', onPress: askWhereToSave },
+        { text: 'Stop without saving', style: 'destructive', onPress: confirmDiscard },
+        { text: '▶ Continue live', style: 'cancel' },
+      ] : [
+        { text: '■ Stop live', style: 'destructive', onPress: () => setCamStopping('none') },
+        { text: '▶ Continue live', style: 'cancel' },
+      ],
     });
   };
+  const askWhereToSave = () => popup.show({
+    type: 'confirm', icon: '💾', title: 'Save Recording To',
+    message: camInfo.yt ? 'Where should the match recording be saved?' : 'Where should the match recording be saved? (YouTube needs a channel connected on the camera: ⏺ → YouTube.)',
+    buttons: [
+      { text: '📱 This phone', onPress: () => setCamStopping('device') },
+      { text: '☁️ Server', onPress: () => setCamStopping('server') },
+      ...(camInfo.yt ? [{ text: '▶ YouTube', onPress: () => setCamStopping('youtube') }] : []),
+      { text: '← Back (keep live)', style: 'cancel' as const },
+    ],
+  });
+  const confirmDiscard = () => popup.show({
+    type: 'warning', icon: '🗑️', title: 'Delete the Recording?',
+    message: 'The live stream stops and this match recording is deleted.',
+    buttons: [
+      { text: 'Delete & stop', style: 'destructive', onPress: () => setCamStopping('discard') },
+      { text: '← Back (keep live)', style: 'cancel' },
+    ],
+  });
   const closePhoneCam = () => {
     setPhoneCam(false);
-    setCamStopping(false);
+    setCamStopping(null);
     setCamState('off');
   };
   const goLiveLabel = camStopping ? 'Stopping…'
@@ -749,7 +778,7 @@ function Scoring({ navigation, route }: any) {
 
   // Retire a batter: hurt (not out, can come back later) or out (counts as a wicket, no bowler credit)
   const openRetire = () => {
-    if (openersPending) return;
+    if (openersPending || needBatter()) return;
     setRtIdx(strikerIdx);
     setRtKind('hurt');
     setRetireModal(true);
@@ -834,8 +863,16 @@ function Scoring({ navigation, route }: any) {
     return r > best.runs ? { runs: r, over: i + 1 } : best;
   }, { runs: -1, over: 0 });
 
+  // The batter picker was closed with ✕ while a batter is out or retired: ask again before any scoring
+  const needBatter = () => {
+    if (!batters.some(b => b.out || b.retired)) return false;
+    setSelectBatterModal(true);
+    return true;
+  };
+
   const handleRunPress = (run: number, extra?: string) => {
     if (openersPending) return; // nothing is recorded until the openers + bowler are confirmed
+    if (needBatter()) return;
     if (run > 0) {
       setPendingBall({ run, extra });
       setDirectionModal(true);
@@ -977,7 +1014,7 @@ function Scoring({ navigation, route }: any) {
   };
 
   const handleWicket = () => {
-    if (openersPending) return;
+    if (openersPending || needBatter()) return;
     setWkType('Bowled');
     setWkFielder(undefined);
     setWkOutNonStriker(false);
@@ -1196,8 +1233,9 @@ function Scoring({ navigation, route }: any) {
             url={`${cameraLinks.broadcastUrl}&embed=1&autostart=1`}
             watchUrl={cameraLinks.watchUrl}
             stopping={camStopping}
-            onState={(st, err) => {
+            onState={(st, err, info) => {
               setCamState(st);
+              setCamInfo(info);
               if (st === 'error' && err) popup.alert('Camera Problem', err, undefined, 'error');
             }}
             onStopped={closePhoneCam}
@@ -1238,6 +1276,9 @@ function Scoring({ navigation, route }: any) {
                   <button className={s.swapChip} onClick={swapStrike}>⇄ Swap<span className={s.hideXs}> strike</span></button>
                 </div>
               </div>
+              {batters.some(b => b.out || b.retired) && (
+                <button className={s.pickBatterBtn} onClick={() => setSelectBatterModal(true)}>🏏 Pick next batter</button>
+              )}
               {[striker, nonStriker].map((b, i) => (
                 <div key={b.name} className={`${s.batterRow} ${i === 0 ? s.batterRowOn : ''}`}>
                   <span className={s.strikeMark} aria-hidden>{i === 0 ? '🏏' : ''}</span>
@@ -1373,11 +1414,11 @@ function Scoring({ navigation, route }: any) {
             <span className={s.padLabel}>Extras</span>
             <div className={s.extraRow}>
               {[
-                { label: 'WD', onPress: () => { if (!openersPending) setWideModal(true); } },
+                { label: 'WD', onPress: () => { if (!openersPending && !needBatter()) setWideModal(true); } },
                 { label: 'NB', onPress: () => handleRunPress(1, 'nb') },
                 { label: 'LB', onPress: () => handleRunPress(1, 'lb') },
                 { label: 'BYE', onPress: () => handleRunPress(1, 'b') },
-                { label: 'DEAD', onPress: () => { if (!openersPending) setDeadModal(true); }, dead: true },
+                { label: 'DEAD', onPress: () => { if (!openersPending && !needBatter()) setDeadModal(true); }, dead: true },
               ].map(e => (
                 <button key={e.label} className={`${s.extraChip} ${e.dead ? s.deadChip : ''}`} onClick={e.onPress}>
                   {e.label}
@@ -1426,6 +1467,7 @@ function Scoring({ navigation, route }: any) {
       {live && (
         <Overlay visible={watchModal} onDismiss={() => setWatchModal(false)}>
           <div className={s.watchSheet}>
+          <CloseX onClick={() => setWatchModal(false)} />
             <WatchLiveCard code={live.code} title={`${firstBatting.name} vs ${firstFielding.name}`} />
             <button className={s.modalCancel} onClick={() => setWatchModal(false)}>Close</button>
           </div>
@@ -1436,6 +1478,7 @@ function Scoring({ navigation, route }: any) {
       <Overlay visible={wideModal}>
         <div className={s.modalBox}>
           <span className={s.modalGrip} />
+          <CloseX onClick={() => setWideModal(false)} />
           <span className={s.modalTitle}>↔️ Wide</span>
           <span className={s.modalSub}>
             Runs taken off the wide{isLocal ? ' (local match: no extra run for the wide itself)' : ' (+1 wide run is added)'}
@@ -1459,6 +1502,7 @@ function Scoring({ navigation, route }: any) {
       <Overlay visible={deadModal}>
         <div className={s.modalBox}>
           <span className={s.modalGrip} />
+          <CloseX onClick={() => setDeadModal(false)} />
           <span className={s.modalTitle}>⛔ Dead ball</span>
           <span className={s.modalSub}>The ball is not counted. Add runs if your rules give any (they go to extras).</span>
           <div className={s.runsGrid}>
@@ -1480,6 +1524,7 @@ function Scoring({ navigation, route }: any) {
       <Overlay visible={retireModal}>
         <div className={s.modalBox}>
           <span className={s.modalGrip} />
+          <CloseX onClick={() => setRetireModal(false)} />
           <span className={s.modalTitle}>🚶 Retire batter</span>
           <span className={s.wkLabel}>Who is retiring</span>
           <div className={s.wkChips}>
@@ -1513,6 +1558,7 @@ function Scoring({ navigation, route }: any) {
       <Overlay visible={wicketModal}>
         <div className={s.modalBox}>
           <span className={s.modalGrip} />
+          <CloseX onClick={() => setWicketModal(false)} />
           <span className={s.modalTitle}><span className={s.wkBall} aria-hidden />Wicket</span>
           <span className={s.modalSub}>{wkType === 'Run Out' ? 'Run out' : `${striker.name} out`} · bowler {currentBowler.name}</span>
 
@@ -1576,6 +1622,7 @@ function Scoring({ navigation, route }: any) {
       <Overlay visible={selectBatterModal}>
         <div className={s.modalBox}>
           <span className={s.modalGrip} />
+          <CloseX onClick={() => setSelectBatterModal(false)} />
           <span className={s.modalTitle}>🏏 Next batter</span>
           <span className={s.modalSub}>
             {yetToBat.length > 0
@@ -1633,6 +1680,7 @@ function Scoring({ navigation, route }: any) {
       {/* Direction Modal - Full Screen */}
       <Overlay visible={directionModal} variant="fade">
         {/* Header */}
+        <CloseX label="Cancel this ball" onClick={() => { setDirectionModal(false); setPendingBall(null); }} />
         <div className={s.dirHeader}>
           <span className={s.dirTitle}>📍 Shot direction</span>
           <span className={s.dirSub}>Tap where the ball went</span>
@@ -1723,6 +1771,7 @@ function Scoring({ navigation, route }: any) {
       <Overlay visible={selectBowlerModal}>
         <div className={s.modalBox}>
           <span className={s.modalGrip} />
+          <CloseX onClick={() => setSelectBowlerModal(false)} />
           <span className={s.modalTitle}>🎳 {bowlerChangeManual ? 'Change bowler' : 'New bowler'}</span>
           <span className={s.modalSub}>{bowlerChangeManual ? 'Select who is bowling now' : 'Select bowler for next over'}</span>
           <input
@@ -1768,6 +1817,7 @@ function Scoring({ navigation, route }: any) {
       <Overlay visible={openersPending && !handedOff.current}>
         <div className={s.modalBox}>
           <span className={s.modalGrip} />
+          {editingOpeners && <CloseX onClick={() => { setEditingOpeners(false); setOpenersPending(false); }} />}
           <span className={s.modalTitle}>🏏 Openers</span>
           <span className={s.modalSub}>
             {battingTeam.name} to bat · {fieldingTeam.name} to bowl. Choose the opening batters and bowler.
@@ -1835,6 +1885,7 @@ function Scoring({ navigation, route }: any) {
       <Overlay visible={addPlayerModal} onDismiss={() => setAddPlayerModal(false)}>
         <div className={s.modalBox}>
           <span className={s.modalGrip} />
+          <CloseX onClick={() => setAddPlayerModal(false)} />
           <span className={s.modalTitle}>➕ Add player</span>
           <span className={s.modalSub}>New players can then be picked as the next batter or bowler.</span>
           <div className={s.wkChips}>

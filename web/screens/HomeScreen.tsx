@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import AsyncStorage from '@/lib/storage';
 import {
-  getInProgressMatch, clearInProgressMatch, listMatches, getMatch, clearMyMatches,
+  getInProgressMatch, clearInProgressMatch, listMatches, listAllMatches, getMatch, clearMyMatches,
   pendingMatchCount, syncPendingMatches,
 } from '@/lib/services/api';
 import { C } from '@/lib/theme';
@@ -54,6 +54,11 @@ export default function HomeScreen({ navigation }: any) {
   const [pendingMatches, setPendingMatches] = useState(0);
   const [historyOffline, setHistoryOffline] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
+  // Match history: this phone's matches, or everyone's (any match's scorecard can be opened)
+  const [historyTab, setHistoryTab] = useState<'mine' | 'all'>('mine');
+  const [allMatches, setAllMatches] = useState<any[] | null>(null);
+  const [allSearch, setAllSearch] = useState('');
+  const [allError, setAllError] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
   const [joinState, setJoinState] = useState<'form' | 'sending' | 'waiting'>('form');
@@ -124,6 +129,18 @@ export default function HomeScreen({ navigation }: any) {
     return () => document.removeEventListener('visibilitychange', onVisible);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Everyone's matches, searched by team or ground name (a short pause after typing)
+  useEffect(() => {
+    if (historyTab !== 'all') return;
+    let alive = true;
+    const t = setTimeout(() => {
+      listAllMatches(allSearch)
+        .then(list => { if (alive) { setAllMatches(list); setAllError(''); } })
+        .catch((e: any) => { if (alive) setAllError(e?.message || 'Could not load the matches. Check your internet.'); });
+    }, allSearch ? 350 : 0);
+    return () => { alive = false; clearTimeout(t); };
+  }, [historyTab, allSearch]);
 
   // Match history comes from the match API (falls back to this device's copy when offline)
   const loadHistory = async () => {
@@ -555,15 +572,41 @@ export default function HomeScreen({ navigation }: any) {
         <section className={s.section}>
           <div className={s.sectionHead}>
             <h2 className={s.sectionTitle}>
-              Match History <span className={s.countPill}>{history.length}</span>
+              Match History <span className={s.countPill}>{historyTab === 'mine' ? history.length : allMatches?.length ?? '…'}</span>
             </h2>
-            {history.length > 0 && (
+            {historyTab === 'mine' && history.length > 0 && (
               <button className={s.clearBtn} onClick={clearHistory}>Clear History</button>
             )}
           </div>
-          {historyOffline && <div className={s.offlineNote}>📴 Offline · showing matches saved on this phone</div>}
+          <div className={s.historyTabs} role="tablist">
+            {(['mine', 'all'] as const).map(k => (
+              <button key={k} role="tab" aria-selected={historyTab === k} className={`${s.historyTab} ${historyTab === k ? s.historyTabOn : ''}`} onClick={() => setHistoryTab(k)}>
+                {k === 'mine' ? '📱 My matches' : '🌍 All matches'}
+              </button>
+            ))}
+          </div>
+          {historyTab === 'all' && (
+            <input
+              className={s.historySearch}
+              placeholder="🔍  Search by team or ground"
+              value={allSearch}
+              onChange={e => setAllSearch(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="Search all matches"
+            />
+          )}
+          {historyTab === 'mine' && historyOffline && <div className={s.offlineNote}>📴 Offline · showing matches saved on this phone</div>}
+          {historyTab === 'all' && allError && <div className={s.offlineNote}>⚠️ {allError}</div>}
 
-          {history.length === 0 ? (
+          {historyTab === 'all' && allMatches === null ? (
+            <div className={s.emptyBox}><div className={s.emptySubText}>Loading matches…</div></div>
+          ) : historyTab === 'all' && allMatches?.length === 0 ? (
+            <div className={s.emptyBox}>
+              <div className={s.emptyIcon}>🔍</div>
+              <div className={s.emptyText}>{allSearch ? `No match found for “${allSearch}”` : 'No matches yet'}</div>
+            </div>
+          ) : historyTab === 'mine' && history.length === 0 ? (
             <div className={s.emptyBox}>
               <div className={s.emptyIcon}>🏏</div>
               <div className={s.emptyText}>No matches played yet</div>
@@ -572,7 +615,7 @@ export default function HomeScreen({ navigation }: any) {
             </div>
           ) : (
             <div className={s.matchGrid}>
-              {history.map((m: any) => {
+              {(historyTab === 'mine' ? history : allMatches || []).map((m: any) => {
                 const status = m.status === 'completed' ? 'COMPLETED' : m.status === 'innings_break' ? 'INNINGS BREAK' : 'LIVE';
                 return (
                   <button
@@ -599,7 +642,7 @@ export default function HomeScreen({ navigation }: any) {
                     )}
                     {m.result ? <div className={s.matchResult}>🏆 {m.result}</div> : null}
                     <div className={s.matchFoot}>
-                      <span className={s.matchMeta}>{m.overs} ov{m.ballType ? ` · ${m.ballType} ball` : ''}</span>
+                      <span className={s.matchMeta}>{m.overs} ov{m.ballType ? ` · ${m.ballType} ball` : ''}{historyTab === 'all' && m.createdBy ? ` · by ${m.createdBy}` : ''}</span>
                       <span className={s.viewDetail}>
                         {openingId === m.id ? <><Spinner color={C.accent} /> Opening…</> : 'Tap to view scorecard →'}
                       </span>

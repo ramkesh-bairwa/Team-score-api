@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import QRCode from './QRCode';
 import { CameraStream, getStreamStatus } from '@/lib/services/stream';
 import { shareText, openUrl } from '@/lib/share';
+import CloseX from './CloseX';
 import st from './CameraLiveSheet.module.css';
 
 type Tab = 'camera' | 'watch';
@@ -58,6 +59,7 @@ export default function CameraLiveSheet({ visible, code, links, onClose, onYoutu
     <div className={`${st.overlay} ${shown ? st.shown : ''}`} role="dialog" aria-modal="true">
       <div className={st.backdrop} onClick={onClose} />
       <div className={st.sheet}>
+        <CloseX onClick={onClose} />
         <div className={st.handle} />
         <div className={st.scroll}>
           <div className={st.titleRow}>

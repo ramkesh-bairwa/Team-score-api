@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { C } from '@/lib/theme';
+import CloseX from './CloseX';
 import st from './Popup.module.css';
 
 export type PopupType = 'info' | 'success' | 'error' | 'warning' | 'confirm' | 'danger';
@@ -28,8 +29,10 @@ const THEME: Record<PopupType, { icon: string; color: string; light: string }> =
 
 // ─── Animated card shell, reusable for custom popups (forms etc.) ───────
 
-export function PopupCard({ visible, onRequestClose, children, wide }: {
+export function PopupCard({ visible, onRequestClose, children, wide, closable = true }: {
   visible: boolean; onRequestClose?: () => void; children: React.ReactNode; wide?: boolean;
+  // ✕ in the corner (when the popup can be closed)
+  closable?: boolean;
 }) {
   const [mounted, setMounted] = useState(visible);
   const [shown, setShown] = useState(false);
@@ -56,6 +59,7 @@ export function PopupCard({ visible, onRequestClose, children, wide }: {
   return createPortal(
     <div className={`${st.overlay} ${shown ? st.shown : ''}`} onClick={onRequestClose}>
       <div className={`${st.card} ${wide ? st.wide : ''}`} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        {closable && onRequestClose && <CloseX onClick={onRequestClose} />}
         {children}
       </div>
     </div>,
@@ -122,7 +126,7 @@ export function PopupHost() {
   const cancelBtn = buttons.find(b => b.style === 'cancel');
 
   return (
-    <PopupCard visible={visible} onRequestClose={() => { if (current.dismissable !== false) close(cancelBtn); }}>
+    <PopupCard visible={visible} closable={current.dismissable !== false} onRequestClose={() => { if (current.dismissable !== false) close(cancelBtn); }}>
       <PopupIcon type={type} icon={current.icon} />
       <div className={st.title}>{current.title}</div>
       {!!current.message && <div className={st.message}>{current.message}</div>}

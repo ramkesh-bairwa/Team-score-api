@@ -7,7 +7,7 @@
 }
 .sheetShown { opacity: 1; }
 .sheetBox {
-  width: 100%; max-width: 640px; background: var(--surface);
+  position: relative; width: 100%; max-width: 640px; background: var(--surface);
   border-top-left-radius: var(--r-xl); border-top-right-radius: var(--r-xl);
   display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);

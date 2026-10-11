@@ -3,14 +3,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import st from './PhoneCamera.module.css';
 
 export type CamState = 'starting' | 'live' | 'off' | 'error';
+// What the camera page reports along with its state
+export type CamInfo = { rec: boolean; yt: boolean };
+// How to stop: save the recording to the phone / server / YouTube, delete it, or no recording
+export type StopChoice = 'device' | 'server' | 'youtube' | 'discard' | 'none';
 
 // Live camera from the scoring phone itself: the camera page (/go, embedded) runs under the score,
 // so one upright phone scores and streams. Streaming, recording and YouTube Live work as on the
 // camera page. The scoring screen's Go Live / Stop Live drives it: `stopping` asks the camera page
 // to end the stream (and save the recording's last piece), then onStopped closes the panel.
 export default function PhoneCamera({ url, watchUrl, stopping, onState, onStopped, onClose }: {
-  url: string; watchUrl?: string; stopping: boolean;
-  onState: (state: CamState, error?: string | null) => void;
+  url: string; watchUrl?: string; stopping: StopChoice | null;
+  onState: (state: CamState, error: string | null, info: CamInfo) => void;
   onStopped: () => void;
   onClose: () => void;
 }) {
@@ -24,7 +28,7 @@ export default function PhoneCamera({ url, watchUrl, stopping, onState, onStoppe
     const onMessage = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow || e.data?.type !== 'cricscore-cam') return;
       if (e.data.state === 'stopped') cb.current.onStopped();
-      else cb.current.onState(e.data.state, e.data.error);
+      else cb.current.onState(e.data.state, e.data.error || null, { rec: !!e.data.rec, yt: !!e.data.yt });
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
@@ -32,9 +36,9 @@ export default function PhoneCamera({ url, watchUrl, stopping, onState, onStoppe
 
   useEffect(() => {
     if (!stopping) return;
-    frame.current?.contentWindow?.postMessage({ type: 'cricscore-cam-stop' }, '*');
-    // Close anyway if the camera page doesn't answer (e.g. it never loaded)
-    const t = setTimeout(() => cb.current.onStopped(), 8000);
+    frame.current?.contentWindow?.postMessage({ type: 'cricscore-cam-stop', save: stopping === 'none' ? null : stopping }, '*');
+    // The camera page answers once the recording is saved; close anyway if it never does
+    const t = setTimeout(() => cb.current.onStopped(), 45000);
     return () => clearTimeout(t);
   }, [stopping]);
 

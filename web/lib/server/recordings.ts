@@ -362,6 +362,8 @@ export function startYouTubeUpload(r: Recording, acct: string, privacy: Privacy)
 }
 
 async function uploadToYouTube(r: Recording, acct: string, privacy: Privacy) {
+  // Let a header fix (or a late piece) that is still running finish first
+  await (appendQueues.get(r.id) || Promise.resolve()).catch(() => {});
   const file = filePath(r);
   const size = fs.statSync(file).size;
   if (!size) throw new Error('The recording is empty');

@@ -20,7 +20,7 @@
 .scroll { display: flex; flex-direction: column; overflow-y: auto; min-height: 0; scrollbar-width: none; }
 .scroll > * { flex-shrink: 0; }
 .scroll::-webkit-scrollbar { display: none; }
-.titleRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.titleRow { display: flex; align-items: center; justify-content: space-between; gap: 8px;  padding-right: 40px; } /* room for the ✕ */
 .title { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--ink); text-transform: uppercase; letter-spacing: .4px; }
 .pill {
   display: flex; align-items: center; gap: 6px; background-color: var(--surface-3);

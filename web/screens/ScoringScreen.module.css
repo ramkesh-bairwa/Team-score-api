@@ -3,7 +3,7 @@
    Laptops (≥1024px): left = scoreboard + this over + tabs, right = sticky scoring pad. */
 
 .container {
-  position: relative; width: 100%; min-height: 100vh; min-height: 100dvh;
+  position: relative; width: 100%; min-height: 100vh; min-height: 100dvh; overflow-x: clip;
   background: var(--surface-2); color: var(--ink);
 }
 .container button {
@@ -28,7 +28,8 @@
 
 /* ── Scoreboard ── */
 .board {
-  position: relative; overflow: hidden; flex-shrink: 0;
+  /* clip (not hidden): a box that can't be scrolled, so a long top line never shifts the board sideways */
+  position: relative; overflow: hidden; overflow: clip; flex-shrink: 0;
   background: var(--grad-hero); color: var(--on-dark);
   padding: max(14px, env(safe-area-inset-top)) var(--gutter) 34px;
   border-bottom-left-radius: var(--r-xl); border-bottom-right-radius: var(--r-xl);
@@ -177,7 +178,7 @@
   display: flex; flex-direction: column; background: var(--surface); border-radius: var(--r-lg);
   padding: 14px 16px 16px; box-shadow: var(--shadow-1); border: 1px solid var(--line);
 }
-.cardHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; min-height: 30px; }
+.cardHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; min-height: 30px; }
 .cardCount { font-size: 12px; font-weight: 700; color: var(--ink-3); }
 .container .swapChip {
   min-height: 34px; padding: 0 14px; border-radius: var(--r-pill);
@@ -186,7 +187,9 @@
 }
 .container .swapChip:hover { background: #DBEAFE; }
 .container .swapChip:active { transform: scale(.96); }
-.cardActions { display: flex; gap: 6px; flex-shrink: 0; }
+/* Wraps onto a second line on narrow phones instead of pushing the page sideways */
+.cardActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; min-width: 0; }
+@media (max-width: 420px) { .container .swapChip { padding: 0 10px; min-height: 32px; } }
 
 .batterRow {
   display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-md);
@@ -311,7 +314,7 @@
 .modalOverlay.overlayShown > :not(.backdrop) { transform: translateY(0); }
 
 .modalBox, .watchSheet {
-  display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: 92dvh; overflow-y: auto;
+  position: relative; display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: 92dvh; overflow-y: auto;
   background: var(--surface); border-top-left-radius: var(--r-xl); border-top-right-radius: var(--r-xl);
   padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--shadow-3);
 }
@@ -419,6 +422,21 @@
 .allOutText { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.4; }
 @media (max-width: 380px) {
   .modalOverlay .addBtn { padding: 0 12px; font-size: 13px; }
+}
+
+/* Small phones: the top buttons and this over's balls fit on one line */
+@media (max-width: 400px) {
+  .topRow { gap: 6px; }
+  .topActions { gap: 4px; }
+  .container .iconBtn { width: 34px; height: 34px; font-size: 16px; }
+  .container .watchBtn, .container .camBtn, .container .codePill { height: 34px; padding: 0 9px; gap: 4px; font-size: 11px; }
+  .overBalls { gap: 6px; }
+  .ballChip { min-width: 36px; height: 36px; font-size: 15px; }
+  .ballSlot { width: 36px; height: 36px; }
+}
+/* Narrowest phones: Watch shows just its icon, so Live / Stop Live and the match code still fit */
+@media (max-width: 360px) {
+  .container .watchBtn > span:not([aria-hidden]) { display: none; }
 }
 
 /* ── Shot direction (full screen) ── */
@@ -593,3 +611,10 @@
 /* Go Live / Stop Live */
 .container .camBtnOn { background: #fff; color: var(--brand); box-shadow: 0 4px 14px rgba(230, 57, 70, .35); }
 .camStop { width: 9px; height: 9px; border-radius: 2px; background: var(--brand); }
+
+/* The next batter is still to be picked (picker closed with ✕) */
+.container .pickBatterBtn {
+  width: 100%; min-height: 40px; margin-bottom: 8px; border-radius: var(--r-md);
+  background: var(--brand-soft); color: var(--brand-strong); border: 1px dashed var(--brand);
+  font-size: 14px; font-weight: 800;
+}

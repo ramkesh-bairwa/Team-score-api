@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { saveInProgressMatch, upsertMatch } from '@/lib/services/api';
 import { pullLiveState } from '@/lib/services/live';
+import MatchRecordings from '@/components/MatchRecordings';
 import { popup } from '@/components/Popup';
 import InningsScorecard from '@/components/InningsScorecard';
 import CommentaryList from '@/components/CommentaryList';
@@ -332,6 +333,11 @@ export default function ScorecardScreen({ navigation, route }: any) {
 
           {/* Viewers: QR / code / link to the live watch page */}
           {!!live?.code && <WatchLiveCard code={live.code} title={`${battingTeam.name} vs ${fieldingTeam.name}`} compact />}
+
+          {/* Recordings from the camera phone: watch (jump to any ball), download, delete, upload */}
+          {!!live?.code && !!live?.token && (
+            <MatchRecordings code={live.code} token={live.token} logs={[innings1?.ballLog, innings2?.ballLog]} />
+          )}
 
           {/* Live-streamed match: innings video, ball-by-ball replays and the live stream, in the app */}
           {!!live?.code && (

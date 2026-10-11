@@ -17,6 +17,9 @@ import ServerSettings from '@/components/ServerSettings';
 import ShareMatchModal from '@/components/ShareMatchModal';
 import WatchLiveCard from '@/components/WatchLiveCard';
 import CameraLiveSheet from '@/components/CameraLiveSheet';
+import InningsScorecard from '@/components/InningsScorecard';
+import MatchRecordings from '@/components/MatchRecordings';
+import PhoneCamera, { CamState } from '@/components/PhoneCamera';
 import { createCameraStream, CameraStream } from '@/lib/services/stream';
 import { isServerConfigured } from '@/lib/services/server';
 import { useBackHandler } from '@/lib/nav';
@@ -24,7 +27,10 @@ import s from './ScoringScreen.module.css';
 
 // extra: 'wd' | 'nb' | 'lb' | 'b' | 'db' (dead ball: shown in the over, never counted)
 type Ball = { runs: number; extra?: string; wicket?: boolean };
-type PlayerScore = { name: string; runs: number; balls: number; fours: number; sixes: number; out: boolean; howOut?: string };
+// retired: 'hurt' = left the field not out (can bat again later), 'out' = retired out (counts as a wicket)
+type PlayerScore = {
+  name: string; runs: number; balls: number; fours: number; sixes: number; out: boolean; howOut?: string; retired?: 'hurt' | 'out';
+};
 type BowlerScore = {
   name: string; overs: number; balls: number; runs: number; wickets: number;
   maidens?: number; wides?: number; noBalls?: number;
@@ -239,7 +245,7 @@ function Scoring({ navigation, route }: any) {
   const [ballLog, setBallLog] = useState<LogEntry[]>(saved?.ballLog ?? []);
   const [pickerSearch, setPickerSearch] = useState('');
 
-  const [tab, setTab] = useState<'score' | 'graph' | 'log'>('score');
+  const [tab, setTab] = useState<'score' | 'card' | 'graph' | 'log'>('score');
   const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
   const [youtubeSheet, setYoutubeSheet] = useState(false);
   const [serverModal, setServerModal] = useState(false);
@@ -248,6 +254,11 @@ function Scoring({ navigation, route }: any) {
   // Free WebRTC camera stream (QR for the camera phone + watch link)
   const [cameraSheet, setCameraSheet] = useState(false);
   const [cameraLinks, setCameraLinks] = useState<CameraStream | null>(null);
+  // Camera of this phone, streaming under the score (the embedded camera page)
+  const [phoneCam, setPhoneCam] = useState(false);
+  // What the camera says (starting / live / off / error) and whether Stop Live is in progress
+  const [camState, setCamState] = useState<CamState>('off');
+  const [camStopping, setCamStopping] = useState(false);
   const [shareRole, setShareRole] = useState<'streamer' | 'scorer'>('streamer');
   const [streamerName, setStreamerName] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -261,11 +272,18 @@ function Scoring({ navigation, route }: any) {
   const [openStriker, setOpenStriker] = useState<string | null>(null);
   const [openNonStriker, setOpenNonStriker] = useState<string | null>(null);
   const [openBowler, setOpenBowler] = useState<string | null>(null);
+  // Openers reopened to change them (before the first ball): Cancel keeps the current ones
+  const [editingOpeners, setEditingOpeners] = useState(false);
   // "+ Player" sheet during play
   const [addPlayerModal, setAddPlayerModal] = useState(false);
   const [addTeam, setAddTeam] = useState<'bat' | 'bowl'>('bat');
   const [wicketModal, setWicketModal] = useState(false);
   const [wideModal, setWideModal] = useState(false);
+  const [deadModal, setDeadModal] = useState(false);
+  // Retire a batter: which one (index in `batters`) and how
+  const [retireModal, setRetireModal] = useState(false);
+  const [rtIdx, setRtIdx] = useState(0);
+  const [rtKind, setRtKind] = useState<'hurt' | 'out'>('hurt');
   const [directionModal, setDirectionModal] = useState(false);
   const [pendingBall, setPendingBall] = useState<{ run: number; extra?: string } | null>(null);
   // Wicket popup selections
@@ -309,7 +327,7 @@ function Scoring({ navigation, route }: any) {
   // Browser Back (= hardware back) asks for confirmation instead of leaving.
   // While a picker/sheet is open the app's Modal swallows the back press, so do the same here.
   const anyModalOpen = selectBatterModal || selectBowlerModal || wicketModal || wideModal || directionModal || watchModal
-    || addPlayerModal || openersPending;
+    || addPlayerModal || openersPending || deadModal || retireModal;
   useBackHandler(() => {
     if (!anyModalOpen) confirmLeave();
     return true;
@@ -433,6 +451,8 @@ function Scoring({ navigation, route }: any) {
     setSelectBowlerModal(false);
     setWicketModal(false);
     setWideModal(false);
+    setDeadModal(false);
+    setRetireModal(false);
     setDirectionModal(false);
     setShareModal(false);
     setAddPlayerModal(false);
@@ -540,6 +560,46 @@ function Scoring({ navigation, route }: any) {
     }
   };
 
+  // Go Live: opens this phone's camera under the score and starts the stream straight away
+  const startPhoneCam = async () => {
+    setCameraSheet(false);
+    if (phoneCam) return;
+    const sess = await ensureSession();
+    if (!sess) return;
+    if (!cameraLinks) {
+      try {
+        setCameraLinks(await createCameraStream(sess));
+      } catch (e: any) {
+        popup.alert('Live Stream Unavailable', e.message, undefined, 'error');
+        return;
+      }
+    }
+    setCamState('starting');
+    setCamStopping(false);
+    setPhoneCam(true);
+    setTab('score');
+  };
+  // Stop Live: ends the stream (the recording keeps everything so far), then closes the camera
+  const stopPhoneCam = () => {
+    if (camStopping) return;
+    if (camState !== 'live' && camState !== 'starting') { closePhoneCam(); return; }
+    popup.show({
+      type: 'warning', icon: '📹', title: 'Stop Live?',
+      message: 'The live stream ends and the camera closes. The recording so far is kept.',
+      buttons: [{ text: 'Keep streaming', style: 'cancel' }, { text: 'Stop Live', style: 'destructive', onPress: () => setCamStopping(true) }],
+    });
+  };
+  const closePhoneCam = () => {
+    setPhoneCam(false);
+    setCamStopping(false);
+    setCamState('off');
+  };
+  const goLiveLabel = camStopping ? 'Stopping…'
+    : !phoneCam ? 'Go Live'
+    : camState === 'live' ? 'Stop Live'
+    : camState === 'starting' ? 'Starting…'
+    : 'Close camera';
+
   const shareMatch = async (role: 'streamer' | 'scorer' = 'streamer') => {
     if (connecting) return;
     setShareRole(role);
@@ -562,6 +622,15 @@ function Scoring({ navigation, route }: any) {
       if (openStriker === p) setOpenStriker(null);
     }
   };
+  // Openers can still be changed until the first ball is bowled
+  const canChangeOpeners = !openersPending && ballLog.length === 0 && currentOver === 0 && currentBall === 0 && balls.length === 0;
+  const changeOpeners = () => {
+    setOpenStriker(batters[strikerIdx].name);
+    setOpenNonStriker(batters[strikerIdx === 0 ? 1 : 0].name);
+    setOpenBowler(bowlers[currentBowlerIdx].name);
+    setEditingOpeners(true);
+    setOpenersPending(true);
+  };
   const openersReady = !!openStriker && !!openNonStriker && !!openBowler && openStriker !== openNonStriker;
   const confirmOpeners = () => {
     if (!openersReady) return;
@@ -570,17 +639,27 @@ function Scoring({ navigation, route }: any) {
     setNextBatterIdx(2);
     setBowlers([initBowler(openBowler!)]);
     setCurrentBowlerIdx(0);
+    setEditingOpeners(false);
     setOpenersPending(false);
   };
 
-  // Incoming batter replaces the batter who is out (or the striker if nobody is marked out)
+  // Incoming batter replaces the batter who is out or retired (or the striker if nobody is).
+  // A batter who retired hurt comes back with their score so far.
   const bringInBatter = (p: string) => {
-    if (batters.some(b => b.name === p && !b.out)) return;
-    const outIdx = batters.findIndex(b => b.out);
+    if (batters.some(b => b.name === p && !b.out && !b.retired)) return;
+    const outIdx = batters.findIndex(b => b.out || b.retired);
     const slot = outIdx >= 0 ? outIdx : strikerIdx;
     const updated = [...batters];
-    if (outIdx >= 0) setDismissed([...dismissed, batters[outIdx]]);
-    updated[slot] = initBatter(p);
+    const gone = outIdx >= 0 ? [...dismissed, batters[outIdx]] : [...dismissed];
+    let incoming = initBatter(p);
+    const back = gone.findIndex(d => d.name === p && d.retired === 'hurt');
+    if (back >= 0) {
+      const { retired: _r, howOut: _h, ...rest } = gone[back];
+      incoming = { ...rest, out: false };
+      gone.splice(back, 1);
+    }
+    if (outIdx >= 0 || back >= 0) setDismissed(gone);
+    updated[slot] = incoming;
     setBatters(updated);
     setNextBatterIdx((i: number) => i + 1);
     setSelectBatterModal(false);
@@ -635,15 +714,56 @@ function Scoring({ navigation, route }: any) {
     setSelectBowlerModal(false);
   };
 
-  const deadBall = () => {
+  // Dead ball: the ball doesn't count. Runs (e.g. penalty runs) go to the total as extras,
+  // not to the batter or the bowler.
+  const deadBall = (runs = 0) => {
     if (openersPending) return;
+    setDeadModal(false);
     pushUndo();
-    setBalls([...balls, { runs: 0, extra: 'db' }]);
+    setBalls([...balls, { runs, extra: 'db' }]);
+    if (runs) setTotalRuns((t: number) => t + runs);
     setBallLog(l => [...l, {
-      over: `${currentOver}.${currentBall + 1}`, bat: striker.name, bowl: currentBowler.name, runs: 0, extra: 'db',
-      score: `${totalRuns}/${wickets}`, kind: 'extra',
-      text: commentaryFor({ bat: striker.name, bowl: currentBowler.name, runs: 0, extra: 'db' }),
+      over: `${currentOver}.${currentBall + 1}`, bat: striker.name, bowl: currentBowler.name, runs, extra: 'db',
+      score: `${totalRuns + runs}/${wickets}`, kind: 'extra', at: Date.now(),
+      text: runs
+        ? `Dead ball. ${plural(runs, 'run')} added to the total; the ball is not counted.`
+        : commentaryFor({ bat: striker.name, bowl: currentBowler.name, runs: 0, extra: 'db' }),
     }]);
+    // Penalty runs can complete a chase
+    if (runs && isSecondInnings && totalRuns + runs >= target) {
+      setTimeout(() => endInnings(batters, bowlers, totalRuns + runs, wickets, currentOver, currentBall), 300);
+    }
+  };
+
+  // Retire a batter: hurt (not out, can come back later) or out (counts as a wicket, no bowler credit)
+  const openRetire = () => {
+    if (openersPending) return;
+    setRtIdx(strikerIdx);
+    setRtKind('hurt');
+    setRetireModal(true);
+  };
+  const confirmRetire = () => {
+    setRetireModal(false);
+    const b = batters[rtIdx];
+    const out = rtKind === 'out';
+    pushUndo();
+    const updated = [...batters];
+    updated[rtIdx] = out
+      ? { ...b, out: true, retired: 'out', howOut: 'retired out' }
+      : { ...b, retired: 'hurt', howOut: 'retired hurt' };
+    setBatters(updated);
+    if (out) {
+      setWickets((w: number) => w + 1);
+      setFallOfWickets(f => [...f, { score: totalRuns, wicket: wickets + 1, over: oversDisplay, batter: b.name }]);
+    }
+    setBallLog(l => [...l, {
+      over: oversDisplay, bat: b.name, bowl: currentBowler.name, runs: 0, extra: out ? 'ro' : 'rh', wicket: out,
+      score: `${totalRuns}/${wickets + (out ? 1 : 0)}`, kind: out ? 'wicket' : 'extra', at: Date.now(),
+      text: out
+        ? `${b.name} retires out on ${b.runs} (${b.balls}). That counts as a wicket.`
+        : `${b.name} retires hurt on ${b.runs} (${b.balls}) and can bat again later.`,
+    }]);
+    setSelectBatterModal(true);
   };
 
   const changeBowler = () => {
@@ -669,7 +789,11 @@ function Scoring({ navigation, route }: any) {
     runs: totalRuns, wickets, overs: currentOver, balls: currentBall, batters: allBatters, bowlers,
     overHistory: balls.length ? [...overHistory, balls] : overHistory, fallOfWickets, ballLog,
   };
-  const yetToBat: string[] = batPlayers.filter((p: string) => !allBatters.some(b => b.name === p));
+  const retiredHurt = dismissed.filter(b => b.retired === 'hurt');
+  const yetToBat: string[] = [
+    ...batPlayers.filter((p: string) => !allBatters.some(b => b.name === p)),
+    ...retiredHurt.map(b => b.name),
+  ];
   // Wickets alone have ended the innings (all out) but the scorer may add a player and carry on
   const allOutNow = wickets > 0 && wickets >= batPlayers.length - 1;
   const matchSearch = (name: string) => name.toLowerCase().includes(pickerSearch.trim().toLowerCase());
@@ -692,7 +816,7 @@ function Scoring({ navigation, route }: any) {
   const fours = allBalls.filter(b => b.runs === 4 && !b.extra).length;
   const sixes = allBalls.filter(b => b.runs === 6 && !b.extra).length;
   const dots = allBalls.filter(b => b.runs === 0 && !b.extra && !b.wicket).length;
-  const extras = allBalls.filter(b => b.extra && b.extra !== 'db').reduce((sum, b) => sum + b.runs, 0);
+  const extras = allBalls.filter(b => b.extra).reduce((sum, b) => sum + b.runs, 0);
   const bestOver = overHistory.reduce((best, o, i) => {
     const r = overStat(o).runs;
     return r > best.runs ? { runs: r, over: i + 1 } : best;
@@ -755,7 +879,7 @@ function Scoring({ navigation, route }: any) {
     const boundary = !actualExtra && !isWicket && (actualRun === 4 || actualRun === 6);
     setBallLog(l => [...l, {
       over: `${currentOver}.${currentBall + 1}`, bat: striker.name, bowl: currentBowler.name,
-      runs: actualRun, extra: actualExtra, wicket: isWicket, text: line,
+      runs: actualRun, extra: actualExtra, wicket: isWicket, text: line, at: Date.now(),
       score: `${totalRuns + actualRun}/${wickets + (isWicket ? 1 : 0)}`,
       kind: isWicket ? 'wicket' : actualExtra ? 'extra' : boundary ? (actualRun === 6 ? 'six' : 'four') : actualRun ? 'run' : 'dot',
     }]);
@@ -789,7 +913,7 @@ function Scoring({ navigation, route }: any) {
         newStrikerIdx = newStrikerIdx === 0 ? 1 : 0;
         setStrikerIdx(newStrikerIdx);
         // Over complete: credit the bowler a full over; maiden if nothing was conceded off the bat or as wd/nb
-        const conceded = newBalls.reduce((sum, b) => sum + (b.extra === 'lb' || b.extra === 'b' ? 0 : b.runs), 0);
+        const conceded = newBalls.reduce((sum, b) => sum + (b.extra === 'lb' || b.extra === 'b' || b.extra === 'db' ? 0 : b.runs), 0);
         const bw = updatedBowlers[currentBowlerIdx];
         updatedBowlers[currentBowlerIdx] = {
           ...bw, overs: bw.overs + 1, balls: 0, maidens: (bw.maidens ?? 0) + (conceded === 0 ? 1 : 0),
@@ -920,7 +1044,7 @@ function Scoring({ navigation, route }: any) {
 
   const ballLabel = (ball: Ball) => {
     if (ball.wicket) return 'W';
-    if (ball.extra === 'db') return 'DB';
+    if (ball.extra === 'db') return `DB${ball.runs ? '+' + ball.runs : ''}`;
     if (ball.extra === 'wd' || ball.extra === 'nb') {
       // Domestic runs include the 1-run penalty; local matches have no penalty
       const taken = isLocal ? ball.runs : ball.runs - 1;
@@ -943,7 +1067,7 @@ function Scoring({ navigation, route }: any) {
     setPendingBall(null);
   };
 
-  const openFullCard = () => navigation.navigate('Scorecard', {
+  const openFullCard = () => (phoneCam ? setTab('card') : navigation.navigate('Scorecard', {
     battingTeam: isSecondInnings ? originalBattingTeam : battingTeam,
     fieldingTeam: isSecondInnings ? originalFieldingTeam : fieldingTeam,
     overs, matchType, location, bet,
@@ -951,7 +1075,7 @@ function Scoring({ navigation, route }: any) {
     innings2: isSecondInnings ? liveInnings : undefined,
     tossWinner, tossChoice,
     isFirstInnings: !isSecondInnings, liveView: true,
-  });
+  }));
 
   const hotBanner = isSecondInnings && runsNeeded > 0 && rrr && parseFloat(rrr) > 12;
 
@@ -975,9 +1099,12 @@ function Scoring({ navigation, route }: any) {
                     <span>Watch<span className={s.hideXs}> / Share</span></span>
                   </button>
                 )}
-                <button className={s.camBtn} onClick={openCameraLive} aria-label="Live stream">
-                  <span className={s.camDot} />
-                  <span>Live</span>
+                <button
+                  className={`${s.camBtn} ${phoneCam && camState === 'live' ? s.camBtnOn : ''}`}
+                  onClick={phoneCam ? stopPhoneCam : startPhoneCam}
+                  aria-label={phoneCam ? 'Stop the live stream' : 'Go live with this phone camera'}>
+                  {phoneCam && camState === 'live' ? <span className={s.camStop} aria-hidden /> : <span className={s.camDot} />}
+                  <span>{goLiveLabel}</span>
                 </button>
                 <button
                   className={`${s.codePill} ${live ? s.codePillLive : ''}`}
@@ -1051,19 +1178,34 @@ function Scoring({ navigation, route }: any) {
           </div>
         </section>
 
+        {/* ── Live camera from this phone (under the score) ── */}
+        {phoneCam && cameraLinks && (
+          <PhoneCamera
+            url={`${cameraLinks.broadcastUrl}&embed=1&autostart=1`}
+            watchUrl={cameraLinks.watchUrl}
+            stopping={camStopping}
+            onState={(st, err) => {
+              setCamState(st);
+              if (st === 'error' && err) popup.alert('Camera Problem', err, undefined, 'error');
+            }}
+            onStopped={closePhoneCam}
+            onClose={stopPhoneCam}
+          />
+        )}
+
         {/* ── Tabs ── */}
         <nav className={s.tabs} role="tablist">
-          {(['score', 'log', 'graph'] as const).map(k => (
+          {(['score', 'card', 'log', 'graph'] as const).map(k => (
             <button
               key={k}
               role="tab"
               aria-selected={tab === k}
               className={`${s.tab} ${tab === k ? s.tabActive : ''}`}
               onClick={() => setTab(k)}>
-              <span aria-hidden>{k === 'score' ? '🏏' : k === 'log' ? '🎙️' : '📊'}</span>
+              <span aria-hidden>{k === 'score' ? '🏏' : k === 'card' ? '📋' : k === 'log' ? '🎙️' : '📊'}</span>
               <span>
                 {k === 'score' ? (<><span className={s.onlyMobile}>Scoring</span><span className={s.onlyDesktop}>Crease</span></>)
-                  : k === 'log' ? 'Commentary' : 'Graph'}
+                  : k === 'card' ? 'Card' : k === 'log' ? <><span className={s.onlyMobile}>Comm.</span><span className={s.onlyDesktop}>Commentary</span></> : 'Graph'}
               </span>
             </button>
           ))}
@@ -1076,7 +1218,11 @@ function Scoring({ navigation, route }: any) {
               <div className={s.cardHead}>
                 <span className={s.cardTitle}>At the crease</span>
                 <div className={s.cardActions}>
+                  {canChangeOpeners && (
+                    <button className={s.swapChip} onClick={changeOpeners} aria-label="Change the openers">✎ Openers</button>
+                  )}
                   <button className={s.swapChip} onClick={() => { setAddTeam('bat'); setAddPlayerModal(true); }} aria-label="Add a player">+ Player</button>
+                  <button className={s.swapChip} onClick={openRetire} aria-label="Retire a batter">Retire</button>
                   <button className={s.swapChip} onClick={swapStrike}>⇄ Swap<span className={s.hideXs}> strike</span></button>
                 </div>
               </div>
@@ -1101,6 +1247,41 @@ function Scoring({ navigation, route }: any) {
                 <span className={s.bowlerFig}>{currentBowler.wickets}-{currentBowler.runs}</span>
               </button>
             </div>
+          ) : tab === 'card' ? (
+            /* Scorecard of this innings: who is batting / bowling, how each batter got out, who is yet to bat */
+            <>
+              <div className={s.card}>
+                <div className={s.cardHead}>
+                  <span className={s.cardTitle}>{battingTeam.name} · {isSecondInnings ? '2nd' : '1st'} innings</span>
+                  <button className={s.swapChip} onClick={openFullCard}>Full card ›</button>
+                </div>
+                <div className={s.nowBox}>
+                  <span className={s.nowLabel}>Now</span>
+                  <span className={s.nowText}>
+                    🏏 <b>{striker.name}*</b> {striker.runs} ({striker.balls}) · {nonStriker.name} {nonStriker.runs} ({nonStriker.balls})
+                  </span>
+                  <span className={s.nowText}>
+                    🎳 <b>{currentBowler.name}</b> {currentBowler.wickets}-{currentBowler.runs} ({currentBowler.overs}.{currentBowler.balls} ov)
+                  </span>
+                  {yetToBat.length > 0 && (
+                    <span className={s.nowText}>⏭ Next: {yetToBat.join(', ')}</span>
+                  )}
+                </div>
+                <InningsScorecard
+                  inn={liveInnings}
+                  team={{ ...battingTeam, players: batPlayers }}
+                  bowlingTeam={fieldingTeam}
+                  inProgress
+                />
+              </div>
+              {live && (
+                <MatchRecordings
+                  code={live.code}
+                  token={live.token}
+                  logs={isSecondInnings ? [innings1?.ballLog, ballLog] : [ballLog]}
+                />
+              )}
+            </>
           ) : tab === 'log' ? (
             <div className={s.card}>
               <div className={s.cardHead}>
@@ -1184,7 +1365,7 @@ function Scoring({ navigation, route }: any) {
                 { label: 'NB', onPress: () => handleRunPress(1, 'nb') },
                 { label: 'LB', onPress: () => handleRunPress(1, 'lb') },
                 { label: 'BYE', onPress: () => handleRunPress(1, 'b') },
-                { label: 'DEAD', onPress: deadBall, dead: true },
+                { label: 'DEAD', onPress: () => { if (!openersPending) setDeadModal(true); }, dead: true },
               ].map(e => (
                 <button key={e.label} className={`${s.extraChip} ${e.dead ? s.deadChip : ''}`} onClick={e.onPress}>
                   {e.label}
@@ -1215,6 +1396,7 @@ function Scoring({ navigation, route }: any) {
           links={cameraLinks}
           onClose={() => setCameraSheet(false)}
           onYoutube={() => { setCameraSheet(false); setTimeout(openYoutube, 350); }}
+          onThisPhone={startPhoneCam}
         />
       )}
       {live && <ShareMatchModal visible={shareModal} session={live} initialRole={shareRole} onClose={() => setShareModal(false)} />}
@@ -1234,6 +1416,9 @@ function Scoring({ navigation, route }: any) {
         <Overlay visible={watchModal} onDismiss={() => setWatchModal(false)}>
           <div className={s.watchSheet}>
             <WatchLiveCard code={live.code} title={`${firstBatting.name} vs ${firstFielding.name}`} />
+            <button className={s.modalCancel} onClick={() => { setWatchModal(false); setTimeout(openCameraLive, 300); }}>
+              📹 Use another phone as the camera (QR)
+            </button>
             <button className={s.modalCancel} onClick={() => setWatchModal(false)}>Close</button>
           </div>
         </Overlay>
@@ -1259,6 +1444,60 @@ function Scoring({ navigation, route }: any) {
             ))}
           </div>
           <button className={s.modalCancel} onClick={() => setWideModal(false)}>Cancel</button>
+        </div>
+      </Overlay>
+
+      {/* Dead ball: not counted; optional runs (e.g. penalty) go to the total as extras */}
+      <Overlay visible={deadModal}>
+        <div className={s.modalBox}>
+          <span className={s.modalGrip} />
+          <span className={s.modalTitle}>⛔ Dead ball</span>
+          <span className={s.modalSub}>The ball is not counted. Add runs if your rules give any (they go to extras).</span>
+          <div className={s.runsGrid}>
+            {[0, 1, 2, 3, 4, 5, 6].map(r => (
+              <button
+                key={r}
+                className={`${s.wideBtn} ${r === 4 ? s.wideBtn4 : ''} ${r === 6 ? s.wideBtn6 : ''}`}
+                onClick={() => deadBall(r)}>
+                <span className={s.wideBtnText}>{r === 0 ? 'DB' : `DB+${r}`}</span>
+                <span className={s.wideBtnSub}>{plural(r, 'run')}</span>
+              </button>
+            ))}
+          </div>
+          <button className={s.modalCancel} onClick={() => setDeadModal(false)}>Cancel</button>
+        </div>
+      </Overlay>
+
+      {/* Retire a batter: hurt (can bat again) or out (a wicket) */}
+      <Overlay visible={retireModal}>
+        <div className={s.modalBox}>
+          <span className={s.modalGrip} />
+          <span className={s.modalTitle}>🚶 Retire batter</span>
+          <span className={s.wkLabel}>Who is retiring</span>
+          <div className={s.wkChips}>
+            {[strikerIdx, nonStrikerIdx].map(i => (
+              <button key={i} className={`${s.wkChip} ${rtIdx === i ? s.wkChipOn : ''}`} aria-pressed={rtIdx === i} onClick={() => setRtIdx(i)}>
+                {batters[i].name} {batters[i].runs} ({batters[i].balls}){i === strikerIdx ? ' *' : ''}
+              </button>
+            ))}
+          </div>
+          <span className={s.wkLabel}>How</span>
+          <div className={s.retireOpts}>
+            <button className={`${s.retireOpt} ${rtKind === 'hurt' ? s.retireOptOn : ''}`} aria-pressed={rtKind === 'hurt'} onClick={() => setRtKind('hurt')}>
+              <span className={s.retireOptTitle}>🤕 Retired hurt</span>
+              <span className={s.retireOptSub}>Not out. Can come back and bat again later with the same score.</span>
+            </button>
+            <button className={`${s.retireOpt} ${rtKind === 'out' ? s.retireOptOn : ''}`} aria-pressed={rtKind === 'out'} onClick={() => setRtKind('out')}>
+              <span className={s.retireOptTitle}>🚪 Retired out</span>
+              <span className={s.retireOptSub}>Counts as a wicket (not the bowler&apos;s). Can&apos;t bat again.</span>
+            </button>
+          </div>
+          <div className={s.wkPreview}>
+            <span className={s.wkPreviewName}>{batters[rtIdx]?.name}</span>
+            <span className={s.wkPreviewHow}>{rtKind === 'out' ? 'retired out · wicket' : 'retired hurt · not out'}</span>
+          </div>
+          <button className={s.wkConfirm} onClick={confirmRetire}>Confirm & pick next batter</button>
+          <button className={s.modalCancel} onClick={() => setRetireModal(false)}>Cancel</button>
         </div>
       </Overlay>
 
@@ -1362,6 +1601,10 @@ function Scoring({ navigation, route }: any) {
               <button key={p} className={s.modalPlayerRow} onClick={() => bringInBatter(p)}>
                 <span className={s.playerAvatar} aria-hidden>{p.trim().charAt(0).toUpperCase()}</span>
                 <span className={s.modalPlayerText}>{p}</span>
+                {retiredHurt.some(b => b.name === p) && (() => {
+                  const b = retiredHurt.find(x => x.name === p)!;
+                  return <span className={s.modalPlayerSub}>retired hurt · {b.runs} ({b.balls})</span>;
+                })()}
                 <span className={s.modalPlayerChevron} aria-hidden>›</span>
               </button>
             ))}
@@ -1373,6 +1616,9 @@ function Scoring({ navigation, route }: any) {
             cta="+ Add & bat"
             onAdd={n => { addBatPlayer(n); bringInBatter(n); }}
           />
+          {batters.some(b => b.retired) && (
+            <button className={s.modalCancel} onClick={undoLastBall}>↶ Undo retire</button>
+          )}
         </div>
       </Overlay>
 
@@ -1565,9 +1811,15 @@ function Scoring({ navigation, route }: any) {
             onClick={confirmOpeners}>
             Start innings
           </button>
-          <button className={s.modalCancel} onClick={() => { persistState(); navigation.navigate('Home'); }}>
-            Leave (match is saved)
-          </button>
+          {editingOpeners ? (
+            <button className={s.modalCancel} onClick={() => { setEditingOpeners(false); setOpenersPending(false); }}>
+              Cancel (keep current openers)
+            </button>
+          ) : (
+            <button className={s.modalCancel} onClick={() => { persistState(); navigation.navigate('Home'); }}>
+              Leave (match is saved)
+            </button>
+          )}
         </div>
       </Overlay>
 

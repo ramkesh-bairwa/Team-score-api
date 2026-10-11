@@ -5,11 +5,15 @@ import st from './CommentaryList.module.css';
 export type LogEntry = {
   over: string; bat: string; bowl: string; runs: number; extra?: string; wicket?: boolean;
   score: string; text: string; kind: 'four' | 'six' | 'wicket' | 'extra' | 'run' | 'dot';
+  // When it was scored (ms), to find the ball inside a match recording. Older logs don't have it.
+  at?: number;
 };
 
 const badgeLabel = (e: LogEntry) => {
   if (e.wicket) return 'W';
-  if (e.extra === 'db') return 'DB';
+  if (e.extra === 'db') return `DB${e.runs ? '+' + e.runs : ''}`;
+  if (e.extra === 'rh') return 'RH';
+  if (e.extra === 'ro') return 'RO';
   if (e.extra) return `${e.extra === 'b' ? 'B' : e.extra.toUpperCase()}${e.runs || ''}`;
   return e.runs === 0 ? '•' : String(e.runs);
 };

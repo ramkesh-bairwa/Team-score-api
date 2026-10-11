@@ -1,0 +1,54 @@
+.card {
+  display: flex; flex-direction: column; gap: 10px; width: 100%;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px; box-shadow: var(--shadow-1);
+}
+.head { display: flex; align-items: center; gap: 12px; }
+.icon {
+  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--grad-hero); font-size: 20px;
+}
+.headText { display: flex; flex-direction: column; min-width: 0; }
+.title { color: var(--ink); font-size: 15px; font-weight: 800; }
+.sub { color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+.note { color: var(--ink-3); font-size: 13px; line-height: 1.45; padding: 4px 2px; }
+
+.item { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.info { display: flex; flex-direction: column; min-width: 0; }
+.status { font-size: 14px; font-weight: 800; }
+.meta { color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+.live { color: var(--brand); }
+.busy { color: var(--sky); }
+.ok { color: var(--ink); }
+.err { color: var(--brand-strong); }
+
+.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.card .btn {
+  display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); font-size: 13px; font-weight: 700; padding: 7px 11px; border-radius: var(--r-pill);
+  text-decoration: none; cursor: pointer; font-family: inherit;
+}
+.card .btn:hover { box-shadow: var(--shadow-1); }
+.card .primary { background: var(--grad-brand); color: #fff; border-color: transparent; }
+.card .danger { color: var(--brand-strong); }
+
+.player { display: flex; flex-direction: column; gap: 8px; }
+.video { width: 100%; max-height: 60vh; border-radius: var(--r-md); background: #000; }
+.clipsHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.clipsTitle { color: var(--ink); font-size: 13px; font-weight: 800; }
+.toggle { display: flex; gap: 4px; background: var(--surface-3, #EEF2F6); border-radius: var(--r-pill); padding: 3px; }
+.card .tg { border: none; background: transparent; color: var(--ink-3); font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: var(--r-pill); cursor: pointer; font-family: inherit; }
+.card .tgOn { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
+.clips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.card .clip {
+  flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 62px;
+  border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-sm); padding: 6px 8px; cursor: pointer; font-family: inherit;
+  color: var(--ink);
+}
+.card .clip b { font-size: 11px; color: var(--ink-3); }
+.card .clip span { font-size: 14px; font-weight: 900; }
+.card .clip small { font-size: 10px; color: var(--ink-3); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .k_six { background: #8B2CF5; border-color: #8B2CF5; color: #fff; }
+.card .k_four { background: #1E6BFF; border-color: #1E6BFF; color: #fff; }
+.card .k_wicket { background: #E11D2E; border-color: #E11D2E; color: #fff; }
+.card .k_six b, .card .k_six small, .card .k_four b, .card .k_four small, .card .k_wicket b, .card .k_wicket small { color: #ffffffcc; }

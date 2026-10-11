@@ -9,7 +9,10 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; background: #000; color: #fff; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
-  video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+  video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; background: transparent; }
+  /* Full screen on any screen: the video fits whole, and the space around an upright (9:16) stream
+     on a wide screen is filled with a blurred copy of it */
+  #bg { object-fit: cover; filter: blur(28px) brightness(.45); transform: scale(1.15); }
   .top { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px;
     padding: max(10px, env(safe-area-inset-top)) 12px 10px; background: linear-gradient(#000b, #0000); z-index: 2; }
   .badge { padding: 4px 9px; border-radius: 7px; font-weight: 800; font-size: 12px; letter-spacing: 1px; background: #475569; }
@@ -98,6 +101,7 @@
 </style>
 </head>
 <body>
+<video id="bg" autoplay playsinline muted aria-hidden="true"></video>
 <video id="video" autoplay playsinline muted></video>
 
 <div class="top">
@@ -166,6 +170,8 @@
         pc = new RTCPeerConnection({ iceServers: iceServers });
         pc.ontrack = function (e) {
           $('video').srcObject = e.streams[0];
+          $('bg').srcObject = new MediaStream(e.streams[0].getVideoTracks());
+          $('bg').play().catch(function () {});
           $('video').play().then(function () { playing(); $('unmute').className = 'unmute show'; }).catch(function () { playing(); });
         };
         pc.onicecandidate = function (e) { if (e.candidate) socket.emit('signal', { to: broadcaster, data: { candidate: e.candidate } }); };
@@ -219,7 +225,7 @@
   }
   function ballLabel(b, matchType) {
     if (b.wicket) return 'W';
-    if (b.extra === 'db') return 'DB';
+    if (b.extra === 'db') return 'DB' + (b.runs ? '+' + b.runs : '');
     if (b.extra === 'wd' || b.extra === 'nb') { var t = matchType === 'local' ? b.runs : b.runs - 1; return b.extra + (t > 0 ? '+' + t : ''); }
     if (b.extra === 'lb' || b.extra === 'b') return b.runs + b.extra;
     return String(b.runs);
@@ -350,7 +356,7 @@
     }).join('') + '</div>';
     h += '<table><tr><th>Batting</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>';
     h += inn.batting.length ? inn.batting.map(function (b) {
-      var how = b.out ? b.howOut || 'out' : b.atCrease ? 'not out' : '';
+      var how = b.out ? b.howOut || 'out' : b.howOut ? b.howOut : b.atCrease ? 'not out' : '';
       return '<tr class="' + (b.atCrease ? 'cur' : '') + '"><td>' + (b.onStrike ? '🏏 ' : '') + esc(b.name) + (how ? '<span class="ho">' + esc(how) + '</span>' : '') + '</td><td><b>' + esc(b.runs) + '</b></td><td>' + esc(b.balls) + '</td><td>' + esc(b.fours) + '</td><td>' + esc(b.sixes) + '</td><td>' + sr(b.runs, b.balls) + '</td></tr>';
     }).join('') : '<tr><td colspan="6">—</td></tr>';
     h += '</table><table><tr><th>Bowling</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr>';

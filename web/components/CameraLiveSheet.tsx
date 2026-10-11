@@ -33,8 +33,10 @@ function useSheet(visible: boolean, onClose: () => void) {
 
 // Free WebRTC live stream: the camera phone scans a QR and goes live in its browser;
 // viewers open the watch link on any phone and see the video with the live scoreboard.
-export default function CameraLiveSheet({ visible, code, links, onClose, onYoutube }: {
+export default function CameraLiveSheet({ visible, code, links, onClose, onYoutube, onThisPhone }: {
   visible: boolean; code: string; links: CameraStream | null; onClose: () => void; onYoutube: () => void;
+  // Stream from the scoring phone itself: score on top, camera underneath
+  onThisPhone?: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('camera');
   const [status, setStatus] = useState<{ live: boolean; viewers: number; maxViewers: number } | null>(null);
@@ -86,9 +88,17 @@ export default function CameraLiveSheet({ visible, code, links, onClose, onYoutu
             <span className={st.sub}>Preparing the stream…</span>
           ) : tab === 'camera' ? (
             <div className={st.center}>
+              {onThisPhone && (
+                <>
+                  <button type="button" className={`${st.btn} ${st.btnRed}`} onClick={onThisPhone}>
+                    <span className={st.btnText}>📱 Live from this phone (score on top, video below)</span>
+                  </button>
+                  <span className={st.step}>Or use a second phone as the camera:</span>
+                </>
+              )}
               <QRCode value={links.broadcastUrl} size={220} />
               <span className={st.step}>1. On the camera phone, open the normal <span className={st.bold}>Camera</span> app and scan this QR.</span>
-              <span className={st.step}>2. Open the link, allow camera &amp; mic, turn the phone sideways and tap <span className={st.bold}>GO LIVE</span>.</span>
+              <span className={st.step}>2. Open the link, allow camera &amp; mic, hold the phone sideways or upright and tap <span className={st.bold}>GO LIVE</span>.</span>
               <span className={st.warn}>Keep this QR private: anyone who scans it can broadcast for this match.</span>
               <button type="button" className={`${st.btn} ${st.btnGhost}`} onClick={() => openUrl(links.broadcastUrl)}>
                 <span className={st.btnGhostText}>Open camera page on this phone</span>

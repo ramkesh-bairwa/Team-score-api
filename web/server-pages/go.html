@@ -93,6 +93,16 @@
   tr.cur td:first-child { color: #FFC531; font-weight: 800; }
   .empty { color: #94a3b8; font-size: 14px; padding: 20px 0; text-align: center; }
   @media (max-width: 440px) { .code { display: none; } .top { gap: 6px; padding-left: 10px; padding-right: 10px; } .tbtn { padding: 6px 8px; } }
+  /* Embedded under the scoring screen (?embed=1): only the video and the main controls */
+  body.embed #preview, body.embed .mini, body.embed #cardBtn, body.embed #backMatch, body.embed #code, body.embed #shape,
+  body.embed #flipPic, body.embed #share, body.embed .replay, body.embed .flash { display: none !important; }
+  body.embed .top { padding: 8px; gap: 6px; }
+  /* Controls at the top: under the scoring screen the bottom of the video can sit behind the scoring pad */
+  body.embed .bottom { padding: 6px 8px 10px; gap: 6px; top: 40px; bottom: auto; background: linear-gradient(#000a, #0000); }
+  body.embed .round { width: 34px; height: 34px; font-size: 15px; flex-shrink: 0; }
+  body.embed .go { min-width: 0; padding: 0 14px; height: 36px; font-size: 13px; flex-shrink: 0; }
+  body.embed .row { gap: 6px; flex-wrap: wrap; justify-content: center; }
+  body.embed .status { font-size: 12px; min-height: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .shape { font-size: 12px; font-weight: 800; background: #0006; padding: 5px 9px; border-radius: 8px; letter-spacing: .5px; }
   /* Full-match recording */
   .recb { display: none; border: none; background: #E63946; color: #fff; font-size: 12px; font-weight: 900; padding: 5px 9px; border-radius: 8px; letter-spacing: .5px; }
@@ -218,6 +228,11 @@
   var code = location.pathname.split('/').filter(Boolean).pop().toUpperCase();
   var key = new URLSearchParams(location.search).get('k') || '';
   var watchUrl = location.origin + '/watch/' + code;
+  // ?embed=1: shown inside the scoring screen. Embedded (or ?portrait=1) streams are always upright 9:16,
+  // filled edge to edge, however the phone or webcam is held.
+  var EMBED = new URLSearchParams(location.search).get('embed') === '1';
+  var PORTRAIT = EMBED || new URLSearchParams(location.search).get('portrait') === '1';
+  if (EMBED) document.body.classList.add('embed');
   var $ = function (id) { return document.getElementById(id); };
   var stream = null, socket = null, live = false, facing = 'environment', micOn = true, wakeLock = null;
   // What viewers get: the camera drawn onto a canvas, turned upright for how the phone is held
@@ -236,7 +251,14 @@
   $('code').textContent = code;
 
   function status(t) { $('status').textContent = t; }
-  function block(html) { $('blocker').innerHTML = html; $('blocker').className = 'center show'; }
+  function block(html) {
+    $('blocker').innerHTML = html; $('blocker').className = 'center show';
+    tellParent('error', $('blocker').textContent);
+  }
+  // Embedded in the scoring screen: tell it how the stream is doing (it shows Go Live / Stop Live)
+  function tellParent(state, error) {
+    if (EMBED && window.parent !== window) window.parent.postMessage({ type: 'cricscore-cam', state: state, error: error || null }, '*');
+  }
 
   if (!key) block('This page needs the QR code from the CricScore app.<br><br>Open the app → ▶ YouTube / Live → <b>Go live from phone camera</b>.');
   if (!navigator.mediaDevices || !window.RTCPeerConnection) block('This browser can’t stream video.<br>Please open the link in Chrome or Safari.');
@@ -340,8 +362,8 @@
     var vw = source.videoWidth, vh = source.videoHeight;
     if (!vw) return;
     if (replay) return paint(source, vw, vh, true);
-    var turn = wantedTurn(vw, vh);
-    var landscape = turn !== 0 || vw >= vh;
+    var turn = PORTRAIT ? 0 : wantedTurn(vw, vh);
+    var landscape = !PORTRAIT && (turn !== 0 || vw >= vh);
     var want = { w: landscape ? 1280 : 720, h: landscape ? 720 : 1280, turn: turn };
     if (want.w !== layout.w || want.turn !== layout.turn) {
       // Switch only once the phone has settled (no flapping mid-turn)
@@ -366,6 +388,7 @@
     var k = Math.min(W / pw, H / ph);
     // A replay recorded in the other orientation keeps its own shape inside the frame
     if (isReplay && (vw >= vh) === !!layout.turn) { pw = vw; ph = vh; k = Math.min(W / pw, H / ph); ctx.rotate(-layout.turn * Math.PI / 2); }
+    if (PORTRAIT) k = Math.max(W / pw, H / ph); // fill the upright frame (crop the sides of a sideways picture)
     ctx.drawImage(source, -vw * k / 2, -vh * k / 2, vw * k, vh * k);
     ctx.restore();
     if (isReplay) replayTag(W);
@@ -522,8 +545,8 @@
     $('rbtns').style.display = replay ? 'none' : 'flex';
     $('backLive').style.display = replay ? 'block' : 'none';
     // During a replay this phone shows what viewers see (the replay), not the camera
-    $('onair').className = replay ? 'show' : '';
-    if (replay) $('onair').play().catch(function () {});
+    $('onair').className = replay || EMBED ? 'show' : '';
+    if (replay || EMBED) $('onair').play().catch(function () {});
     // A ball is replayable while its footage is still in the buffer
     var oldest = clips.length ? clips[0].start : rec ? recStart : Date.now();
     [].forEach.call($('rbtns').children, function (b) { b.disabled = !clips.length; });
@@ -610,7 +633,7 @@
   }
   function chipText(b, mt) {
     if (b.wicket) return 'W';
-    if (b.extra === 'db') return 'DB';
+    if (b.extra === 'db') return 'DB' + (b.runs ? '+' + b.runs : '');
     if (b.extra === 'wd' || b.extra === 'nb') { var t = mt === 'local' ? b.runs : b.runs - 1; return b.extra + (t > 0 ? '+' + t : ''); }
     if (b.extra) return b.runs + b.extra;
     return String(b.runs);
@@ -658,7 +681,7 @@
     var h = '<div class="inn"><b>' + esc(inn.runs) + '/' + esc(inn.wickets) + '</b><span>' + esc(inn.overs) + '.' + esc(inn.balls) + ' overs · ' + esc(inn.team) + ' batting</span></div>';
     h += '<table><tr><th>Batting</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>';
     h += inn.batting.length ? inn.batting.map(function (b) {
-      var how = b.out ? b.howOut || 'out' : b.atCrease ? 'not out' : '';
+      var how = b.out ? b.howOut || 'out' : b.howOut ? b.howOut : b.atCrease ? 'not out' : '';
       return '<tr class="' + (b.atCrease ? 'cur' : '') + '"><td>' + (b.onStrike ? '🏏 ' : '') + esc(b.name) + (how ? '<span class="ho">' + esc(how) + '</span>' : '') + '</td><td><b>' + esc(b.runs) + '</b></td><td>' + esc(b.balls) + '</td><td>' + esc(b.fours) + '</td><td>' + esc(b.sixes) + '</td><td>' + sr(b.runs, b.balls) + '</td></tr>';
     }).join('') : '<tr><td colspan="6">—</td></tr>';
     h += '</table><table><tr><th>Bowling</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr>';
@@ -947,7 +970,7 @@
     header(['BATTING', 'R', 'B', '4s', '6s', 'SR']);
     bat.forEach(function (b) {
       if (!b) return line(['—', '', '', '', '', '']);
-      var how = b.out ? b.howOut || 'out' : b.atCrease ? 'not out' : '';
+      var how = b.out ? b.howOut || 'out' : b.howOut ? b.howOut : b.atCrease ? 'not out' : '';
       line([(b.onStrike ? '🏏 ' : '') + b.name, b.runs, b.balls, b.fours, b.sixes, sr(b.runs, b.balls), how], b.atCrease, 1);
     });
     header(['BOWLING', 'O', 'M', 'R', 'W', 'ECON']);
@@ -1533,7 +1556,9 @@
     if (recAuto) startRecording();
     renderRec();
     socket = io({ path: '/rtc', transports: ['websocket', 'polling'] });
+    tellParent('starting');
     socket.on('connect', function () {
+      tellParent('live');
       socket.emit('join', { code: code, role: 'broadcaster', key: key });
       sendOverlay(true);
       status('🔴 You are live. Share the watch link!');
@@ -1557,7 +1582,7 @@
       if (msg.data.candidate) pc.addIceCandidate(msg.data.candidate).catch(function () {});
     });
     socket.on('status', function (s) { $('viewers').textContent = '👁 ' + s.viewers + ' / ' + s.maxViewers; });
-    socket.on('disconnect', function () { if (live) status('Reconnecting…'); });
+    socket.on('disconnect', function () { if (live) { status('Reconnecting…'); tellParent('starting'); } });
     if ('wakeLock' in navigator) navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }).catch(function () {});
   }
 
@@ -1575,6 +1600,7 @@
     $('badge').className = 'badge';
     $('viewers').textContent = '👁 0';
     status('Stream stopped');
+    tellParent('off');
     stopYtLive(true);
     ytState = { state: 'off' };
     renderYtLive();
@@ -1584,6 +1610,11 @@
   }
 
   $('go').onclick = function () { live ? stopLive() : goLive(); };
+  // The scoring screen's "Stop Live": end the stream, let the recording save its last piece, then say so
+  window.addEventListener('message', function (e) {
+    if (!EMBED || e.source !== window.parent || !e.data || e.data.type !== 'cricscore-cam-stop') return;
+    Promise.resolve(live ? stopLive() : null).catch(function () {}).then(function () { tellParent('stopped'); });
+  });
   $('flip').onclick = function () { facing = facing === 'environment' ? 'user' : 'environment'; startCamera(); };
   $('flipPic').onclick = function () { flipped = !flipped; pendingLayout = null; layout.ready = false; };
   $('mic').onclick = function () {

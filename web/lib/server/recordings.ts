@@ -94,7 +94,25 @@ export function createRecording(o: { code: string; key: string; target: Target; 
   return r;
 }
 
-export function listRecordings(code: string, key: string): Recording[] {
+// Every recording of a match (for the scorer, who holds the match's live-session token)
+export function listAllRecordings(code: string): Recording[] {
+  return listRecordings(code, null);
+}
+
+// The scorer's phone holds the match's live-session token; it may see and manage the match's recordings
+export function liveTokenOk(code: string, token: string | null | undefined) {
+  if (!token) return false;
+  const sess = once('liveSessions', () => new Map<string, any>()).get(code);
+  return !!sess && (token === sess.hostToken || !!sess.tokens?.has(token));
+}
+
+export function deleteRecording(r: Recording) {
+  if (uploading.has(r.id)) throw new Error('This recording is being uploaded to YouTube. Try again when it has finished.');
+  fs.rmSync(filePath(r), { force: true });
+  fs.rmSync(metaPath(r.code, r.id), { force: true });
+}
+
+export function listRecordings(code: string, key: string | null): Recording[] {
   let names: string[] = [];
   try {
     names = fs.readdirSync(dirOf(code));
@@ -104,7 +122,7 @@ export function listRecordings(code: string, key: string): Recording[] {
   return names
     .filter(n => n.endsWith('.json'))
     .map(n => getRecording(code, n.slice(0, -5)))
-    .filter((r): r is Recording => !!r && keyMatches(r, key))
+    .filter((r): r is Recording => !!r && (key === null || keyMatches(r, key)))
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
@@ -195,12 +213,12 @@ export const publicView = (r: Recording) => ({
   createdAt: r.createdAt, updatedAt: r.updatedAt, youtube: r.youtube,
 });
 
-// Opened lazily, so a HEAD request doesn't leave a file handle open
+// Opened lazily, so a HEAD request doesn't leave a file handle open. A byte range lets players seek.
 export function fileStream(r: Recording) {
   const file = filePath(r);
   return {
     size: fs.statSync(file).size,
-    get body() { return Readable.toWeb(fs.createReadStream(file)) as ReadableStream; },
+    body: (start?: number, end?: number) => Readable.toWeb(fs.createReadStream(file, { start, end })) as ReadableStream,
   };
 }
 

@@ -571,3 +571,25 @@
   .ballChip, .camDot { animation: none; }
   .modalOverlay > :not(.backdrop) { transition: none; }
 }
+
+/* Card tab: who is in right now */
+.nowBox {
+  display: flex; flex-direction: column; gap: 4px; margin: 4px 0 12px; padding: 10px 12px;
+  background: var(--surface-3, #EEF2F6); border-radius: var(--r-md);
+}
+.nowLabel { font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--brand); }
+.nowText { font-size: 13px; color: var(--ink); line-height: 1.4; }
+
+/* Retire batter: hurt / out */
+.retireOpts { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.modalOverlay .retireOpt {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; width: 100%;
+  border: 2px solid var(--line); background: var(--surface); border-radius: var(--r-md); padding: 10px 12px; cursor: pointer; font-family: inherit;
+}
+.modalOverlay .retireOptOn { border-color: var(--brand); background: var(--brand-soft); }
+.retireOptTitle { font-size: 15px; font-weight: 800; color: var(--ink); }
+.retireOptSub { font-size: 12px; color: var(--ink-3); }
+
+/* Go Live / Stop Live */
+.container .camBtnOn { background: #fff; color: var(--brand); box-shadow: 0 4px 14px rgba(230, 57, 70, .35); }
+.camStop { width: 9px; height: 9px; border-radius: 2px; background: var(--brand); }

@@ -6,7 +6,7 @@ type Ball = { runs: number; extra?: string; wicket?: boolean };
 type Team = { name: string; players: string[]; captain?: string; playerDetails?: { name: string; roles?: string[] }[] };
 export type Innings = {
   runs: number; wickets: number; overs: number; balls: number;
-  batters: { name: string; runs: number; balls: number; fours: number; sixes: number; out: boolean; howOut?: string }[];
+  batters: { name: string; runs: number; balls: number; fours: number; sixes: number; out: boolean; howOut?: string; retired?: 'hurt' | 'out' }[];
   bowlers: { name: string; overs: number; balls: number; runs: number; wickets: number; maidens?: number; wides?: number; noBalls?: number }[];
   overHistory?: Ball[][];
   fallOfWickets?: { score: number; wicket: number; over: string; batter: string }[];
@@ -26,9 +26,9 @@ function extrasOf(inn: Innings) {
   }
   const all = inn.overHistory.flat();
   const sum = (t: string) => all.filter(b => b.extra === t).reduce((acc, b) => acc + b.runs, 0);
-  const parts = { b: sum('b'), lb: sum('lb'), w: sum('wd'), nb: sum('nb') };
-  const total = parts.b + parts.lb + parts.w + parts.nb;
-  return { total, detail: `b ${parts.b}, lb ${parts.lb}, w ${parts.w}, nb ${parts.nb}` };
+  const parts = { b: sum('b'), lb: sum('lb'), w: sum('wd'), nb: sum('nb'), db: sum('db') };
+  const total = parts.b + parts.lb + parts.w + parts.nb + parts.db;
+  return { total, detail: `b ${parts.b}, lb ${parts.lb}, w ${parts.w}, nb ${parts.nb}${parts.db ? `, dead ball ${parts.db}` : ''}` };
 }
 
 const roleTag = (team: Team, name: string) => {
@@ -63,11 +63,11 @@ export default function InningsScorecard({ inn, team, bowlingTeam, inProgress }:
         {inn.batters.map((b, i) => (
           <div key={`${b.name}-${i}`} className={cx(s.row, s.bodyRow)}>
             <div className={s.nameCol}>
-              <div className={cx(s.player, s.one, !b.out && s.playerIn)}>
-                {b.name}{roleTag(team, b.name)}{!b.out && inProgress ? ' *' : ''}
+              <div className={cx(s.player, s.one, !b.out && !b.retired && s.playerIn)}>
+                {b.name}{roleTag(team, b.name)}{!b.out && !b.retired && inProgress ? ' *' : ''}
               </div>
-              <div className={cx(s.dismissal, s.one, !b.out && s.notOut)}>
-                {b.out ? (b.howOut || 'out') : inProgress ? 'batting' : 'not out'}
+              <div className={cx(s.dismissal, s.one, !b.out && !b.retired && s.notOut)}>
+                {b.out || b.retired ? (b.howOut || 'out') : inProgress ? 'batting' : 'not out'}
               </div>
             </div>
             <div className={cx(s.num, s.runs)}>{b.runs}</div>

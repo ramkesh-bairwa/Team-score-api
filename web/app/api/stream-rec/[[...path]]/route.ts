@@ -2,18 +2,21 @@
 // the old API used goes through here. The camera link's key (?k=) is the permission for a match.
 //   POST /api/stream-rec/:code                 { k, target, mime, title, privacy, acct } -> { recording }
 //   GET  /api/stream-rec/:code?k=              -> { recordings }
+//   The scorer's phone uses the match's live-session token instead (?t= / { t }) to list, play,
+//   download, delete or upload the match's recordings:
+//   DELETE /api/stream-rec/:code/:id?t=        delete a recording
 //   PUT  /api/stream-rec/:code/:id?k=&offset=  raw video bytes -> { bytes }  (409 { bytes } on a gap)
 //   POST /api/stream-rec/:code/:id/finish      { k }
 //   POST /api/stream-rec/:code/:id/youtube     { k, acct, privacy }   upload a stored recording
-//   GET  /api/stream-rec/:code/:id/file?k=     download
+//   GET  /api/stream-rec/:code/:id/file?k=     download (&inline=1 to play; byte ranges for seeking)
 //   GET  /api/stream-rec/youtube?acct=         { configured, connected, channelTitle, live }  (live: YouTube Live possible)
 //   POST /api/stream-rec/youtube/connect       -> { acct, userCode, verificationUrl, interval }
 //   GET  /api/stream-rec/youtube/poll?acct=    -> { status, channelTitle? }
 //   POST /api/stream-rec/youtube/disconnect    { acct }
 import { CODE_RE, rooms } from '@/lib/server/streamRooms';
 import {
-  appendPiece, createRecording, disconnectAccount, fileStream, finishRecording, getAccount, getRecording, keyMatches,
-  listRecordings, pollConnect, publicView, startConnect, startYouTubeUpload, validAcct, youtubeConfigured,
+  appendPiece, createRecording, deleteRecording, disconnectAccount, fileStream, finishRecording, getAccount, getRecording,
+  keyMatches, listAllRecordings, listRecordings, liveTokenOk, pollConnect, publicView, startConnect, startYouTubeUpload, validAcct, youtubeConfigured,
   type Privacy,
 } from '@/lib/server/recordings';
 import { hasFfmpeg } from '@/lib/server/ytLive';
@@ -92,15 +95,32 @@ async function handle(req: Request) {
   }
 
   if (seg.length === 1 && req.method === 'GET') {
-    return json({ recordings: listRecordings(code, url.searchParams.get('k') || '').map(publicView) });
+    const list = liveTokenOk(code, url.searchParams.get('t'))
+      ? listAllRecordings(code)
+      : listRecordings(code, url.searchParams.get('k') || '');
+    return json({ recordings: list.map(publicView) });
   }
 
   const r = seg[1] ? getRecording(code, seg[1]) : null;
   if (!r) return fail(404, 'Recording not found');
   const b = req.method === 'POST' ? await body(req) : {};
   const key = req.method === 'POST' ? String(b.k || '') : url.searchParams.get('k') || '';
-  if (!keyMatches(r, key)) return fail(403, 'Not allowed');
+  const camera = keyMatches(r, key);
+  const scorer = liveTokenOk(code, req.method === 'POST' ? b.t : url.searchParams.get('t'));
+  if (!camera && !scorer) return fail(403, 'Not allowed');
   const action = seg[2];
+
+  if (!action && req.method === 'DELETE') {
+    try {
+      deleteRecording(r);
+    } catch (e: any) {
+      return fail(409, e.message);
+    }
+    return json({ ok: true });
+  }
+
+  // Only the camera phone records
+  if (!camera && (req.method === 'PUT' || action === 'finish')) return fail(403, 'Not allowed');
 
   if (!action && req.method === 'PUT') {
     const offset = Number(url.searchParams.get('offset'));
@@ -126,13 +146,27 @@ async function handle(req: Request) {
   if (action === 'file' && (req.method === 'GET' || req.method === 'HEAD')) {
     const date = new Date(r.createdAt).toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-');
     const file = fileStream(r);
-    return new Response(req.method === 'HEAD' ? null : file.body, {
-      headers: {
-        'Content-Type': `video/${r.ext}`,
-        'Content-Length': String(file.size),
-        'Content-Disposition': `attachment; filename="CricScore-${code}-${date}.${r.ext}"`,
-        'Cache-Control': 'no-store',
-      },
+    const headers: Record<string, string> = {
+      'Content-Type': `video/${r.ext}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Disposition': `${url.searchParams.get('inline') ? 'inline' : 'attachment'}; filename="CricScore-${code}-${date}.${r.ext}"`,
+      'Cache-Control': 'no-store',
+    };
+    // Byte ranges, so a video player can jump to any ball
+    const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get('range') || '');
+    if (m && (m[1] || m[2]) && file.size) {
+      const start = m[1] ? Number(m[1]) : Math.max(0, file.size - Number(m[2]));
+      const end = m[1] && m[2] ? Math.min(Number(m[2]), file.size - 1) : file.size - 1;
+      if (start > end || start >= file.size) {
+        return new Response(null, { status: 416, headers: { ...headers, 'Content-Range': `bytes */${file.size}` } });
+      }
+      return new Response(req.method === 'HEAD' ? null : file.body(start, end), {
+        status: 206,
+        headers: { ...headers, 'Content-Range': `bytes ${start}-${end}/${file.size}`, 'Content-Length': String(end - start + 1) },
+      });
+    }
+    return new Response(req.method === 'HEAD' ? null : file.body(), {
+      headers: { ...headers, 'Content-Length': String(file.size) },
     });
   }
 
@@ -143,3 +177,4 @@ export const GET = handle;
 export const HEAD = handle;
 export const POST = handle;
 export const PUT = handle;
+export const DELETE = handle;

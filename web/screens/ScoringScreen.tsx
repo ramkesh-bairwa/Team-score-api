@@ -24,6 +24,7 @@ import CloseX from '@/components/CloseX';
 import { createCameraStream, CameraStream } from '@/lib/services/stream';
 import { isServerConfigured } from '@/lib/services/server';
 import { useBackHandler } from '@/lib/nav';
+import { useUser } from '@/components/AuthGate';
 import s from './ScoringScreen.module.css';
 
 // extra: 'wd' | 'nb' | 'lb' | 'b' | 'db' (dead ball: shown in the over, never counted)
@@ -304,12 +305,15 @@ function Scoring({ navigation, route }: any) {
   // Resumed/joined state is already what the server has; don't re-push it on mount
   const skipPush = useRef(!!saved);
 
-  // Match API: record the match (or the start of the 2nd innings) when scoring begins
+  // Match API: record the match (or the start of the 2nd innings) when scoring begins.
+  // createdBy shows everyone who scored it (only the creator's phone, holding the match key, can change it).
+  const user = useUser();
   useEffect(() => {
     if (saved || !matchId) return;
     upsertMatch(matchId, matchKey, {
       team1: firstBatting, team2: firstFielding, overs, matchType, location, bet,
       tossWinner, tossChoice, status: 'live',
+      ...(!isSecondInnings && user?.name ? { createdBy: user.name } : {}),
       ...(isSecondInnings ? { innings1 } : {}),
     }).catch(() => {});
   }, []);

@@ -55,7 +55,14 @@ export default function HomeScreen({ navigation }: any) {
   const [historyOffline, setHistoryOffline] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
   // Match history: this phone's matches, or everyone's (any match's scorecard can be opened)
-  const [historyTab, setHistoryTab] = useState<'mine' | 'all'>('mine');
+  // Everyone sees every match by default; the choice is remembered on this browser
+  const [historyTab, setHistoryTabState] = useState<'mine' | 'all'>(() => {
+    try { return localStorage.getItem('cricscore_history_tab') === 'mine' ? 'mine' : 'all'; } catch { return 'all'; }
+  });
+  const setHistoryTab = (t: 'mine' | 'all') => {
+    setHistoryTabState(t);
+    try { localStorage.setItem('cricscore_history_tab', t); } catch { /* storage blocked */ }
+  };
   const [allMatches, setAllMatches] = useState<any[] | null>(null);
   const [allSearch, setAllSearch] = useState('');
   const [allError, setAllError] = useState('');
@@ -369,7 +376,19 @@ export default function HomeScreen({ navigation }: any) {
     try {
       const full = await getMatch(m.id);
       if (!full?.innings1) {
-        popup.alert('Match In Progress', 'The scorecard is available once the first innings is complete.', undefined, 'info');
+        // Still in the 1st innings: the live score (and video, if streamed) is on the watch page
+        if (full?.liveCode) {
+          popup.show({
+            type: 'info', icon: '🏏', title: 'Match In Progress',
+            message: 'The full scorecard is ready after the first innings. You can follow the live score now.',
+            buttons: [
+              { text: '📺 Watch live score', onPress: () => { window.open(`${window.location.origin}/watch/${full.liveCode}`, '_blank', 'noopener'); } },
+              { text: 'Close', style: 'cancel' },
+            ],
+          });
+        } else {
+          popup.alert('Match In Progress', 'The scorecard is available once the first innings is complete.', undefined, 'info');
+        }
         return;
       }
       navigation.navigate('Scorecard', {

@@ -427,9 +427,6 @@ export default function HomeScreen({ navigation }: any) {
             <span className={s.brandName}>Cric<span className={s.brandAccent}>Score</span></span>
           </div>
           <div className={s.topActions}>
-            <button className={s.iconBtn} onClick={() => setServerModal(true)} aria-label="Server settings" title="Server settings">
-              <span className={s.iconBtnGlyph}>⚙️</span>
-            </button>
             <UserMenu dark />
           </div>
         </div>
@@ -593,9 +590,6 @@ export default function HomeScreen({ navigation }: any) {
             <h2 className={s.sectionTitle}>
               Match History <span className={s.countPill}>{historyTab === 'mine' ? history.length : allMatches?.length ?? '…'}</span>
             </h2>
-            {historyTab === 'mine' && history.length > 0 && (
-              <button className={s.clearBtn} onClick={clearHistory}>Clear History</button>
-            )}
           </div>
           <div className={s.historyTabs} role="tablist">
             {(['mine', 'all'] as const).map(k => (
@@ -672,6 +666,10 @@ export default function HomeScreen({ navigation }: any) {
             </div>
           )}
         </section>
+
+        <footer className={s.creditFoot}>
+          Made with 🏏 by <b>Ramkesh Bairwa</b> · <a href="/creators">App creator</a>
+        </footer>
       </main>
 
       {/* Password Popup */}

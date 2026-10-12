@@ -1,4 +1,4 @@
-// POST /api/auth/otp { mobile, name? } -> { success, otp, expiresIn, isNewUser } (website login only)
+// POST /api/auth/otp { mobile } -> { success, hasPin } or { success, otp, expiresIn, isNewUser } (website login only)
 import { handleAuth, json, readBody, requestOtp } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';

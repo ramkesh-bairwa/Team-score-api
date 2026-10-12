@@ -1,0 +1,37 @@
+.page { min-height: 100dvh; background: var(--surface-2); color: var(--ink); }
+.hero { background: var(--grad-hero); color: var(--on-dark); padding: max(16px, env(safe-area-inset-top)) var(--gutter) 64px; }
+.heroInner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; }
+.back {
+  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, .1); color: #fff; font-size: 18px; font-weight: 700; margin-bottom: 14px;
+}
+.back:hover { background: rgba(255, 255, 255, .2); }
+.kicker { align-self: flex-start; background: var(--gold); color: var(--navy); font-size: 11px; font-weight: 800; letter-spacing: 1px; padding: 3px 10px; border-radius: var(--r-pill); }
+.title { margin: 0; font-family: var(--font-display); font-size: 40px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; line-height: 1.05; }
+.sub { margin: 0; color: var(--on-dark-2); font-size: 15px; }
+
+.body { max-width: 720px; margin: -40px auto 0; padding: 0 var(--gutter) 40px; display: flex; flex-direction: column; gap: 16px; }
+.card {
+  display: flex; gap: 18px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-xl); padding: 22px; box-shadow: var(--shadow-2);
+}
+.avatar {
+  flex-shrink: 0; width: 76px; height: 76px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--grad-brand); color: #fff; font-family: var(--font-display); font-size: 30px; font-weight: 800;
+  box-shadow: var(--shadow-brand);
+}
+.info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.badge { align-self: flex-start; background: var(--brand-soft); color: var(--brand-strong); font-size: 11px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; padding: 3px 10px; border-radius: var(--r-pill); }
+.name { margin: 8px 0 0; font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: .3px; }
+.role { margin: 2px 0 0; color: var(--ink-3); font-size: 14px; }
+.details { margin: 16px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: var(--surface-2); border-radius: var(--r-md); }
+.row dt { color: var(--ink-3); font-size: 13px; font-weight: 700; }
+.row dd { margin: 0; color: var(--ink); font-size: 14px; font-weight: 800; text-align: right; }
+.thanks { text-align: center; color: var(--ink-3); font-size: 13px; margin: 0; }
+
+@media (max-width: 480px) {
+  .card { flex-direction: column; align-items: center; text-align: center; }
+  .badge { align-self: center; }
+  .title { font-size: 34px; }
+}

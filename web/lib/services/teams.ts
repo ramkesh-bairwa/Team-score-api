@@ -174,3 +174,29 @@ export const syncPendingTeams = async (): Promise<{ synced: number; failed: { na
   await setPending(ops.slice(i));
   return { synced, failed, offline: i < ops.length };
 };
+
+// ─── Team challenges (website): the opponent picks their own team on their phone ───
+export type ChallengeTeam = { name: string; captain: string; players: SharedPlayer[] };
+const challengeCall = async (method: 'GET' | 'POST', path: string, body?: unknown) => {
+  let res: Response;
+  try {
+    res = await fetch(`/api/challenge${path}`, {
+      method, credentials: 'same-origin', cache: 'no-store',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error('Could not reach CricScore. Check your internet.');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+};
+export const createChallenge = (teamName: string): Promise<{ code: string; token: string }> =>
+  challengeCall('POST', '', { teamName });
+export const getChallenge = (code: string): Promise<{ code: string; teamName: string; by: string; status: 'waiting' | 'accepted'; acceptedBy: string | null; mine: boolean }> =>
+  challengeCall('GET', `/${encodeURIComponent(code)}`);
+export const acceptChallenge = (code: string, team: ChallengeTeam) =>
+  challengeCall('POST', `/${encodeURIComponent(code)}/accept`, { team });
+export const challengeResult = (code: string, token: string): Promise<{ status: 'waiting' | 'accepted'; team: ChallengeTeam | null; acceptedBy: string | null }> =>
+  challengeCall('GET', `/${encodeURIComponent(code)}/result?token=${encodeURIComponent(token)}`);

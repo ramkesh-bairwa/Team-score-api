@@ -27,13 +27,17 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Pr
   return data as T;
 }
 
-export type OtpResponse = { success: true; otp: string; expiresIn: number; isNewUser: boolean };
+// hasPin: the account logs in with its PIN (no code is made); otherwise a code to verify + create a PIN
+export type OtpResponse = { success: true; otp?: string; expiresIn?: number; isNewUser: boolean; hasPin?: boolean };
 
 export const requestOtp = (mobile: string, name?: string) =>
   call<OtpResponse>('POST', 'otp', { mobile, ...(name ? { name } : {}) });
 
-export const verifyOtp = (mobile: string, otp: string, name?: string) =>
-  call<{ success: true; user: AuthUser }>('POST', 'verify', { mobile, otp, ...(name ? { name } : {}) });
+export const verifyOtp = (mobile: string, otp: string, pin: string, name?: string) =>
+  call<{ success: true; user: AuthUser }>('POST', 'verify', { mobile, otp, pin, ...(name ? { name } : {}) });
+
+export const loginWithPin = (mobile: string, pin: string) =>
+  call<{ success: true; user: AuthUser }>('POST', 'pin', { mobile, pin });
 
 /** The logged-in user, null when not logged in (401). Throws on network/server errors. */
 export async function fetchMe(): Promise<AuthUser | null> {

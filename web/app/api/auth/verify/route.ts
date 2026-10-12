@@ -1,4 +1,4 @@
-// POST /api/auth/verify { mobile, otp, name? } -> sets the cs_session cookie, { success, user }
+// POST /api/auth/verify { mobile, otp, pin, name? } (creates the account's PIN) -> sets the cs_session cookie, { success, user }
 import { handleAuth, json, readBody, sessionCookie, verifyOtp } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';

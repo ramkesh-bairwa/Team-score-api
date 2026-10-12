@@ -1,4 +1,6 @@
-// Website login: mobile number + OTP, users and cookie sessions.
+// Website login: mobile number + PIN (new numbers verify once and create their PIN), users and cookie sessions.
+// There is no SMS provider, so the OTP is shown on screen and can't prove who owns a number: the PIN is what
+// keeps an account to its owner. An account's mobile number and name never change after it is created.
 // STORAGE=mysql  -> MySQL tables web_users / web_sessions / web_otps (+ web_auth_meta for the OTP secret)
 // otherwise      -> one JSON file, DATA_DIR/web-auth.json (atomic writes)
 // Used only by /api/auth/* — the mobile app's API never touches this module.
@@ -21,7 +23,7 @@ const USE_MYSQL = process.env.STORAGE === 'mysql';
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const AUTH_FILE = path.join(DATA_DIR, 'web-auth.json');
 
-export type User = { id: string; mobile: string; name: string; createdAt: number; lastLoginAt: number };
+export type User = { id: string; mobile: string; name: string; createdAt: number; lastLoginAt: number; pinHash?: string };
 type Session = { tokenHash: string; userId: string; createdAt: number; expiresAt: number };
 type Otp = { mobile: string; hash: string; expiresAt: number; attempts: number; lastSentAt: number; sentLog: number[] };
 
@@ -90,6 +92,10 @@ const db = async (): Promise<mysql.Pool> => {
     const pool = conn.pool;
     conn.ready = (async () => {
       for (const sql of SCHEMA) await pool.query(sql);
+      // PIN column for tables made before PINs existed (already there -> MySQL error 1060, ignored)
+      await pool.query('ALTER TABLE web_users ADD COLUMN pin_hash VARCHAR(200) NULL').catch((e: any) => {
+        if (e?.errno !== 1060) throw e;
+      });
     })().catch(e => { conn.ready = null; throw e; });
   }
   await conn.ready;
@@ -105,6 +111,7 @@ const parse = (v: any) => (typeof v === 'string' ? JSON.parse(v) : v);
 
 const userRow = (r: any): User => ({
   id: r.id, mobile: r.mobile, name: r.name, createdAt: Number(r.created_at), lastLoginAt: Number(r.last_login_at),
+  pinHash: r.pin_hash || undefined,
 });
 
 const mysqlBackend: Backend = {
@@ -125,9 +132,9 @@ const mysqlBackend: Backend = {
   },
   async saveUser(u) {
     await exec(
-      `INSERT INTO web_users (id, mobile, name, created_at, last_login_at) VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE name = VALUES(name), last_login_at = VALUES(last_login_at)`,
-      [u.id, u.mobile, u.name, u.createdAt, u.lastLoginAt],
+      `INSERT INTO web_users (id, mobile, name, created_at, last_login_at, pin_hash) VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE last_login_at = VALUES(last_login_at), pin_hash = COALESCE(pin_hash, VALUES(pin_hash))`,
+      [u.id, u.mobile, u.name, u.createdAt, u.lastLoginAt, u.pinHash || null],
     );
   },
   async getOtp(mobile) {
@@ -250,11 +257,69 @@ const validName = (name: string) => name.length >= 2 && name.length <= 40;
 
 const badMobile = () => new AuthError(400, { error: 'Enter a valid 10-digit mobile number' });
 
+// ─── PIN ──────────────────────────────────────────────────
+const PIN_RE = /^\d{4,6}$/;
+const cleanPin = (input: unknown) => (typeof input === 'string' || typeof input === 'number' ? String(input).trim() : '');
+const hashPin = (pin: string) => {
+  const salt = crypto.randomBytes(16).toString('hex');
+  return `${salt}:${crypto.scryptSync(pin, salt, 32).toString('hex')}`;
+};
+const pinMatches = (pin: string, stored: string) => {
+  const [salt, hash] = stored.split(':');
+  if (!salt || !hash) return false;
+  return sameHash(crypto.scryptSync(pin, salt, 32).toString('hex'), hash);
+};
+// Wrong PINs lock the number for a while: 5 wrong -> 15 min, every 5 more -> 24 h
+const pinFails = once('webPinFails', () => new Map<string, { count: number; until: number }>());
+const checkPinLock = (mobile: string, now: number) => {
+  const f = pinFails.get(mobile);
+  if (f && f.until > now) {
+    const mins = Math.ceil((f.until - now) / 60000);
+    throw new AuthError(429, { error: `Too many wrong PINs. Try again in ${mins >= 60 ? `${Math.ceil(mins / 60)} h` : `${mins} min`}`, locked: true });
+  }
+};
+const notePinFail = (mobile: string, now: number) => {
+  const f = pinFails.get(mobile) || { count: 0, until: 0 };
+  f.count += 1;
+  if (f.count % 5 === 0) f.until = now + (f.count >= 10 ? 24 * HOUR : 15 * 60 * 1000);
+  pinFails.set(mobile, f);
+  return f.count % 5 === 0 ? 0 : 5 - (f.count % 5);
+};
+
+const startSession = async (user: User, now: number) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  // Only a hash of the token is stored, so a leaked store can't be replayed as cookies
+  await store.saveSession({ tokenHash: sha256(token), userId: user.id, createdAt: now, expiresAt: now + SESSION_MS });
+  return { token, user: publicUser(user) };
+};
+
+/** Mobile + PIN -> session (accounts that have a PIN). */
+export async function loginWithPin(input: { mobile?: unknown; pin?: unknown }) {
+  const mobile = normaliseMobile(input?.mobile);
+  if (!mobile) throw badMobile();
+  const now = Date.now();
+  checkPinLock(mobile, now);
+  const user = await store.userByMobile(mobile);
+  if (!user || !user.pinHash) throw new AuthError(400, { error: 'This number has no PIN yet. Continue with the code.', noPin: true });
+  const pin = cleanPin(input?.pin);
+  if (!PIN_RE.test(pin) || !pinMatches(pin, user.pinHash)) {
+    const attemptsLeft = notePinFail(mobile, now);
+    throw new AuthError(400, attemptsLeft ? { error: 'Wrong PIN', attemptsLeft } : { error: 'Wrong PIN. Try again in 15 min', locked: true });
+  }
+  pinFails.delete(mobile);
+  const updated = { ...user, lastLoginAt: now };
+  await store.saveUser(updated);
+  return startSession(updated, now);
+}
+
 export async function requestOtp(input: { mobile?: unknown; name?: unknown }) {
   const mobile = normaliseMobile(input?.mobile);
   if (!mobile) throw badMobile();
   const now = Date.now();
   maybePurge(now);
+
+  const owner = await store.userByMobile(mobile);
+  if (owner?.pinHash) return { success: true, hasPin: true, isNewUser: false };
 
   const prev = await store.getOtp(mobile);
   const sentLog = (prev?.sentLog || []).filter(t => t > now - HOUR);
@@ -276,19 +341,22 @@ export async function requestOtp(input: { mobile?: unknown; name?: unknown }) {
     lastSentAt: now,
     sentLog: [...sentLog, now],
   });
-  const isNewUser = !(await store.userByMobile(mobile));
+  const isNewUser = !owner;
   // No SMS provider yet: the OTP goes back to the page, which shows it on screen
-  return { success: true, otp, expiresIn: OTP_TTL_S, isNewUser };
+  return { success: true, otp, expiresIn: OTP_TTL_S, isNewUser, hasPin: false };
 }
 
-export async function verifyOtp(input: { mobile?: unknown; otp?: unknown; name?: unknown }) {
+export async function verifyOtp(input: { mobile?: unknown; otp?: unknown; name?: unknown; pin?: unknown }) {
   const mobile = normaliseMobile(input?.mobile);
   if (!mobile) throw badMobile();
   const now = Date.now();
   const existing = await store.userByMobile(mobile);
+  if (existing?.pinHash) throw new AuthError(400, { error: 'This account has a PIN. Log in with your PIN.', hasPin: true });
   const name = cleanName(input?.name);
   if (!existing && !name) throw new AuthError(400, { error: 'Enter your name', needName: true });
   if (!existing && !validName(name)) throw new AuthError(400, { error: 'Name must be 2–40 characters', needName: true });
+  const pin = cleanPin((input as any)?.pin);
+  if (!PIN_RE.test(pin)) throw new AuthError(400, { error: 'Create a 4–6 digit PIN', needPin: true });
 
   const code = typeof input?.otp === 'string' || typeof input?.otp === 'number' ? String(input.otp).replace(/\s/g, '') : '';
   if (!/^\d{6}$/.test(code)) throw new AuthError(400, { error: 'Enter the 6-digit OTP' });
@@ -313,14 +381,10 @@ export async function verifyOtp(input: { mobile?: unknown; otp?: unknown; name?:
   await store.saveOtp({ ...otp, hash: '', expiresAt: 0, attempts: OTP_MAX_ATTEMPTS });
 
   const user: User = existing
-    ? { ...existing, name: validName(name) ? name : existing.name, lastLoginAt: now }
-    : { id: crypto.randomUUID(), mobile, name, createdAt: now, lastLoginAt: now };
+    ? { ...existing, lastLoginAt: now, pinHash: hashPin(pin) }
+    : { id: crypto.randomUUID(), mobile, name, createdAt: now, lastLoginAt: now, pinHash: hashPin(pin) };
   await store.saveUser(user);
-
-  const token = crypto.randomBytes(32).toString('hex');
-  // Only a hash of the token is stored, so a leaked store can't be replayed as cookies
-  await store.saveSession({ tokenHash: sha256(token), userId: user.id, createdAt: now, expiresAt: now + SESSION_MS });
-  return { token, user: publicUser(user) };
+  return startSession(user, now);
 }
 
 export const publicUser = (u: User) => ({ id: u.id, name: u.name, mobile: u.mobile });

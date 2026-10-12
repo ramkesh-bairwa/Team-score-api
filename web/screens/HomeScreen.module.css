@@ -428,3 +428,7 @@
   width: 100%; max-width: 420px; margin-bottom: 12px; padding: 11px 14px; border-radius: var(--r-md);
   border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 16px; box-sizing: border-box;
 }
+
+/* Credit line at the bottom of Home */
+.creditFoot { text-align: center; color: var(--ink-3); font-size: 13px; padding: 8px 0 24px; }
+.creditFoot a { color: var(--sky); font-weight: 700; }

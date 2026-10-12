@@ -1,10 +1,12 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { C } from '@/lib/theme';
-import { popup } from '@/components/Popup';
+import { popup, PopupCard } from '@/components/Popup';
+import QRCode from '@/components/QRCode';
+import { shareText } from '@/lib/share';
 import AsyncStorage from '@/lib/storage';
 import TeamPicker, { BottomSheet } from '@/components/TeamPicker';
-import { SharedTeam, createTeam } from '@/lib/services/teams';
+import { SharedTeam, createTeam, createChallenge, challengeResult, ChallengeTeam } from '@/lib/services/teams';
 import { pickImage } from '@/lib/pickImage';
 import { SETUP_DRAFT, BET_DRAFT, loadDraft, saveDraft, clearDrafts } from '@/lib/screenDraft';
 import s from './SetupTeamScreen.module.css';
@@ -49,6 +51,9 @@ export default function SetupTeamScreen({ navigation, route }: any) {
   const [savedId1, setSavedId1] = useState<string | undefined>(draft ? draft.savedId1 : preset?.id);
   const [savedId2, setSavedId2] = useState<string | undefined>(draft?.savedId2);
   const [pickerFor, setPickerFor] = useState<1 | 2 | null>(null);
+  // Challenge: the opponent picks their own team on their phone (code / QR)
+  const [challenge, setChallenge] = useState<{ code: string; token: string } | null>(null);
+  const [challengeBusy, setChallengeBusy] = useState(false);
   const [savingTeam, setSavingTeam] = useState(false);
   const [overs, setOvers] = useState(draft?.overs ?? '10');
   const [matchType, setMatchType] = useState<'local' | 'domestic'>(draft?.matchType ?? 'local');
@@ -84,6 +89,39 @@ export default function SetupTeamScreen({ navigation, route }: any) {
     else { setTeam2Name(team.name); setTeam2Players(list); setTeam2Captain(captain); setSavedId2(team.id); }
     setPickerFor(null);
   };
+
+  const challengeLink = (code: string) => `${window.location.origin}/challenge?c=${code}`;
+  const startChallenge = async () => {
+    if (!team1Name.trim()) { popup.alert('Your Team First', 'Enter or pick your team, then invite the opponent.', undefined, 'warning'); return; }
+    setChallengeBusy(true);
+    try {
+      setChallenge(await createChallenge(team1Name.trim()));
+    } catch (e: any) {
+      popup.alert('Could Not Create Code', e.message, undefined, 'error');
+    } finally {
+      setChallengeBusy(false);
+    }
+  };
+  // The opponent's phone sends its team: it becomes the opponent team here
+  const useChallengeTeam = (team: ChallengeTeam, by: string | null) => {
+    const list: Player[] = team.players.map(p => ({ name: p.name, nickname: p.nickname || '', mobile: p.mobile, roles: (p.roles || []) as PlayerRole[] }));
+    const captain = list.find(p => p.roles.includes('Captain'))?.name || team.captain || list[0]?.name || '';
+    const withCaptain = list.map(p => (p.name === captain && !p.roles.includes('Captain') ? { ...p, roles: [...p.roles, 'Captain' as PlayerRole] } : p));
+    setTeam2Name(team.name); setTeam2Players(withCaptain); setTeam2Captain(captain); setSavedId2(undefined);
+    setChallenge(null);
+    popup.alert('Opponent Joined', `${by || 'The opponent'} joined with ${team.name} (${list.length} players).`, undefined, 'success');
+  };
+  useEffect(() => {
+    if (!challenge) return;
+    let alive = true;
+    const tick = () => challengeResult(challenge.code, challenge.token)
+      .then(r => { if (alive && r.status === 'accepted' && r.team) useChallengeTeam(r.team, r.acceptedBy); })
+      .catch(() => {});
+    tick();
+    const t = setInterval(tick, 2500);
+    return () => { alive = false; clearInterval(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge]);
 
   // Publish the team being built so other app users can pick it next time
   const saveForEveryone = async () => {
@@ -282,6 +320,24 @@ export default function SetupTeamScreen({ navigation, route }: any) {
         </div>
       </header>
 
+      {/* Challenge code / QR: the opponent scans it on their phone and picks their own team */}
+      <PopupCard visible={!!challenge} onRequestClose={() => setChallenge(null)}>
+        {challenge && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%', textAlign: 'center' }}>
+            <div className={s.sectionTitle} style={{ margin: 0 }}>📲 Invite the opponent</div>
+            <div style={{ fontSize: 14, color: 'var(--ink-3)' }}>
+              The opponent scans this on their phone (or opens <b>/challenge</b> and enters the code), logs in and picks their team.
+            </div>
+            <QRCode value={challengeLink(challenge.code)} size={200} />
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 800, letterSpacing: 6 }}>{challenge.code}</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>⏳ Waiting for the opponent’s team…</div>
+            <button className={s.primaryBtn} onClick={() => shareText(`Bring your team to play ${team1Name} on CricScore 🏏\n${challengeLink(challenge.code)}`).catch(() => {})}>
+              Share invite link
+            </button>
+          </div>
+        )}
+      </PopupCard>
+
       <main className={s.scroll}>
 
         {/* STEP 1: Teams */}
@@ -326,6 +382,11 @@ export default function SetupTeamScreen({ navigation, route }: any) {
                       }}
                     />
                     {!!savedId && <div className={s.loadedText}>✓ Saved team loaded · {count} players</div>}
+                    {n === 2 && (
+                      <button className={s.pickBtn} onClick={startChallenge} disabled={challengeBusy} style={{ marginTop: 10 }}>
+                        {challengeBusy ? 'Creating code…' : '📲 Opponent picks by code / QR'}
+                      </button>
+                    )}
                   </div>
                   </React.Fragment>
                 );

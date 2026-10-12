@@ -1,8 +1,9 @@
 'use client';
-// /login?next=/path — mobile number + OTP. New numbers also give a name (that's the register path).
-// No SMS provider yet: the OTP comes back from the API and is shown under the form.
+// /login?next=/path — mobile number + PIN. A number without a PIN (new, or made before PINs) verifies
+// once with a code and creates its PIN; new numbers also give a name (that's the register path).
+// No SMS provider yet: the code comes back from the API and is shown under the form.
 import React, { useEffect, useRef, useState } from 'react';
-import { AuthRequestError, completeLogin, requestOtp, verifyOtp } from '@/lib/auth-client';
+import { AuthRequestError, completeLogin, loginWithPin, requestOtp, verifyOtp } from '@/lib/auth-client';
 import st from './login.module.css';
 
 const OTP_LEN = 6;
@@ -20,7 +21,11 @@ const prettyMobile = (m: string) => (m.length > 5 ? `${m.slice(0, 5)} ${m.slice(
 const validMobile = (m: string) => /^[6-9]\d{9}$/.test(m);
 
 export default function LoginPage() {
-  const [step, setStep] = useState<'mobile' | 'otp'>('mobile');
+  const [step, setStep] = useState<'mobile' | 'otp' | 'pin'>('mobile');
+  // PIN: entered to log in, or created (twice) on the code step
+  const [pin, setPin] = useState('');
+  const [pin2, setPin2] = useState('');
+  const pinRef = useRef<HTMLInputElement>(null);
   const [mobile, setMobile] = useState('');
   const [name, setName] = useState('');
   const [digits, setDigits] = useState<string[]>(empty);
@@ -63,7 +68,13 @@ export default function LoginPage() {
     setError('');
     try {
       const r = await requestOtp(mobile);
-      setShownOtp(r.otp);
+      setPin(''); setPin2('');
+      if (r.hasPin) {
+        setStep('pin');
+        setTimeout(() => pinRef.current?.focus(), 50);
+        return;
+      }
+      setShownOtp(r.otp || '');
       setIsNewUser(r.isNewUser);
       setDigits(empty());
       setResendIn(RESEND_S);
@@ -73,6 +84,27 @@ export default function LoginPage() {
       const e2 = err as AuthRequestError;
       setError(e2.message);
       if (e2.data?.retryIn && step === 'otp') setResendIn(Number(e2.data.retryIn));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Log in with the PIN ────────────────────────────────
+  const pinLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (busy || done) return;
+    if (!/^\d{4,6}$/.test(pin)) { setError('Enter your 4–6 digit PIN'); pinRef.current?.focus(); return; }
+    setBusy(true);
+    setError('');
+    try {
+      const r = await loginWithPin(mobile, pin);
+      setDone(true);
+      completeLogin(r.user, new URLSearchParams(window.location.search).get('next'));
+    } catch (err) {
+      const e2 = err as AuthRequestError;
+      setError(typeof e2.data?.attemptsLeft === 'number' ? `Wrong PIN · ${e2.data.attemptsLeft} attempt${e2.data.attemptsLeft === 1 ? '' : 's'} left` : e2.message);
+      setPin('');
+      setTimeout(() => pinRef.current?.focus(), 30);
     } finally {
       setBusy(false);
     }
@@ -102,16 +134,21 @@ export default function LoginPage() {
       focusBox(digits.findIndex(d => !d));
       return;
     }
+    if (!/^\d{4,6}$/.test(pin)) { setError('Create a 4–6 digit PIN'); pinRef.current?.focus(); return; }
+    if (pin !== pin2) { setError('The two PINs don’t match'); return; }
     verifyingRef.current = true;
     setBusy(true);
     setError('');
     try {
-      const r = await verifyOtp(mobile, code, isNewUser ? name.trim() : undefined);
+      const r = await verifyOtp(mobile, code, pin, isNewUser ? name.trim() : undefined);
       setDone(true);
       completeLogin(r.user, new URLSearchParams(window.location.search).get('next'));
     } catch (err) {
       const e2 = err as AuthRequestError;
-      if (e2.data?.needName) {
+      if (e2.data?.hasPin) {
+        setStep('pin'); setPin(''); setError(e2.message);
+        setTimeout(() => pinRef.current?.focus(), 50);
+      } else if (e2.data?.needName) {
         setIsNewUser(true);
         setError(e2.message);
         setTimeout(() => nameRef.current?.focus(), 50);
@@ -136,8 +173,8 @@ export default function LoginPage() {
     setDigits(next);
     if (error) setError('');
     if (focusAt !== undefined) focusBox(focusAt);
-    // Existing users: log in as soon as the 6th digit lands
-    if (next.every(Boolean) && !isNewUser) verify(next.join(''));
+    // Then the PIN fields (the account's PIN is created on this step)
+    if (next.every(Boolean) && !pin) setTimeout(() => pinRef.current?.focus(), 30);
   };
 
   const onBoxChange = (i: number, value: string) => {
@@ -178,7 +215,24 @@ export default function LoginPage() {
     if (isNewUser && !name.trim()) setTimeout(() => nameRef.current?.focus(), 30);
   };
 
-  const title = step === 'mobile' ? 'Log in or sign up' : isNewUser ? 'Create your account' : 'Welcome back';
+  const title = step === 'mobile' ? 'Log in or sign up' : step === 'pin' ? 'Welcome back' : isNewUser ? 'Create your account' : 'Set your PIN';
+  const pinInput = (value: string, set: (v: string) => void, id: string, label: string, ref?: React.Ref<HTMLInputElement>) => (
+    <>
+      <label className={st.label} htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        ref={ref}
+        className={st.input}
+        type="password"
+        inputMode="numeric"
+        autoComplete={id === 'pin-login' ? 'current-password' : 'new-password'}
+        placeholder="••••"
+        maxLength={6}
+        value={value}
+        onChange={e => { set(e.target.value.replace(/\D/g, '').slice(0, 6)); if (error) setError(''); }}
+      />
+    </>
+  );
 
   return (
     <main className={st.page}>
@@ -203,7 +257,7 @@ export default function LoginPage() {
 
           {step === 'mobile' ? (
             <form onSubmit={sendOtp} noValidate>
-              <p className={st.sub}>Enter your mobile number. We&apos;ll send a 6-digit OTP to verify it.</p>
+              <p className={st.sub}>Enter your mobile number. You&apos;ll log in with your PIN.</p>
               <label className={st.label} htmlFor="mobile">Mobile number</label>
               <div className={`${st.phone} ${error ? st.invalid : ''}`}>
                 <span className={st.cc}>🇮🇳 +91</span>
@@ -225,9 +279,23 @@ export default function LoginPage() {
               {error && <p id="login-error" className={st.error} role="alert">{error}</p>}
               <button className={st.primary} type="submit" disabled={busy || mobile.length < 10}>
                 {busy ? <span className={st.spinner} aria-hidden /> : null}
-                {busy ? 'Sending…' : 'Get OTP'}
+                {busy ? 'Checking…' : 'Continue'}
               </button>
-              <p className={st.fine}>New here? Your account is created when you verify your number.</p>
+              <p className={st.fine}>New here? Your account is created when you verify your number and set a PIN.</p>
+            </form>
+          ) : step === 'pin' ? (
+            <form onSubmit={pinLogin} noValidate>
+              <p className={st.sub}>
+                <b>+91 {prettyMobile(mobile)}</b>{' '}
+                <button type="button" className={st.link} onClick={changeNumber}>Change number</button>
+              </p>
+              {pinInput(pin, setPin, 'pin-login', 'Your PIN', pinRef)}
+              {error && <p className={st.error} role="alert">{error}</p>}
+              <button className={st.primary} type="submit" disabled={busy || done || pin.length < 4}>
+                {busy || done ? <span className={st.spinner} aria-hidden /> : null}
+                {done ? 'Logging you in…' : busy ? 'Checking…' : 'Log in'}
+              </button>
+              <p className={st.fine}>Forgot your PIN? Ask the app admin to reset it.</p>
             </form>
           ) : (
             <form onSubmit={e => { e.preventDefault(); verify(); }} noValidate>
@@ -275,11 +343,14 @@ export default function LoginPage() {
                 ))}
               </div>
 
+              {pinInput(pin, setPin, 'pin-new', 'Create a 4–6 digit PIN (you’ll log in with it)', pinRef)}
+              {pinInput(pin2, setPin2, 'pin-new2', 'Enter the PIN again')}
+
               {error && <p className={st.error} role="alert">{error}</p>}
 
               <button className={st.primary} type="submit" disabled={busy || done}>
                 {busy || done ? <span className={st.spinner} aria-hidden /> : null}
-                {done ? 'Logging you in…' : busy ? 'Verifying…' : isNewUser ? 'Create account' : 'Verify & log in'}
+                {done ? 'Logging you in…' : busy ? 'Verifying…' : isNewUser ? 'Create account' : 'Set PIN & log in'}
               </button>
 
               <div className={st.resend}>

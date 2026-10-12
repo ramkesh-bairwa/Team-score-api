@@ -59,6 +59,9 @@ export function UserMenu({ dark = false, className }: { dark?: boolean; classNam
               <div className={st.mobile}>{prettyMobile(user.mobile)}</div>
             </div>
           </div>
+          <a role="menuitem" className={st.item} href="/creators">
+            <span aria-hidden>ℹ️</span> App creator
+          </a>
           <button
             type="button"
             role="menuitem"
